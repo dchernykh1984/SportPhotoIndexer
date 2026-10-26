@@ -262,3 +262,16 @@ def test_check_rejects_indexes_the_site_would_refuse(album, mutate):
     index, _ = _scan_and_save(album)
     mutate(index)
     assert problems(index)
+
+
+def test_the_byte_limit_counts_the_same_compact_json_that_is_written(
+    album, monkeypatch
+):
+    from app import index_format
+
+    data, _ = _scan_and_save(album)
+    compact = json.dumps(data, ensure_ascii=False, separators=(",", ":")).encode()
+    monkeypatch.setattr(index_format, "MAX_INDEX_BYTES", len(compact))
+    assert problems(data) == []
+    data["extra"] = "x"
+    assert problems(data)

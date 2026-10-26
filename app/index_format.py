@@ -202,7 +202,8 @@ def problems(index: dict) -> list[str]:
     try:
         if _text_problem(index):
             return ["index: contains NUL or an unpaired Unicode surrogate"]
-        if len(json.dumps(index, ensure_ascii=False).encode()) > MAX_INDEX_BYTES:
+        encoded = json.dumps(index, ensure_ascii=False, separators=(",", ":")).encode()
+        if len(encoded) > MAX_INDEX_BYTES:
             return [f"index: larger than {MAX_INDEX_BYTES} bytes"]
     except TypeError, ValueError, RecursionError:
         return ["index: invalid or nested too deeply"]
