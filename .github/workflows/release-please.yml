@@ -1,0 +1,92 @@
+name: release-please
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Existing release tag to (re)build and upload assets for (backfill)."
+        required: true
+        type: string
+
+permissions:
+  contents: write
+  pull-requests: write
+
+# The uv.lock step below clones the release branch, rewrites the lock and pushes
+# it back. Two runs doing that at once race: one force-pushes a fresh version
+# bump while the other is mid-flight, and the loser's push is rejected as a
+# non-fast-forward. Serialise runs instead of cancelling them - cancelling could
+# abandon a release halfway through.
+concurrency:
+  group: release-please-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  release-please:
+    if: github.event_name == 'push'
+    runs-on: ubuntu-latest
+    outputs:
+      release_created: ${{ steps.rp.outputs.release_created }}
+      tag_name: ${{ steps.rp.outputs.tag_name }}
+    steps:
+      - id: rp
+        # Settings live in release-please-config.json and .release-please-manifest.json,
+        # so the first release is 0.1.0 rather than 1.0.0.
+        uses: googleapis/release-please-action@v5
+
+      # release-please bumps pyproject.toml but knows nothing about uv.lock,
+      # whose own version field would stay behind - leaving every `uv sync`
+      # with a dirty tree and a lock that no longer matches the release.
+      - uses: astral-sh/setup-uv@v7
+        if: steps.rp.outputs.pr
+        with:
+          python-version: "3.14"
+
+      - name: Match uv.lock to the released version
+        if: steps.rp.outputs.pr
+        env:
+          GH_TOKEN: ${{ github.token }}
+          # Short-circuited on purpose: every release-PR merge is a push that
+          # leaves this output empty, and fromJSON('') is an error. Whether a
+          # skipped step's env is evaluated at all is not specified, so do not
+          # rely on the `if` above to shield the expression.
+          BRANCH: >-
+            ${{ steps.rp.outputs.pr
+            && fromJSON(steps.rp.outputs.pr).headBranchName || '' }}
+        run: |
+          set -euo pipefail
+          if [ -z "$BRANCH" ]; then
+            echo "::error::release-please reported a PR without a head branch"
+            exit 1
+          fi
+          git clone --branch "$BRANCH" --depth 1 \
+            "https://x-access-token:${GH_TOKEN}@github.com/${{ github.repository }}.git" \
+            release-branch
+          cd release-branch
+          uv lock
+          if git diff --quiet -- uv.lock; then
+            echo "uv.lock already matches the released version"
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email \
+            "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -q -m "chore: match uv.lock to the released version" -- uv.lock
+          git push
+
+  # Build the full platform matrix and upload the portable apps to the release,
+  # in the same run (a GITHUB_TOKEN-created release cannot trigger a separate
+  # workflow). Also runnable manually to backfill assets for an existing tag.
+  release-build:
+    needs: release-please
+    if: >-
+      always() &&
+      ((github.event_name == 'push' && needs.release-please.outputs.release_created == 'true')
+      || github.event_name == 'workflow_dispatch')
+    permissions:
+      contents: write
+    uses: ./.github/workflows/build.yml
+    with:
+      release_tag: ${{ github.event_name == 'workflow_dispatch' && inputs.tag || needs.release-please.outputs.tag_name }}
