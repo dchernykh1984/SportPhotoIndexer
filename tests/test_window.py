@@ -66,3 +66,40 @@ def test_the_last_folder_is_reopened(monkeypatch, album):
     w = mw.MainWindow()
     assert w._list.count() == 3
     w.deleteLater()
+
+
+def test_a_broken_photo_does_not_escape_rescan_or_replace_the_open_album(
+    win, album, monkeypatch
+):
+    win.open_folder(album)
+    before = indexer.load(album)
+    (album / "broken.jpg").write_text("not an image", encoding="utf-8")
+    win._chk_previews.setChecked(True)
+    warnings = []
+    monkeypatch.setattr(
+        mw.QMessageBox, "warning", lambda *args: warnings.append(str(args[-1]))
+    )
+    win.rescan()
+    assert warnings and "broken.jpg" in warnings[0]
+    assert win._index == before
+    assert indexer.load(album) == before
+    assert win._list.count() == 3
+
+
+def test_an_unreadable_last_folder_does_not_prevent_starting(monkeypatch, album):
+    monkeypatch.setattr(settings, "load", lambda: {"folder": str(album)})
+    monkeypatch.setattr(settings, "save", lambda values: None)
+    monkeypatch.setattr(
+        indexer,
+        "sha256_of",
+        lambda path: (_ for _ in ()).throw(OSError("offline file")),
+    )
+    warnings = []
+    monkeypatch.setattr(
+        mw.QMessageBox, "warning", lambda *args: warnings.append(str(args[-1]))
+    )
+    w = mw.MainWindow()
+    assert warnings and "offline file" in warnings[0]
+    assert w._folder is None
+    assert w._list.count() == 0
+    w.deleteLater()
