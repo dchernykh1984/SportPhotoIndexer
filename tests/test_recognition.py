@@ -210,3 +210,24 @@ def test_appearance_respects_the_bib_already_known_for_the_same_rider_crop(album
     assert {b["value"] for b in blue["bibs"]} == {"99"}
     assert {b["value"] for b in green["bibs"]} == {"012", "99"}
     assert all(b["state"] == "candidate" for b in green["bibs"])
+
+
+def test_near_threshold_reads_stay_candidates_for_human_review(album):
+    data = prepared(album)
+    engine = FakeVision()
+    engine.readings[0] = [Reading("4", 0.96, BIB_BOX)]
+    run(album, data, engine, appearance=False)
+    assert data["photos"][0]["bibs"][0]["state"] == "candidate"
+
+
+def test_cached_ocr_reapplies_calibration_without_repeating_inference(
+    album, monkeypatch
+):
+    data = prepared(album)
+    run(album, data, FakeVision(), appearance=False)
+    assert data["photos"][0]["bibs"][0]["state"] == "accepted"
+    monkeypatch.setattr(recognition, "ACCEPT_OCR", 0.9999)
+    cached = FakeVision()
+    run(album, data, cached, appearance=False)
+    assert cached.calls == []
+    assert data["photos"][0]["bibs"][0]["state"] == "candidate"

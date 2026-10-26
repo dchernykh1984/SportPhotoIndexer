@@ -25,7 +25,7 @@ ENGINE_ID = (
         ",".join(CATALOG[k]["sha256"] for k in OCR_MODELS).encode()
     ).hexdigest()[:16]
 )
-ACCEPT_OCR = 0.95
+ACCEPT_OCR = 0.98
 APPEARANCE_THRESHOLD = 0.8
 
 
@@ -54,6 +54,21 @@ def _open(folder, photo):
         return ImageOps.exif_transpose(source).convert("RGB")
 
 
+def _classified(observation, method, lock):
+    state = observation.get("state", "candidate")
+    if state == "rejected":
+        return observation
+    if method == "ocr":
+        state = (
+            "accepted"
+            if (observation.get("confidence") or 0) >= ACCEPT_OCR
+            else "candidate"
+        )
+    if lock:
+        state = "candidate"
+    return {**observation, "state": state}
+
+
 def _merge(photo, method, observations):
     manual = [b for b in photo["bibs"] if b["method"] == "manual"]
     reviewed = {b["value"] for b in manual}
@@ -65,16 +80,14 @@ def _merge(photo, method, observations):
         value = observation["value"]
         if value in reviewed or value in accepted:
             continue
-        if lock:
-            observation = {**observation, "state": "candidate"}
-        if (
-            value not in choices
-            or observation["confidence"] > choices[value]["confidence"]
+        observation = _classified(observation, method, lock)
+        if value not in choices or (observation.get("confidence") or 0) > (
+            choices[value].get("confidence") or 0
         ):
             choices[value] = observation
     automatic = sorted(
         [*retained, *choices.values()],
-        key=lambda b: b.get("confidence", 0),
+        key=lambda b: b.get("confidence") or 0,
         reverse=True,
     )
     photo["bibs"] = manual + automatic[: max(0, MAX_BIBS_PER_PHOTO - len(manual))]
@@ -99,25 +112,21 @@ def _ocr(folder, index, engine, appearance, progress, cancel, report):
                     readings = engine.ocr(image)
                 check_cancel(cancel)
                 _verify(folder, photo)
-                _merge(
-                    photo,
-                    "ocr",
-                    [
-                        {
-                            "value": r.value,
-                            "confidence": float(r.confidence),
-                            "region": dict(
-                                zip(("x", "y", "w", "h"), r.region, strict=True)
-                            ),
-                            "method": "ocr",
-                            "state": "accepted"
-                            if r.confidence >= ACCEPT_OCR
-                            else "candidate",
-                        }
-                        for r in readings
-                    ],
-                )
+                observations = [
+                    {
+                        "value": r.value,
+                        "confidence": float(r.confidence),
+                        "region": dict(
+                            zip(("x", "y", "w", "h"), r.region, strict=True)
+                        ),
+                        "method": "ocr",
+                    }
+                    for r in readings
+                ]
                 metadata["ocr"] = stamp
+            else:
+                observations = [b for b in photo["bibs"] if b["method"] == "ocr"]
+            _merge(photo, "ocr", observations)
             photo.pop("recognition_error", None)
             photo["processing_state"] = "pending" if appearance else "processed"
         except (OSError, Image.DecompressionBombError) as exc:

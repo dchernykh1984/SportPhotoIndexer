@@ -40,8 +40,8 @@ Give that folder enough writable disk space. [Models and licenses](MODEL_NOTICES
 list the pinned sources and hashes; failed downloads can be retried.
 
 The current reader handles digits and Latin letters, keeping leading zeroes and case.
-Other bib scripts can be typed or imported from CSV. An OCR confidence of at least 0.95
-is accepted; 0.60-0.95 is a candidate. The scores are not calibrated race accuracy.
+Other bib scripts can be typed or imported from CSV. An OCR confidence of at least 0.98
+is accepted; 0.60-0.98 is a candidate. The scores are not calibrated race accuracy.
 The appearance phase uses whole-person crops (kit, helmet and build, plus bike pixels
 inside the crop), without face recognition. It searches **only this album**: put one
 event in a folder. It needs unambiguous accepted bib references; overlapping riders
