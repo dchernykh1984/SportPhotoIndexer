@@ -275,3 +275,69 @@ def test_the_byte_limit_counts_the_same_compact_json_that_is_written(
     assert problems(data) == []
     data["extra"] = "x"
     assert problems(data)
+
+
+def test_a_removed_photo_returns_with_its_manual_review_and_rejections(album, tmp_path):
+    import shutil
+
+    data, _ = _scan_and_save(album)
+    photo = data["photos"][0]
+    indexer.set_bibs(data, photo["id"], ["12", "7"])
+    indexer.set_bibs(data, photo["id"], ["12"])
+    indexer.save(album, data)
+    reviewed = json.loads(json.dumps(photo))
+    path = album / photo["original"]["path"]
+    parked = tmp_path / "parked.jpg"
+    shutil.move(path, parked)
+    _scan_and_save(album)
+    shutil.move(parked, path)
+    returned, _ = _scan_and_save(album)
+    restored = next(p for p in returned["photos"] if p["id"] == reviewed["id"])
+    assert restored["bibs"] == reviewed["bibs"]
+    assert restored["manual_review"] == reviewed["manual_review"]
+    assert restored["manual_history"] == reviewed["manual_history"]
+
+
+def test_a_different_file_at_a_removed_photos_path_does_not_inherit_its_review(
+    album, tmp_path
+):
+    import shutil
+
+    data, _ = _scan_and_save(album)
+    photo = data["photos"][0]
+    indexer.set_bibs(data, photo["id"], ["12"])
+    indexer.save(album, data)
+    path = album / photo["original"]["path"]
+    shutil.move(path, tmp_path / "old.jpg")
+    _scan_and_save(album)
+    make_photo(album, path.name, "black")
+    changed, _ = _scan_and_save(album)
+    replacement = next(
+        p for p in changed["photos"] if p["original"]["path"] == path.name
+    )
+    assert replacement["id"] != photo["id"]
+    assert replacement["bibs"] == [] and "manual_review" not in replacement
+    assert (
+        changed["removed_photos"][0]["photo"]["manual_review"] == photo["manual_review"]
+    )
+
+
+@pytest.mark.parametrize(
+    "records", [None, ["bad"], [{"id": "bad", "path": "a.jpg", "sha256": "a" * 64}]]
+)
+def test_invalid_recovery_metadata_is_reported_before_it_can_be_lost(album, records):
+    data, _ = _scan_and_save(album)
+    data["removed_photos"] = records
+    with pytest.raises(indexer.IndexError_, match="removed_photos"):
+        indexer.scan(album, data)
+
+
+def test_a_missing_preview_is_rebuilt_without_changing_the_original(album):
+    data, _ = _scan_and_save(album, previews=True)
+    photo = data["photos"][0]
+    original_hash = photo["original"]["sha256"]
+    preview = album / photo["preview"]["path"]
+    preview.unlink()
+    updated, report = indexer.scan(album, data)
+    assert preview.is_file() and report.previews == 1
+    assert updated["photos"][0]["original"]["sha256"] == original_hash
