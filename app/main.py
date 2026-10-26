@@ -13,6 +13,13 @@ _ICON = str(Path(__file__).parent / "app.ico")
 
 
 def main() -> None:
+    if sys.argv[1:] == ["--check-model-runtime"]:
+        import onnxruntime as ort
+
+        ort.disable_telemetry_events()
+        if "CPUExecutionProvider" not in ort.get_available_providers():
+            raise RuntimeError("The CPU recognition runtime is missing")
+        return
     # Must run before QApplication -- Qt reads the process name on init.
     _macos_set_process_name(_APP_NAME)
     _windows_set_app_id(_APP_NAME)

@@ -16,6 +16,7 @@ from PySide6.QtCore import Qt
 from PySide6.QtGui import QPixmap
 from PySide6.QtWidgets import (
     QCheckBox,
+    QComboBox,
     QFileDialog,
     QHBoxLayout,
     QLabel,
@@ -24,6 +25,7 @@ from PySide6.QtWidgets import (
     QListWidgetItem,
     QMainWindow,
     QMessageBox,
+    QProgressBar,
     QPushButton,
     QSplitter,
     QVBoxLayout,
@@ -32,6 +34,7 @@ from PySide6.QtWidgets import (
 
 from app import indexer, settings
 from app.index_format import INDEX_FILE
+from app.recognition_worker import RecognitionWorker
 
 _PENDING = "not checked"
 _NO_BIB = "no bib"
@@ -43,6 +46,8 @@ class MainWindow(QMainWindow):
         self.setWindowTitle("Sport Photo Indexer")
         self._folder: Path | None = None
         self._index: dict | None = None
+        self._worker: RecognitionWorker | None = None
+        self._closing = False
         self._setup_ui()
         last = settings.load().get("folder")
         if last and Path(last).is_dir():
@@ -73,6 +78,35 @@ class MainWindow(QMainWindow):
         bar.addWidget(self._chk_previews)
         bar.addStretch()
         root.addLayout(bar)
+
+        automatic = QHBoxLayout()
+        automatic.addWidget(QLabel("Automatic search:"))
+        self._mode = QComboBox()
+        self._mode.addItems(["Bib numbers only", "Bib numbers, then rider appearance"])
+        self._mode.setCurrentIndex(1)
+        automatic.addWidget(self._mode)
+        self._btn_auto = QPushButton("Recognize automatically")
+        self._btn_auto.clicked.connect(self._on_recognize)
+        automatic.addWidget(self._btn_auto)
+        self._btn_stop = QPushButton("Stop")
+        self._btn_stop.setEnabled(False)
+        self._btn_stop.clicked.connect(self._on_stop)
+        automatic.addWidget(self._btn_stop)
+        self._progress = QProgressBar()
+        self._progress.setRange(0, 1)
+        automatic.addWidget(self._progress, 1)
+        root.addLayout(automatic)
+        help_text = QLabel(
+            "Runs on this computer (no photo uploads or recognition fees). "
+            "First use downloads "
+            "about 68 MB for bibs, 178 MB with appearance; then works offline. "
+            "Bibs: digits and Latin letters. Appearance searches this album only, "
+            "using the "
+            "rider's whole look, without face recognition. Suggestions need checking. "
+            "Put only one event in a folder. Stop keeps saved progress."
+        )
+        help_text.setWordWrap(True)
+        root.addWidget(help_text)
 
         self._lbl_folder = QLabel("Open the folder of one photographer's album.")
         root.addWidget(self._lbl_folder)
@@ -110,6 +144,8 @@ class MainWindow(QMainWindow):
             self._btn_csv,
             self._edit_bibs,
             self._btn_save,
+            self._btn_auto,
+            self._mode,
         ):
             widget.setEnabled(on)
 
@@ -191,7 +227,11 @@ class MainWindow(QMainWindow):
         name = photo["original"]["path"]
         if photo["processing_state"] != "processed":
             return f"{name}  -  {_PENDING}"
-        return f"{name}  -  {', '.join(indexer.bibs_of(photo)) or _NO_BIB}"
+        candidates = [b["value"] for b in photo["bibs"] if b["state"] == "candidate"]
+        label = f"{name}  -  {', '.join(indexer.bibs_of(photo)) or _NO_BIB}"
+        return label + (
+            f"  | check: {', '.join(dict.fromkeys(candidates))}" if candidates else ""
+        )
 
     def _fill_list(self) -> None:
         row = self._list.currentRow()
@@ -270,3 +310,76 @@ class MainWindow(QMainWindow):
         checked = sum(p["processing_state"] == "processed" for p in photos)
         with_bibs = sum(bool(indexer.bibs_of(p)) for p in photos)
         return f"{len(photos)} photos, {checked} checked, {with_bibs} with bibs"
+
+    def _on_recognize(self) -> None:
+        if self._worker is not None or self._index is None or self._folder is None:
+            return
+        self._set_enabled(False)
+        self._btn_open.setEnabled(False)
+        self._chk_previews.setEnabled(False)
+        self._btn_stop.setEnabled(True)
+        self._worker = RecognitionWorker(
+            self._folder,
+            self._index,
+            appearance=self._mode.currentIndex() == 1,
+            parent=self,
+        )
+        self._worker.progress.connect(self._recognition_progress)
+        self._worker.finished.connect(self._recognition_finished)
+        self._lbl_status.setText("Preparing local models...")
+        self._worker.start()
+
+    def _on_stop(self) -> None:
+        if self._worker is not None:
+            self._worker.requestInterruption()
+            self._btn_stop.setEnabled(False)
+            self._lbl_status.setText("Stopping after the current operation...")
+
+    def _recognition_progress(self, phase: str, done: int, total: int) -> None:
+        self._progress.setRange(0, max(1, total))
+        self._progress.setValue(done)
+        self._lbl_status.setText(f"{phase}: {done} / {total}")
+
+    def _recognition_finished(self) -> None:
+        worker = self._worker
+        if worker is None:
+            return
+        try:
+            self._index = indexer.load(worker.folder)
+        except (indexer.IndexError_, OSError) as exc:
+            worker.error = f"{worker.error}; {exc}".strip("; ")
+        self._worker = None
+        self._fill_list()
+        self._show_photo(self._list.currentRow())
+        self._set_enabled(bool((self._index or {}).get("photos")))
+        self._btn_open.setEnabled(True)
+        self._chk_previews.setEnabled(True)
+        self._btn_stop.setEnabled(False)
+        if worker.error:
+            state = "Recognition failed; saved progress kept"
+        elif worker.report.cancelled:
+            state = "Stopped; saved progress kept"
+        elif worker.report.errors:
+            state = "Recognition finished with errors"
+        else:
+            state = "Recognition finished"
+        self._lbl_status.setText(
+            f"{state}. {self._summary()}. Rider references: {worker.report.seeds}."
+        )
+        if worker.error or worker.report.errors:
+            QMessageBox.warning(
+                self,
+                "Automatic recognition",
+                "\n".join([worker.error, *worker.report.errors[:5]]).strip(),
+            )
+        worker.deleteLater()
+        if self._closing:
+            self.close()
+
+    def closeEvent(self, event) -> None:  # noqa: N802 -- Qt virtual method
+        if self._worker is not None and self._worker.isRunning():
+            self._closing = True
+            self._on_stop()
+            event.ignore()
+        else:
+            super().closeEvent(event)

@@ -4,7 +4,13 @@ version = "0.1.0"
 description = "Index a folder of race photos by bib for the cycling site"
 authors = [{ name = "Denis Chernykh", email = "education03@mail.ru" }]
 requires-python = ">=3.14,<3.15"
-dependencies = ["PySide6>=6.8", "Pillow>=11"]
+dependencies = [
+    "PySide6>=6.8",
+    "Pillow>=11",
+    "numpy>=2.4,<3",
+    "onnxruntime>=1.31,<2",
+    "certifi>=2026.9.30",
+]
 
 [dependency-groups]
 dev = [

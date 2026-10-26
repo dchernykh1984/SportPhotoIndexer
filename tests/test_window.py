@@ -146,3 +146,87 @@ def test_a_failed_rescan_save_keeps_the_previous_index_and_list(
     assert win.rescan() is False
     assert win._index == before
     assert win._list.count() == 3
+
+
+@pytest.mark.parametrize("appearance", [True, False])
+def test_one_button_runs_the_selected_automatic_stages_and_reloads_saved_results(
+    win, album, monkeypatch, appearance
+):
+    from app import recognition_worker as worker_module
+    from tests.test_recognition import FakeVision
+
+    engine = FakeVision()
+    monkeypatch.setattr(worker_module, "ensure_models", lambda *args: {})
+    monkeypatch.setattr(worker_module, "CpuVision", lambda *args: engine)
+    win.open_folder(album)
+    assert win._mode.currentIndex() == 1
+    assert not win._btn_stop.isEnabled()
+    if not appearance:
+        win._mode.setCurrentIndex(0)
+    win._on_recognize()
+    thread = win._worker
+    assert thread is not None
+    assert not win._btn_auto.isEnabled() and not win._btn_open.isEnabled()
+    assert win._btn_stop.isEnabled()
+    assert thread.wait(10000)
+    _app.processEvents()
+    assert win._worker is None
+    assert win._btn_auto.isEnabled() and win._btn_open.isEnabled()
+    assert not win._btn_stop.isEnabled()
+    if appearance:
+        assert ("riders", 0) in engine.calls
+        assert "check: 012" in win._list.item(1).text()
+    else:
+        assert all(kind == "ocr" for kind, _ in engine.calls)
+    assert win._index == indexer.load(album)
+    assert "Recognition finished" in win._lbl_status.text()
+
+
+def test_automatic_errors_are_visible_and_do_not_claim_success(win, album, monkeypatch):
+    from app import recognition_worker as worker_module
+
+    warnings = []
+    monkeypatch.setattr(mw.QMessageBox, "warning", lambda *args: warnings.append(args))
+
+    def broken(*args):
+        raise OSError("offline")
+
+    monkeypatch.setattr(worker_module, "ensure_models", broken)
+    win.open_folder(album)
+    before = indexer.load(album)
+    win._on_recognize()
+    assert win._worker.wait(5000)
+    _app.processEvents()
+    assert warnings and "offline" in warnings[0][-1]
+    assert "failed" in win._lbl_status.text()
+    assert win._index == before
+    assert win._btn_open.isEnabled()
+
+
+def test_closing_during_a_model_download_requests_cancel_before_destroying_the_thread(
+    win, album, monkeypatch
+):
+    import threading
+
+    from app import recognition_worker as worker_module
+    from app.model_cache import CancelledError
+
+    ready = threading.Event()
+
+    def downloading(appearance, progress, cancel):
+        ready.set()
+        while not cancel():
+            threading.Event().wait(0.005)
+        raise CancelledError
+
+    monkeypatch.setattr(worker_module, "ensure_models", downloading)
+    win.open_folder(album)
+    win._on_recognize()
+    thread = win._worker
+    assert ready.wait(2)
+    win.close()
+    assert win._closing and thread.isInterruptionRequested()
+    assert thread.wait(5000)
+    _app.processEvents()
+    assert win._worker is None
+    assert "Stopped" in win._lbl_status.text()

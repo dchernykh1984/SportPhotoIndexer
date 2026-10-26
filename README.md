@@ -14,10 +14,12 @@ their photos by bib, and in their own race album.
    `photo-index.v1.json` into the folder at once. Nothing else in the folder is
    changed; photos over 20 MB get a small copy in `_previews/`, because Dropbox
    cannot shrink them for the site.
-3. **Type the bibs** you see on each photo, separated by spaces, and press **Enter**:
-   the photo is saved and the next one opens. A photo with no readable bib: press
-   Enter on an empty field. The list shows what is done and what is "not checked";
-   the index is saved after every photo, so you can stop at any time and come back.
+3. **Recognize automatically**: the default mode reads bibs first, then uses riders with
+   accepted bibs as appearance references for other photos of this album. Choose *Bib
+   numbers only* to skip the second phase. Inspect the list's `check:` suggestions.
+   Type the accepted bibs and press **Enter** to confirm/correct a photo and move on;
+   Enter with an empty field explicitly accepts no bibs. Manual entry and CSV also
+   work without downloading any models.
 4. **Share the folder** in Dropbox: *Share* -> *Anyone with the link can view* ->
    copy the link.
 5. **On the site**, on the event's page: *Manage event photos* -> paste the link ->
@@ -25,8 +27,41 @@ their photos by bib, and in their own race album.
    tagging* there.
 
 Bibs keep exactly what you type: `012` stays `012`, letters stay letters. If a photo
-file is replaced, the bibs typed for the old file are dropped (they were about
-different pixels) and the photo is "not checked" again.
+file is replaced, old observations no longer apply: manual decisions are archived in
+`manual_history`, automatic results are cleared and the photo is "not checked" again.
+
+### Automatic recognition and stopping
+
+Recognition runs on this computer's CPU; photos are not uploaded to a recognition service.
+There are no recognition API fees. First use needs internet to download about **68 MB**
+of OCR models, or **178 MB** including appearance models. Progress names the download;
+verified models stay in `data/models` next to the portable app and work offline afterwards.
+Give that folder enough writable disk space. [Models and licenses](MODEL_NOTICES.md)
+list the pinned sources and hashes; failed downloads can be retried.
+
+The current reader handles digits and Latin letters, keeping leading zeroes and case.
+Other bib scripts can be typed or imported from CSV. An OCR confidence of at least 0.95
+is accepted; 0.60-0.95 is a candidate. The scores are not calibrated race accuracy.
+The appearance phase uses whole-person crops (kit, helmet and build, plus bike pixels
+inside the crop), without face recognition. It searches **only this album**: put one
+event in a folder. It needs unambiguous accepted bib references; overlapping riders
+seed nothing. A team/relay bib can keep references of several different riders.
+Appearance matches with cosine similarity at least 0.80 are always **candidates**.
+Similar kit and riding poses can produce wrong suggestions. Real-race quality and CPU
+time have not yet been measured on the pilot albums; review suggestions before relying
+on them. Cross-album appearance search is not implemented.
+
+**Stop** keeps every already-saved photo. Start again to resume OCR without repeating
+unchanged completed OCR. Appearance is recomputed after restart; its vectors live only
+in a private temporary database outside the album and are deleted on exit. Changing the
+model version invalidates OCR checkpoints. If a file changed, rescan before restarting.
+A competing index edit stops the worker rather than overwriting the other editor.
+
+Manual accepted/rejected values and even an explicitly empty accepted set survive
+automatic reruns. New automatic results cannot enlarge a manually accepted set;
+new suggestions remain candidates. To accept a suggestion, include its bib in the
+field and press Enter. Leaving a previously suggested bib out records a manual rejection.
+Processing errors are shown explicitly; the last valid saved index remains usable.
 
 ### Limits
 

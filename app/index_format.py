@@ -127,7 +127,50 @@ def _bib_problems(bib: object, where: str, original_sha: object) -> list[str]:
         isinstance(confidence, int | float) and 0 <= confidence <= 1
     ):
         found.append(f"{where}.confidence: must be between 0 and 1")
+    if "region" in bib:
+        found += _region_problems(bib["region"], f"{where}.region")
     return found
+
+
+def _region_problems(region, where):
+    if not isinstance(region, dict):
+        return [f"{where}: must be an x, y, w, h object"]
+    values = [region.get(key) for key in ("x", "y", "w", "h")]
+    if any(type(v) not in (int, float) or not 0 <= v <= 1 for v in values):
+        return [f"{where}: coordinates must be fractions between 0 and 1"]
+    x, y, w, h = values
+    if not w or not h or x + w > 1.000001 or y + h > 1.000001:
+        return [f"{where}: box must fit inside the image"]
+    return []
+
+
+def _review_problems(photo, where, original_sha):
+    review = photo.get("manual_review")
+    if review is None:
+        return []
+    if not isinstance(review, dict) or review.get("original_sha256") != original_sha:
+        return [f"{where}.manual_review: must name the original's SHA-256"]
+    if not isinstance(review.get("lock_accepted_set"), bool):
+        return [f"{where}.manual_review.lock_accepted_set: must be true or false"]
+    rid = review.get("review_id")
+    if not isinstance(rid, str) or not 1 <= len(rid) <= 100:
+        return [f"{where}.manual_review.review_id: must be a correction ID"]
+    bibs = [
+        b
+        for b in photo.get("bibs", [])
+        if isinstance(b, dict) and isinstance(b.get("value"), str)
+    ]
+    accepted = {
+        normalize_bib(b["value"])
+        for b in bibs
+        if b.get("method") == "manual" and b.get("state") == "accepted"
+    }
+    if review["lock_accepted_set"] and any(
+        b.get("state") == "accepted" and normalize_bib(b["value"]) not in accepted
+        for b in bibs
+    ):
+        return [f"{where}.bibs: automatic matches extend the manually accepted set"]
+    return []
 
 
 def _photo_problems(photo: object, where: str) -> list[str]:
@@ -148,6 +191,7 @@ def _photo_problems(photo: object, where: str) -> list[str]:
     original_sha = original.get("sha256") if isinstance(original, dict) else None
     for j, bib in enumerate(bibs):
         found += _bib_problems(bib, f"{where}.bibs[{j}]", original_sha)
+    found += _review_problems(photo, where, original_sha)
     return found
 
 
