@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import math
 import ssl
 import tempfile
 import urllib.request
@@ -19,6 +20,11 @@ CATALOG = json.loads(
 )
 OCR_MODELS = ("text_detector", "text_reader")
 ALL_MODELS = (*OCR_MODELS, "people_detector", "appearance")
+
+
+def download_megabytes(appearance: bool) -> int:
+    keys = ALL_MODELS if appearance else OCR_MODELS
+    return math.ceil(sum(CATALOG[key]["bytes"] for key in keys) / 1_000_000)
 
 
 class CancelledError(Exception):

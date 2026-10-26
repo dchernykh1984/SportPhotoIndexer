@@ -82,23 +82,24 @@ def _components(probability):
     return sorted(boxes, reverse=True)[:200]
 
 
-def decode_text(logits) -> tuple[str, float]:
-    # Model order: digits, lower/upper Latin, ASCII punctuation; blank is zero.
-    alphabet = (
+def decode_text(logits, *, alphabet=None, probabilities=False) -> tuple[str, float]:
+    default_alphabet = (
         string.digits
         + string.ascii_lowercase
         + string.ascii_uppercase
         + string.punctuation
     )
-    probabilities = _softmax(np.asarray(logits).reshape(-1, logits.shape[-1]))
+    characters = ["blank", *(alphabet if alphabet is not None else default_alphabet)]
+    rows = np.asarray(logits).reshape(-1, logits.shape[-1])
+    rows = rows if probabilities else _softmax(rows)
     chars, scores = [], []
     previous = -1
-    for row in probabilities:
+    for row in rows:
         token = int(row.argmax())
         if token and token != previous:
-            if token > len(alphabet):
+            if token >= len(characters):
                 return "", 0.0
-            chars.append(alphabet[token - 1])
+            chars.append(characters[token])
             scores.append(float(row[token]))
         previous = token
     return "".join(chars), min(scores, default=0.0)
@@ -242,6 +243,8 @@ class CpuVision:
             )
             for key, path in models.items()
         }
+        metadata = self.sessions["text_reader"].get_modelmeta().custom_metadata_map
+        self.characters = [*metadata["character"].splitlines(), " "]
 
     def _run(self, key, blob):
         session = self.sessions[key]
@@ -283,8 +286,8 @@ class CpuVision:
             if region is None:
                 continue
             crop = _crop(image, region)
-            text_blob = _blob(crop, (100, 32), (127.5,) * 3, (127.5,) * 3, bgr=True)
-            text, confidence = decode_text(self._run("text_reader", text_blob)[0])
+            text, confidence = self._read_text(crop)
+            text = text.strip()
             if (
                 re.fullmatch(r"[A-Za-z0-9-]{1,32}", text)
                 and any(c.isdigit() for c in text)
@@ -292,6 +295,18 @@ class CpuVision:
             ):
                 readings.append(Reading(text, confidence, region))
         return readings
+
+    def _read_text(self, image):
+        # Paddle's mobile reader preserves aspect, with gray padding to width 320.
+        width = min(320, max(1, math.ceil(48 * image.width / image.height)))
+        data = _blob(image, (width, 48), (127.5,) * 3, (127.5,) * 3, bgr=True)
+        tensor = np.zeros((1, 3, 48, 320), dtype=np.float32)
+        tensor[:, :, :, :width] = data
+        return decode_text(
+            self._run("text_reader", tensor)[0],
+            alphabet=self.characters,
+            probabilities=True,
+        )
 
     def riders(self, image: Image.Image) -> list[Rider]:
         square, padding = _letterbox(image, 416)

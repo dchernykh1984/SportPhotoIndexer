@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import json
 import sqlite3
 import tempfile
@@ -15,10 +16,15 @@ from PIL import Image, ImageOps
 
 from app import indexer
 from app.index_format import MAX_BIBS_PER_PHOTO
-from app.model_cache import CancelledError, check_cancel
+from app.model_cache import CATALOG, OCR_MODELS, CancelledError, check_cancel
 from app.vision import contains
 
-ENGINE_ID = "opencv-zoo-48b10fa-tiles768-v1"
+ENGINE_ID = (
+    "tiles768-v1:"
+    + hashlib.sha256(
+        ",".join(CATALOG[k]["sha256"] for k in OCR_MODELS).encode()
+    ).hexdigest()[:16]
+)
 ACCEPT_OCR = 0.95
 APPEARANCE_THRESHOLD = 0.8
 

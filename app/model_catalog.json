@@ -6,10 +6,10 @@
     "url": "https://media.githubusercontent.com/media/opencv/opencv_zoo/48b10fa505aeb51fbd127fc60a5c660040e823b7/models/text_detection_ppocr/text_detection_en_ppocrv3_2023may.onnx"
   },
   "text_reader": {
-    "path": "text_recognition_crnn/text_recognition_CRNN_CH_2021sep.onnx",
-    "sha256": "2dc566fd01ac2118b25c6960508ebd758b64c421a2bfa78dc05401ada6737e0b",
-    "bytes": 64906971,
-    "url": "https://media.githubusercontent.com/media/opencv/opencv_zoo/48b10fa505aeb51fbd127fc60a5c660040e823b7/models/text_recognition_crnn/text_recognition_CRNN_CH_2021sep.onnx"
+    "path": "PP-OCRv5/rec/en_PP-OCRv5_rec_mobile.onnx",
+    "sha256": "c3461add59bb4323ecba96a492ab75e06dda42467c9e3d0c18db5d1d21924be8",
+    "bytes": 7872351,
+    "url": "https://www.modelscope.cn/models/RapidAI/RapidOCR/resolve/v3.9.2/onnx/PP-OCRv5/rec/en_PP-OCRv5_rec_mobile.onnx"
   },
   "appearance": {
     "path": "person_reid_youtureid/person_reid_youtu_2021nov.onnx",

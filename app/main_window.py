@@ -34,6 +34,7 @@ from PySide6.QtWidgets import (
 
 from app import indexer, settings
 from app.index_format import INDEX_FILE
+from app.model_cache import download_megabytes
 from app.recognition_worker import RecognitionWorker
 
 _PENDING = "not checked"
@@ -99,7 +100,8 @@ class MainWindow(QMainWindow):
         help_text = QLabel(
             "Runs on this computer (no photo uploads or recognition fees). "
             "First use downloads "
-            "about 68 MB for bibs, 178 MB with appearance; then works offline. "
+            f"up to {download_megabytes(False)} MB for bibs, "
+            f"{download_megabytes(True)} MB with appearance; then works offline. "
             "Bibs: digits and Latin letters. Appearance searches this album only, "
             "using the "
             "rider's whole look, without face recognition. Suggestions need checking. "
