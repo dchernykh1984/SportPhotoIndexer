@@ -63,6 +63,9 @@ automatic reruns. New automatic results cannot enlarge a manually accepted set;
 new suggestions remain candidates. To accept a suggestion, include its bib in the
 field and press Enter. Leaving a previously suggested bib out records a manual rejection.
 Processing errors are shown explicitly; the last valid saved index remains usable.
+If an unchanged photo leaves the folder and comes back, indexes written by this version
+restore its manual acceptance/rejection and review history. Older tombstones kept only
+the photo ID, so annotations that were never saved there cannot be reconstructed.
 
 ### Limits
 

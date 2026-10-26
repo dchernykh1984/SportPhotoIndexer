@@ -173,7 +173,7 @@ def _review_problems(photo, where, original_sha):
     return []
 
 
-def _photo_problems(photo: object, where: str) -> list[str]:
+def photo_problems(photo: object, where: str) -> list[str]:
     if not isinstance(photo, dict):
         return [f"{where}: not a photo"]
     found: list[str] = []
@@ -240,7 +240,7 @@ def _inventory_problems(index: dict) -> list[str]:
     if len(photos) > MAX_PHOTOS:
         found.append(f"photos: more than {MAX_PHOTOS}")
     for i, photo in enumerate(photos):
-        found += _photo_problems(photo, f"photos[{i}]")
+        found += photo_problems(photo, f"photos[{i}]")
     ids = [_uuid(p.get("id")) for p in photos if isinstance(p, dict)]
     if len(set(ids)) != len(ids):
         found.append("photos: a photo id repeats")

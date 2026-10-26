@@ -36,6 +36,7 @@ from app.index_format import (
     THUMBNAIL_LIMIT_BYTES,
     bib_problem,
     normalize_bib,
+    photo_problems,
     problems,
 )
 
@@ -151,9 +152,7 @@ def scan(
     report = ScanReport()
     by_path = {p["original"]["path"]: p for p in index["photos"]}
     # Photos that left the folder, kept so the same file coming back gets its old id.
-    gone_before = {
-        (r["path"], r["sha256"]): r["id"] for r in index.get("removed_photos", [])
-    }
+    gone_before = _removed_records(index)
     files = photo_files(folder)
     photos = []
     for n, path in enumerate(files, 1):
@@ -164,12 +163,7 @@ def scan(
         photo = by_path.pop(rel, None)
         changed = False
         if photo is None:
-            old_id = gone_before.pop((rel, sha), None)
-            photo = {
-                "id": old_id or str(uuid.uuid4()),
-                "processing_state": "pending",
-                "bibs": [],
-            }
+            photo = _returned_photo(gone_before.pop((rel, sha), None))
             report.added += 1
         elif photo["original"]["sha256"] != sha:
             changed = True
@@ -186,6 +180,9 @@ def scan(
         # A preview made from the old file would show the old picture: remake it.
         if (
             previews
+            or (
+                "preview" in photo and not (folder / photo["preview"]["path"]).is_file()
+            )
             or (changed and "preview" in photo)
             or path.stat().st_size > THUMBNAIL_LIMIT_BYTES
         ):
@@ -200,14 +197,12 @@ def scan(
     index["removed_photo_ids"] = sorted(
         ({*index.get("removed_photo_ids", []), *(p["id"] for p in gone)}) - back
     )
-    index["removed_photos"] = [
-        {"id": pid, "path": key[0], "sha256": key[1]}
-        for key, pid in gone_before.items()
-    ] + [
+    index["removed_photos"] = list(gone_before.values()) + [
         {
             "id": p["id"],
             "path": p["original"]["path"],
             "sha256": p["original"]["sha256"],
+            "photo": deepcopy(p),
         }
         for p in gone
     ]
@@ -218,6 +213,45 @@ def scan(
             f"{report.stale_bibs} typed bib(s) dropped: their photo file changed"
         )
     return index, report
+
+
+def _removed_records(index):
+    records = index.get("removed_photos", [])
+    if not isinstance(records, list):
+        raise IndexError_("removed_photos must be a list of saved photos")
+    result = {}
+    for record in records:
+        if not isinstance(record, dict) or not all(
+            isinstance(record.get(key), str) for key in ("path", "sha256", "id")
+        ):
+            raise IndexError_("removed_photos contains an invalid saved photo")
+        try:
+            uuid.UUID(record["id"])
+        except ValueError as exc:
+            raise IndexError_("removed_photos contains an invalid photo ID") from exc
+        result[(record["path"], record["sha256"])] = record
+    return result
+
+
+def _returned_photo(record):
+    if record is not None and "photo" in record:
+        photo = record["photo"]
+        found = photo_problems(photo, "saved photo")
+        if found:
+            raise IndexError_("; ".join(found[:5]))
+        if (photo["id"], photo["original"]["path"], photo["original"]["sha256"]) != (
+            record["id"],
+            record["path"],
+            record["sha256"],
+        ):
+            raise IndexError_("saved photo does not match its original bytes and ID")
+        return deepcopy(photo)
+    # Legacy indexes kept only the ID, not the reviewed annotations.
+    return {
+        "id": record["id"] if record else str(uuid.uuid4()),
+        "processing_state": "pending",
+        "bibs": [],
+    }
 
 
 def update_counts(index: dict) -> None:
