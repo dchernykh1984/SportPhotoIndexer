@@ -82,8 +82,7 @@ jobs:
           # Pin PyInstaller so a future major release cannot break builds.
           pyi=(uv run --with "pyinstaller>=6,<7" pyinstaller)
           common=(--noconfirm --windowed \
-                  --collect-submodules app --add-data "app/app.ico${sep}app" \
-                  --copy-metadata sport-photo-indexer)
+                  --collect-submodules app --add-data "app/app.ico${sep}app")
           if [ "$RUNNER_OS" = "macOS" ]; then
             # --name sets the .app folder name, which is what the dock shows.
             # The zip around it keeps the artifact name, so download URLs are

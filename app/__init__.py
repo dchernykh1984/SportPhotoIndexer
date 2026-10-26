@@ -1,11 +1,9 @@
 """SportPhotoIndexer: indexes a folder of race photos by bib for the cycling site."""
 
-from importlib.metadata import PackageNotFoundError
-from importlib.metadata import version as _dist_version
+# Bumped by release-please (release-please-config.json, extra-files), so a frozen build,
+# which carries no package metadata, still names its version in the index it writes.
+__version__ = "0.0.0"  # x-release-please-version
 
 
 def version() -> str:
-    try:
-        return _dist_version("sport-photo-indexer")
-    except PackageNotFoundError:  # a frozen build carries no package metadata
-        return "frozen"
+    return __version__
