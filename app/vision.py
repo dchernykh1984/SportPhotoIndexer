@@ -131,6 +131,42 @@ def _letterbox(image, side):
     return square, (left, top, width, height)
 
 
+def _tile_boxes(image):
+    """Full context plus overlapping 768px windows for small, distant bibs."""
+    yield (0, 0, image.width, image.height)
+    if max(image.size) <= 1600:
+        return
+
+    def starts(length):
+        end = max(0, length - 768)
+        count = math.ceil(end / 640)
+        return [round(n * end / count) for n in range(count + 1)] if count else [0]
+
+    for y in starts(image.height):
+        for x in starts(image.width):
+            yield (x, y, min(x + 768, image.width), min(y + 768, image.height))
+
+
+def _map_reading(reading, box, image):
+    x, y, w, h = reading.region
+    left, top, right, bottom = box
+    # Discard partial words cut by an internal tile boundary.
+    if (left > 0 and x < 0.01) or (top > 0 and y < 0.01):
+        return None
+    if (right < image.width and x + w > 0.99) or (
+        bottom < image.height and y + h > 0.99
+    ):
+        return None
+    width, height = right - left, bottom - top
+    region = (
+        (left + x * width) / image.width,
+        (top + y * height) / image.height,
+        w * width / image.width,
+        h * height / image.height,
+    )
+    return Reading(reading.value, reading.confidence, region)
+
+
 def _unpad(region, padding, side):
     left, top, width, height = padding
     x, y, w, h = region
@@ -212,8 +248,18 @@ class CpuVision:
         return session.run(None, {session.get_inputs()[0].name: blob})
 
     def ocr(self, image: Image.Image) -> list[Reading]:
+        found = []
+        for box in _tile_boxes(image):
+            with image.crop(box) as tile:
+                for reading in self._read_crop(tile):
+                    if mapped := _map_reading(reading, box, image):
+                        found.append(mapped)
+        return found
+
+    def _read_crop(self, image: Image.Image) -> list[Reading]:
+        square, padding = _letterbox(image, 736)
         blob = _blob(
-            image,
+            square,
             (736, 736),
             (123.675, 116.28, 103.53),
             (58.395, 57.12, 57.375),
@@ -231,7 +277,11 @@ class CpuVision:
                 min(width, right + margin) / width,
                 min(height, bottom + margin) / height,
             )
-            region = (box[0], box[1], box[2] - box[0], box[3] - box[1])
+            region = _unpad(
+                (box[0], box[1], box[2] - box[0], box[3] - box[1]), padding, 736
+            )
+            if region is None:
+                continue
             crop = _crop(image, region)
             text_blob = _blob(crop, (100, 32), (127.5,) * 3, (127.5,) * 3, bgr=True)
             text, confidence = decode_text(self._run("text_reader", text_blob)[0])

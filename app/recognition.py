@@ -18,7 +18,7 @@ from app.index_format import MAX_BIBS_PER_PHOTO
 from app.model_cache import CancelledError, check_cancel
 from app.vision import contains
 
-ENGINE_ID = "opencv-zoo-48b10fa-v1"
+ENGINE_ID = "opencv-zoo-48b10fa-tiles768-v1"
 ACCEPT_OCR = 0.95
 APPEARANCE_THRESHOLD = 0.8
 
