@@ -90,3 +90,28 @@ def test_cpu_engine_uses_the_expected_input_shapes_and_only_body_embeddings(
         ("people_detector", (1, 3, 416, 416)),
         ("appearance", (1, 3, 256, 128)),
     ]
+
+
+def test_people_detection_preserves_aspect_and_maps_padding_back_to_the_photo(
+    monkeypatch,
+):
+    from app import vision
+
+    engine = CpuVision.__new__(CpuVision)
+    inputs = []
+
+    def infer(key, tensor):
+        if key == "people_detector":
+            inputs.append(tensor)
+            return []
+        return [np.ones((1, 768, 1, 1), dtype=np.float32)]
+
+    engine._run = infer
+    monkeypatch.setattr(vision, "person_boxes", lambda output: [(0.25, 0.25, 0.5, 0.5)])
+    (rider,) = engine.riders(Image.new("RGB", (1200, 600), "red"))
+    assert rider.region == pytest.approx((0.25, 0.0, 0.5, 1.0))
+    # The top row is padding, not a vertically stretched red image.
+    assert np.allclose(
+        inputs[0][0, :, 0, 0],
+        np.array([-103.53, -116.28, -123.675]) / [57.375, 57.12, 58.395],
+    )

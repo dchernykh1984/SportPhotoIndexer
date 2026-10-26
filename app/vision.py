@@ -121,6 +121,39 @@ def _crop(image, region):
     )
 
 
+def _letterbox(image, side):
+    scale = min(side / image.width, side / image.height)
+    width = max(1, round(image.width * scale))
+    height = max(1, round(image.height * scale))
+    left, top = (side - width) // 2, (side - height) // 2
+    square = Image.new("RGB", (side, side))
+    square.paste(image.resize((width, height)), (left, top))
+    return square, (left, top, width, height)
+
+
+def _unpad(region, padding, side):
+    left, top, width, height = padding
+    x, y, w, h = region
+    bounds = np.clip(
+        (
+            (x * side - left) / width,
+            (y * side - top) / height,
+            ((x + w) * side - left) / width,
+            ((y + h) * side - top) / height,
+        ),
+        0,
+        1,
+    )
+    if bounds[2] <= bounds[0] or bounds[3] <= bounds[1]:
+        return None
+    return (
+        float(bounds[0]),
+        float(bounds[1]),
+        float(bounds[2] - bounds[0]),
+        float(bounds[3] - bounds[1]),
+    )
+
+
 def _iou(a, b):
     x = max(0.0, min(a[2], b[2]) - max(a[0], b[0]))
     y = max(0.0, min(a[3], b[3]) - max(a[1], b[1]))
@@ -211,15 +244,19 @@ class CpuVision:
         return readings
 
     def riders(self, image: Image.Image) -> list[Rider]:
+        square, padding = _letterbox(image, 416)
         blob = _blob(
-            image,
+            square,
             (416, 416),
             (103.53, 116.28, 123.675),
             (57.375, 57.12, 58.395),
             bgr=True,
         )
         found = []
-        for region in person_boxes(self._run("people_detector", blob)):
+        for padded_region in person_boxes(self._run("people_detector", blob)):
+            region = _unpad(padded_region, padding, 416)
+            if region is None:
+                continue
             crop = _crop(image, region)
             features = self._run(
                 "appearance",
