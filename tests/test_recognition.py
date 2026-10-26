@@ -197,3 +197,16 @@ def test_a_photo_changed_during_inference_is_not_published(album):
     with pytest.raises(recognition.ChangedPhotoError):
         run(album, data, Changing())
     assert indexer.load(album)["photos"][0]["bibs"] == []
+
+
+def test_appearance_respects_the_bib_already_known_for_the_same_rider_crop(album):
+    data = prepared(album)
+    engine = FakeVision()
+    engine.readings[2] = [Reading("99", 0.99, BIB_BOX)]
+    engine.crops[2] = engine.crops[0]  # different bibs, visually indistinguishable kit
+    run(album, data, engine)
+    red, green, blue = data["photos"]
+    assert {b["value"] for b in red["bibs"]} == {"012"}
+    assert {b["value"] for b in blue["bibs"]} == {"99"}
+    assert {b["value"] for b in green["bibs"]} == {"012", "99"}
+    assert all(b["state"] == "candidate" for b in green["bibs"])

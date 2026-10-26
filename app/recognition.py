@@ -127,20 +127,24 @@ def _ocr(folder, index, engine, appearance, progress, cancel, report):
         _checkpoint(folder, index)
 
 
-def _seed_values(photo, riders):
+def _known_bibs(photo, riders):
+    known = [set() for _ in riders]
     for bib in photo["bibs"]:
         if bib["state"] != "accepted" or bib["method"] == "appearance":
             continue
         region = bib.get("region")
         if region:
             box = tuple(region[k] for k in ("x", "y", "w", "h"))
-            owners = [r for r in riders if contains(r.region, box)]
+            owners = [
+                i for i, rider in enumerate(riders) if contains(rider.region, box)
+            ]
         elif bib["method"] == "manual" and len(indexer.bibs_of(photo)) == 1:
-            owners = riders
+            owners = list(range(len(riders)))
         else:
             owners = []
         if len(owners) == 1:
-            yield bib["value"], owners[0].vector
+            known[owners[0]].add(bib["value"])
+    return known
 
 
 def _references(folder, index, engine, db, progress, cancel, report):
@@ -155,18 +159,19 @@ def _references(folder, index, engine, db, progress, cancel, report):
                 riders = engine.riders(image)
             check_cancel(cancel)
             _verify(folder, photo)
-            for rider in riders:
+            for rider, bibs in zip(riders, _known_bibs(photo, riders), strict=True):
                 db.execute(
-                    "INSERT INTO crops VALUES (?, ?, ?)",
+                    "INSERT INTO crops VALUES (?, ?, ?, ?)",
                     (
                         photo["id"],
                         json.dumps(rider.region),
                         rider.vector.astype(np.float32).tobytes(),
+                        json.dumps(sorted(bibs)),
                     ),
                 )
-            for value, vector in _seed_values(photo, riders):
-                values.append(value)
-                seeds.append(vector)
+                for value in sorted(bibs):
+                    values.append(value)
+                    seeds.append(rider.vector)
         except (OSError, Image.DecompressionBombError) as exc:
             photo["processing_state"] = "failed"
             report.errors.append(f"{photo['original']['path']}: {exc}")
@@ -184,11 +189,14 @@ def _appearance(folder, index, engine, db, progress, cancel, report):
             continue
         _verify(folder, photo)
         observations = []
-        for region, vector in db.execute(
-            "SELECT region, vector FROM crops WHERE photo_id=?", (photo["id"],)
+        for region, vector, known in db.execute(
+            "SELECT region, vector, known_bibs FROM crops WHERE photo_id=?",
+            (photo["id"],),
         ):
             if not len(seeds):
                 break
+            if json.loads(known):
+                continue  # an unambiguous accepted bib already identifies this crop
             scores = seeds @ np.frombuffer(vector, dtype=np.float32)
             for i in np.flatnonzero(scores >= APPEARANCE_THRESHOLD):
                 observations.append(
@@ -228,7 +236,8 @@ def run(
             with tempfile.TemporaryDirectory(prefix="photo-appearance-") as temp:
                 with closing(sqlite3.connect(str(Path(temp) / "crops.sqlite3"))) as db:
                     db.execute(
-                        "CREATE TABLE crops (photo_id TEXT, region TEXT, vector BLOB)"
+                        "CREATE TABLE crops "
+                        "(photo_id TEXT, region TEXT, vector BLOB, known_bibs TEXT)"
                     )
                     db.execute("CREATE INDEX crop_photo ON crops(photo_id)")
                     _appearance(folder, index, engine, db, progress, cancel, report)
