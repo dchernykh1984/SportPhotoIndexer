@@ -24,6 +24,7 @@ MEDIA_TYPES = {
 THUMBNAIL_LIMIT_BYTES = 20 * 1024 * 1024
 # The site's defaults (PHOTO_INDEX_MAX_*); an album over them is refused on import.
 MAX_PHOTOS = 5000
+MAX_INDEX_BYTES = 5_000_000
 MAX_BIBS_PER_PHOTO = 20
 MAX_BIB_LENGTH = 32
 MAX_PATH = 500
