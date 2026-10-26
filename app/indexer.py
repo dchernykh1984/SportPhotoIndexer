@@ -1,0 +1,269 @@
+"""Making and keeping a folder's photo-index.v1.json.
+
+A folder is an album: its photos sit at its root (Dropbox opens a root file directly
+from the site), the index sits next to them. Scanning keeps each photo's id between
+runs, so the site keeps its marks; a photo that disappeared is listed in
+``removed_photo_ids`` rather than silently dropped. Bibs typed by a person are
+``manual`` and bound to the bytes they were typed for: if the photo file changes, they
+no longer apply and are dropped.
+"""
+
+from __future__ import annotations
+
+import csv
+import hashlib
+import json
+import os
+import tempfile
+import uuid
+from collections.abc import Callable
+from dataclasses import dataclass, field
+from datetime import UTC, datetime
+from pathlib import Path
+
+from PIL import Image, ImageOps
+
+from app import version
+from app.index_format import (
+    BIB_NORMALIZATION,
+    INDEX_FILE,
+    MEDIA_TYPES,
+    SCHEMA_VERSION,
+    THUMBNAIL_LIMIT_BYTES,
+    bib_problem,
+    normalize_bib,
+    problems,
+)
+
+PREVIEW_DIR = "_previews"
+PREVIEW_SIDE = 1024
+_CHUNK = 1024 * 1024
+
+
+class IndexError_(ValueError):  # noqa: N801,N818 -- not the builtin IndexError
+    pass
+
+
+@dataclass
+class ScanReport:
+    added: int = 0
+    removed: int = 0
+    changed: int = 0
+    stale_bibs: int = 0
+    previews: int = 0
+    messages: list[str] = field(default_factory=list)
+
+
+def sha256_of(path: Path) -> str:
+    digest = hashlib.sha256()
+    with path.open("rb") as fh:
+        while chunk := fh.read(_CHUNK):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
+def photo_files(folder: Path) -> list[Path]:
+    """An album's photos: image files at its root, by name, hidden ones left out."""
+    return sorted(
+        p
+        for p in folder.iterdir()
+        if p.is_file()
+        and not p.name.startswith(".")
+        and p.suffix.lower() in MEDIA_TYPES
+    )
+
+
+def load(folder: Path) -> dict | None:
+    path = folder / INDEX_FILE
+    if not path.exists():
+        return None
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except (UnicodeDecodeError, json.JSONDecodeError) as exc:
+        raise IndexError_(f"{INDEX_FILE} cannot be read: {exc}") from exc
+    if not isinstance(data, dict) or not isinstance(data.get("photos"), list):
+        raise IndexError_(f"{INDEX_FILE} is not a photo index")
+    return data
+
+
+def new_index() -> dict:
+    return {
+        "schema_version": SCHEMA_VERSION,
+        "album_id": str(uuid.uuid4()),
+        "revision": 0,
+        "generated_at": "",
+        "producer": {"name": "SportPhotoIndexer", "version": version()},
+        "bib_normalization": BIB_NORMALIZATION,
+        "processing": {
+            "inventory_complete": False,
+            "complete": False,
+            "total": 0,
+            "processed": 0,
+        },
+        "photos": [],
+        "removed_photo_ids": [],
+    }
+
+
+def _asset(folder: Path, path: Path, sha: str) -> dict:
+    return {
+        "path": path.relative_to(folder).as_posix(),
+        "sha256": sha,
+        "bytes": path.stat().st_size,
+        "media_type": MEDIA_TYPES[path.suffix.lower()],
+    }
+
+
+def _make_preview(folder: Path, original: Path) -> Path:
+    target = folder / PREVIEW_DIR / f"{original.stem}.jpg"
+    target.parent.mkdir(exist_ok=True)
+    with Image.open(original) as source:
+        img = ImageOps.exif_transpose(source).convert("RGB")
+        img.thumbnail((PREVIEW_SIDE, PREVIEW_SIDE))
+        img.save(target, "JPEG", quality=82, optimize=True)  # no EXIF: none is copied
+    return target
+
+
+def scan(
+    folder: Path,
+    index: dict | None = None,
+    *,
+    previews: bool = False,
+    progress: Callable[[int, int], None] | None = None,
+) -> tuple[dict, ScanReport]:
+    """The folder's index brought up to date with the files in it.
+
+    ``previews`` makes a preview for every photo; one is always made for an original
+    Dropbox cannot thumbnail (over 20 MB).
+    """
+    index = json.loads(json.dumps(index)) if index else new_index()
+    report = ScanReport()
+    by_path = {p["original"]["path"]: p for p in index["photos"]}
+    files = photo_files(folder)
+    photos = []
+    for n, path in enumerate(files, 1):
+        if progress:
+            progress(n, len(files))
+        sha = sha256_of(path)
+        rel = path.name
+        photo = by_path.pop(rel, None)
+        if photo is None:
+            photo = {"id": str(uuid.uuid4()), "processing_state": "pending", "bibs": []}
+            report.added += 1
+        elif photo["original"]["sha256"] != sha:
+            report.changed += 1
+            kept = [b for b in photo["bibs"] if b.get("method") != "manual"]
+            report.stale_bibs += len(photo["bibs"]) - len(kept)
+            photo["bibs"] = kept
+            photo["processing_state"] = "pending"
+        photo["original"] = _asset(folder, path, sha)
+        if previews or path.stat().st_size > THUMBNAIL_LIMIT_BYTES:
+            preview = _make_preview(folder, path)
+            photo["preview"] = _asset(folder, preview, sha256_of(preview))
+            report.previews += 1
+        photos.append(photo)
+    gone = [p["id"] for p in by_path.values()]
+    report.removed = len(gone)
+    index["photos"] = photos
+    index["removed_photo_ids"] = sorted({*index.get("removed_photo_ids", []), *gone})
+    index["processing"]["inventory_complete"] = True
+    _count(index)
+    if report.stale_bibs:
+        report.messages.append(
+            f"{report.stale_bibs} typed bib(s) dropped: their photo file changed"
+        )
+    return index, report
+
+
+def _count(index: dict) -> None:
+    processed = sum(p["processing_state"] == "processed" for p in index["photos"])
+    proc = index["processing"]
+    proc.update(total=len(index["photos"]), processed=processed)
+    proc["complete"] = proc["inventory_complete"] and processed == proc["total"]
+
+
+def parse_bibs(text: str) -> list[str]:
+    """Bibs typed by a person: separated by spaces, commas or semicolons."""
+    tokens = [
+        normalize_bib(t) for t in text.replace(",", " ").replace(";", " ").split()
+    ]
+    for token in tokens:
+        if why := bib_problem(token):
+            raise IndexError_(f"{token!r}: {why}")
+    return list(dict.fromkeys(tokens))
+
+
+def set_bibs(index: dict, photo_id: str, bibs: list[str]) -> None:
+    """A person looked at the photo: these bibs are on it (maybe none)."""
+    photo = next(p for p in index["photos"] if p["id"] == photo_id)
+    sha = photo["original"]["sha256"]
+    typed = set(bibs)
+    # What the person typed is accepted; a bib found before that they left out is
+    # rejected by them, so a later automatic pass cannot bring it back.
+    dropped = {b["value"] for b in photo["bibs"] if b["value"] not in typed}
+    photo["bibs"] = [
+        {"value": b, "state": "accepted", "method": "manual", "content_sha256": sha}
+        for b in bibs
+    ] + [
+        {"value": b, "state": "rejected", "method": "manual", "content_sha256": sha}
+        for b in sorted(dropped)
+    ]
+    photo["processing_state"] = "processed"
+    _count(index)
+
+
+def bibs_of(photo: dict) -> list[str]:
+    return [b["value"] for b in photo["bibs"] if b["state"] == "accepted"]
+
+
+def import_csv(index: dict, path: Path) -> tuple[int, list[str]]:
+    """Bibs from a ``file;bibs`` table: (photos set, file names not in the album)."""
+    by_name = {p["original"]["path"]: p for p in index["photos"]}
+    applied, unknown = 0, []
+    with path.open(encoding="utf-8-sig", newline="") as fh:
+        sample = fh.read(2048)
+        fh.seek(0)
+        dialect = (
+            csv.Sniffer().sniff(sample, delimiters=";,\t") if sample else csv.excel
+        )
+        for row in csv.reader(fh, dialect):
+            if not row or not row[0].strip():
+                continue
+            name = row[0].strip()
+            if name not in by_name:
+                if name.lower() not in ("file", "filename", "photo"):
+                    unknown.append(name)
+                continue
+            set_bibs(index, by_name[name]["id"], parse_bibs(" ".join(row[1:])))
+            applied += 1
+    return applied, unknown
+
+
+def _content(index: dict) -> dict:
+    return {k: v for k, v in index.items() if k not in ("revision", "generated_at")}
+
+
+def save(folder: Path, index: dict) -> bool:
+    """Write the index next to the photos; False when nothing changed since last time.
+
+    The revision moves only when the content does, and the file is replaced in one
+    step, so the site never reads half of it.
+    """
+    previous = load(folder)
+    if previous is not None and _content(previous) == _content(index):
+        return False
+    index["revision"] = (previous or {}).get("revision", 0) + 1
+    index["generated_at"] = datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
+    found = problems(index)
+    if found:
+        raise IndexError_("; ".join(found[:5]))
+    data = json.dumps(index, ensure_ascii=False, indent=2).encode("utf-8")
+    fd, tmp = tempfile.mkstemp(prefix=".photo-index-", dir=folder)
+    try:
+        with os.fdopen(fd, "wb") as fh:
+            fh.write(data)
+        Path(tmp).replace(folder / INDEX_FILE)
+    except BaseException:
+        Path(tmp).unlink(missing_ok=True)
+        raise
+    return True
