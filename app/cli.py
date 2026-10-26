@@ -30,7 +30,7 @@ def _index(args: argparse.Namespace) -> int:
 
 
 def _check(args: argparse.Namespace) -> int:
-    index = indexer.load(Path(args.folder))
+    index = indexer.load(Path(args.folder), validate=False)
     if index is None:
         print(f"no {INDEX_FILE} in {args.folder}")
         return 1

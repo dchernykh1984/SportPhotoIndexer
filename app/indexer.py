@@ -76,16 +76,22 @@ def photo_files(folder: Path) -> list[Path]:
     )
 
 
-def load(folder: Path) -> dict | None:
+def load(folder: Path, *, validate: bool = True) -> dict | None:
     path = folder / INDEX_FILE
     if not path.exists():
         return None
     try:
-        data = json.loads(path.read_text(encoding="utf-8"))
-    except (UnicodeDecodeError, json.JSONDecodeError) as exc:
+        with path.open("rb") as fh:
+            raw = fh.read(MAX_INDEX_BYTES + 1)
+        if len(raw) > MAX_INDEX_BYTES:
+            raise IndexError_(f"{INDEX_FILE} exceeds {MAX_INDEX_BYTES} bytes")
+        data = json.loads(raw.decode("utf-8"))
+    except (UnicodeDecodeError, ValueError, RecursionError) as exc:
         raise IndexError_(f"{INDEX_FILE} cannot be read: {exc}") from exc
     if not isinstance(data, dict) or not isinstance(data.get("photos"), list):
         raise IndexError_(f"{INDEX_FILE} is not a photo index")
+    if validate and (found := problems(data)):
+        raise IndexError_("; ".join(found[:5]))
     return data
 
 
