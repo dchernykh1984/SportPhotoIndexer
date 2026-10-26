@@ -33,8 +33,8 @@ file is replaced, old observations no longer apply: manual decisions are archive
 ### Automatic recognition and stopping
 
 Recognition runs on this computer's CPU; photos are not uploaded to a recognition service.
-There are no recognition API fees. First use needs internet to download about **68 MB**
-of OCR models, or **178 MB** including appearance models. Progress names the download;
+There are no recognition API fees. First use needs internet to download up to **11 MB**
+of OCR models, or **121 MB** including appearance models. Progress names the download;
 verified models stay in `data/models` next to the portable app and work offline afterwards.
 Give that folder enough writable disk space. [Models and licenses](MODEL_NOTICES.md)
 list the pinned sources and hashes; failed downloads can be retried.
@@ -47,9 +47,10 @@ inside the crop), without face recognition. It searches **only this album**: put
 event in a folder. It needs unambiguous accepted bib references; overlapping riders
 seed nothing. A team/relay bib can keep references of several different riders.
 Appearance matches with cosine similarity at least 0.80 are always **candidates**.
-Similar kit and riding poses can produce wrong suggestions. Real-race quality and CPU
-time have not yet been measured on the pilot albums; review suggestions before relying
-on them. Cross-album appearance search is not implemented.
+Similar kit and riding poses can produce wrong suggestions. A real-race pilot exposed small-number and aspect-ratio failures, now guarded by regression
+tests. OCR reads overlapping 768-pixel tiles on large photos instead of shrinking away the
+bibs. A complete manually labelled precision/recall benchmark is still pending; review
+suggestions before relying on them. Cross-album appearance search is not implemented.
 
 **Stop** keeps every already-saved photo. Start again to resume OCR without repeating
 unchanged completed OCR. Appearance is recomputed after restart; its vectors live only

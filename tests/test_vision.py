@@ -1,5 +1,6 @@
 """Exercise model tensor contracts and geometry without downloading weights in CI."""
 
+import string
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -15,6 +16,11 @@ def logits_for(tokens):
     for i, token in enumerate(tokens):
         logits[i, 0, token] = 20
     return logits
+
+
+def _probabilities(logits):
+    values = np.exp(logits - logits.max(axis=-1, keepdims=True))
+    return values / values.sum(axis=-1, keepdims=True)
 
 
 def test_ctc_keeps_leading_zeroes_and_case_and_separates_repeated_digits():
@@ -54,6 +60,17 @@ def test_cpu_engine_uses_the_expected_input_shapes_and_only_body_embeddings(
             self.key = Path(path).stem
             assert kwargs["providers"] == ["CPUExecutionProvider"]
 
+        def get_modelmeta(self):
+            alphabet = (
+                string.digits
+                + string.ascii_lowercase
+                + string.ascii_uppercase
+                + string.punctuation
+            )
+            return SimpleNamespace(
+                custom_metadata_map={"character": "\n".join(alphabet)}
+            )
+
         def get_inputs(self):
             return [SimpleNamespace(name="input")]
 
@@ -66,7 +83,7 @@ def test_cpu_engine_uses_the_expected_input_shapes_and_only_body_embeddings(
                 probability[0, 0] = 0.8  # noise is too small to be a word
                 return [probability]
             if self.key == "text_reader":
-                return [logits_for([1, 0, 2, 0, 3])]
+                return [_probabilities(logits_for([1, 0, 2, 0, 3]))]
             if self.key == "people_detector":
                 return detector_outputs()
             return [np.ones((1, 768, 1, 1), dtype=np.float32)]
@@ -86,7 +103,7 @@ def test_cpu_engine_uses_the_expected_input_shapes_and_only_body_embeddings(
     assert np.linalg.norm(rider.vector) == pytest.approx(1.0)
     assert calls == [
         ("text_detector", (1, 3, 736, 736)),
-        ("text_reader", (1, 3, 32, 100)),
+        ("text_reader", (1, 3, 48, 320)),
         ("people_detector", (1, 3, 416, 416)),
         ("appearance", (1, 3, 256, 128)),
     ]
@@ -119,10 +136,17 @@ def test_people_detection_preserves_aspect_and_maps_padding_back_to_the_photo(
 
 def test_small_bibs_in_large_photos_are_read_at_native_scale_and_mapped_back():
     engine = CpuVision.__new__(CpuVision)
+    engine.characters = [
+        *string.digits,
+        *string.ascii_lowercase,
+        *string.ascii_uppercase,
+        *string.punctuation,
+        " ",
+    ]
 
     def infer(key, tensor):
         if key == "text_reader":
-            return [logits_for([2, 0, 1])]
+            return [_probabilities(logits_for([2, 0, 1]))]
         # A tiny green bib is unreadable after shrinking the whole large frame,
         # but survives in an overlapping native-resolution tile.
         green = (tensor[0, 1] > 1) & (tensor[0, 0] < 0) & (tensor[0, 2] < 0)
@@ -142,3 +166,31 @@ def test_small_bibs_in_large_photos_are_read_at_native_scale_and_mapped_back():
         x, y, w, h = reading.region
         assert x <= 1810 / 2400 <= x + w
         assert y <= 1205 / 1800 <= y + h
+
+
+def test_paddle_reader_uses_crop_aspect_and_the_embedded_case_sensitive_dictionary():
+    engine = CpuVision.__new__(CpuVision)
+    engine.characters = ["0", "A", "a", " "]
+    captured = []
+
+    def infer(key, tensor):
+        captured.append(tensor)
+        return [
+            np.array(
+                [
+                    [
+                        [0.0, 0.0, 1.0, 0.0, 0.0],
+                        [1.0, 0.0, 0.0, 0.0, 0.0],
+                        [0.0, 0.0, 0.0, 1.0, 0.0],
+                    ]
+                ]
+            )
+        ]
+
+    engine._run = infer
+    text, confidence = engine._read_text(Image.new("RGB", (40, 80), "white"))
+    assert text == "Aa" and confidence == 1
+    (tensor,) = captured
+    assert tensor.shape == (1, 3, 48, 320)
+    assert np.all(tensor[:, :, :, :24] == 1)
+    assert np.all(tensor[:, :, :, 24:] == 0)
