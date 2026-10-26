@@ -1,0 +1,199 @@
+"""Automatic recognition respects human decisions and checkpoints progress."""
+
+from copy import deepcopy
+
+import numpy as np
+import pytest
+
+from app import indexer, recognition
+from app.vision import Reading, Rider
+from tests.conftest import make_photo
+
+BOX = (0.1, 0.1, 0.8, 0.8)
+BIB_BOX = (0.3, 0.4, 0.1, 0.1)
+
+
+class FakeVision:
+    def __init__(self):
+        self.calls = []
+        self.readings = {0: [Reading("012", 0.99, BIB_BOX)]}
+        self.crops = {
+            0: [Rider(BOX, np.array([1.0, 0.0]))],
+            1: [Rider(BOX, np.array([1.0, 0.0]))],
+            2: [Rider(BOX, np.array([0.0, 1.0]))],
+        }
+
+    def _color(self, image):
+        return int(np.asarray(image).mean(axis=(0, 1)).argmax())
+
+    def ocr(self, image):
+        color = self._color(image)
+        self.calls.append(("ocr", color))
+        return self.readings.get(color, [])
+
+    def riders(self, image):
+        color = self._color(image)
+        self.calls.append(("riders", color))
+        return self.crops[color]
+
+
+def prepared(album):
+    data, _ = indexer.scan(album)
+    indexer.save(album, data)
+    return data
+
+
+def run(album, data, engine, **options):
+    return recognition.run(
+        album,
+        data,
+        engine,
+        appearance=options.pop("appearance", True),
+        progress=options.pop("progress", lambda *args: None),
+        cancel=options.pop("cancel", lambda: False),
+    )
+
+
+def test_bibs_run_first_and_seed_only_candidates_for_other_photos(album):
+    data = prepared(album)
+    engine = FakeVision()
+    report = run(album, data, engine)
+    assert [kind for kind, _ in engine.calls] == ["ocr"] * 3 + ["riders"] * 3
+    assert report.seeds == 1 and report.errors == []
+    first, second, third = data["photos"]
+    assert indexer.bibs_of(first) == ["012"]
+    assert second["bibs"][0]["value"] == "012"
+    assert second["bibs"][0]["method"] == "appearance"
+    assert second["bibs"][0]["state"] == "candidate"
+    assert third["bibs"] == []
+    assert indexer.load(album)["processing"]["complete"] is True
+    assert "vector" not in (album / indexer.INDEX_FILE).read_text()
+    assert not list(album.glob("*.sqlite3"))
+
+
+def test_numbers_only_never_detects_riders_or_runs_appearance(album):
+    data = prepared(album)
+    engine = FakeVision()
+    run(album, data, engine, appearance=False)
+    assert [kind for kind, _ in engine.calls] == ["ocr"] * 3
+    assert data["photos"][1]["bibs"] == []
+
+
+def test_relay_templates_keep_both_appearances_of_one_bib(album):
+    data = prepared(album)
+    engine = FakeVision()
+    engine.readings[2] = [Reading("012", 0.99, BIB_BOX)]
+    engine.crops[1] = engine.crops[2]
+    assert run(album, data, engine).seeds == 2
+    assert data["photos"][1]["bibs"][0]["value"] == "012"
+
+
+def test_overlapping_riders_do_not_seed_an_ambiguous_bib(album):
+    data = prepared(album)
+    engine = FakeVision()
+    engine.crops[0] = engine.crops[0] * 2
+    assert run(album, data, engine).seeds == 0
+    assert data["photos"][1]["bibs"] == []
+
+
+def test_manual_corrections_and_an_empty_review_survive_reruns(album):
+    data = prepared(album)
+    red, green, blue = data["photos"]
+    indexer.set_bibs(data, red["id"], ["012"])
+    indexer.set_bibs(data, red["id"], ["045"])
+    indexer.set_bibs(data, green["id"], [])
+    indexer.save(album, data)
+    engine = FakeVision()
+    engine.readings[1] = [Reading("99", 0.99, BIB_BOX)]
+    run(album, data, engine)
+    assert indexer.bibs_of(red) == ["045"]
+    assert not any(
+        b["value"] == "012" and b["state"] != "rejected" for b in red["bibs"]
+    )
+    assert indexer.bibs_of(green) == []
+    assert all(b["state"] == "candidate" for b in green["bibs"])
+    assert green["manual_review"]["lock_accepted_set"] is True
+    review_id = green["manual_review"]["review_id"]
+    rerun = FakeVision()
+    run(album, data, rerun)
+    assert not any(kind == "ocr" for kind, _ in rerun.calls)
+    assert green["manual_review"]["review_id"] == review_id
+    assert indexer.bibs_of(blue) == []
+
+
+def test_a_changed_original_drops_old_automatic_matches_and_archives_manual_review(
+    album,
+):
+    data = prepared(album)
+    photo = data["photos"][0]
+    indexer.set_bibs(data, photo["id"], ["012"])
+    old = deepcopy(photo["manual_review"])
+    photo["bibs"].append({"value": "99", "method": "ocr", "state": "candidate"})
+    indexer.save(album, data)
+    make_photo(album, "IMG_0001.jpg", "black")
+    updated, _ = indexer.scan(album, data)
+    assert updated["photos"][0]["bibs"] == []
+    assert "manual_review" not in updated["photos"][0]
+    assert updated["photos"][0]["manual_history"][0]["review"] == old
+
+
+def test_cancel_keeps_a_partial_checkpoint_and_resume_skips_completed_ocr(album):
+    data = prepared(album)
+    stopped = False
+
+    def progress(phase, n, total):
+        nonlocal stopped
+        if n == 2:
+            stopped = True
+
+    report = run(album, data, FakeVision(), progress=progress, cancel=lambda: stopped)
+    assert report.cancelled
+    saved = indexer.load(album)
+    assert not saved["processing"]["complete"]
+    assert saved["photos"][0]["recognition"]["ocr"]["engine"] == recognition.ENGINE_ID
+    resumed = FakeVision()
+    run(album, saved, resumed)
+    assert [color for kind, color in resumed.calls if kind == "ocr"] == [1, 2]
+    assert indexer.load(album)["processing"]["complete"]
+
+
+def test_a_broken_photo_is_reported_without_losing_other_checkpoints(album):
+    data = prepared(album)
+    path = album / data["photos"][1]["original"]["path"]
+    path.write_bytes(b"not a picture")
+    data["photos"][1]["original"]["sha256"] = indexer.sha256_of(path)
+    report = run(album, data, FakeVision())
+    assert len(report.errors) == 1
+    assert data["photos"][1]["processing_state"] == "failed"
+    assert data["photos"][0]["processing_state"] == "processed"
+    assert not indexer.load(album)["processing"]["complete"]
+
+
+def test_concurrent_index_edits_are_never_overwritten(album):
+    data = prepared(album)
+
+    class Concurrent(FakeVision):
+        def ocr(self, image):
+            current = indexer.load(album)
+            current["other-editor"] = True
+            indexer.save(album, current)
+            return super().ocr(image)
+
+    with pytest.raises(indexer.StaleIndexError):
+        run(album, data, Concurrent())
+    saved = indexer.load(album)
+    assert saved["other-editor"] is True
+    assert all(p["bibs"] == [] for p in saved["photos"])
+
+
+def test_a_photo_changed_during_inference_is_not_published(album):
+    data = prepared(album)
+
+    class Changing(FakeVision):
+        def ocr(self, image):
+            make_photo(album, "IMG_0001.jpg", "black")
+            return super().ocr(image)
+
+    with pytest.raises(recognition.ChangedPhotoError):
+        run(album, data, Changing())
+    assert indexer.load(album)["photos"][0]["bibs"] == []

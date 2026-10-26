@@ -19,6 +19,7 @@ import time
 import uuid
 from collections.abc import Callable, Iterator
 from contextlib import contextmanager
+from copy import deepcopy
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from pathlib import Path
@@ -175,7 +176,11 @@ def scan(
             report.changed += 1
             kept = [b for b in photo["bibs"] if b.get("method") != "manual"]
             report.stale_bibs += len(photo["bibs"]) - len(kept)
-            photo["bibs"] = kept
+            _archive_review(photo)
+            photo["bibs"] = []
+            photo.pop("manual_review", None)
+            photo.pop("recognition", None)
+            photo.pop("recognition_error", None)
             photo["processing_state"] = "pending"
         photo["original"] = _asset(folder, path, sha)
         # A preview made from the old file would show the old picture: remake it.
@@ -207,7 +212,7 @@ def scan(
         for p in gone
     ]
     index["processing"]["inventory_complete"] = True
-    _count(index)
+    update_counts(index)
     if report.stale_bibs:
         report.messages.append(
             f"{report.stale_bibs} typed bib(s) dropped: their photo file changed"
@@ -215,7 +220,7 @@ def scan(
     return index, report
 
 
-def _count(index: dict) -> None:
+def update_counts(index: dict) -> None:
     processed = sum(p["processing_state"] == "processed" for p in index["photos"])
     proc = index["processing"]
     proc.update(total=len(index["photos"]), processed=processed)
@@ -241,15 +246,44 @@ def set_bibs(index: dict, photo_id: str, bibs: list[str]) -> None:
     # What the person typed is accepted; a bib found before that they left out is
     # rejected by them, so a later automatic pass cannot bring it back.
     dropped = {b["value"] for b in photo["bibs"] if b["value"] not in typed}
+    regions = {b["value"]: b["region"] for b in photo["bibs"] if "region" in b}
+    previous = photo.get("manual_review")
+    if previous and set(bibs_of(photo)) != typed:
+        _archive_review(photo)
+    photo["manual_review"] = {
+        "original_sha256": sha,
+        "lock_accepted_set": True,
+        "review_id": previous["review_id"]
+        if previous and set(bibs_of(photo)) == typed
+        else str(uuid.uuid4()),
+    }
     photo["bibs"] = [
-        {"value": b, "state": "accepted", "method": "manual", "content_sha256": sha}
+        {
+            "value": b,
+            "state": "accepted",
+            "method": "manual",
+            "content_sha256": sha,
+            **({"region": regions[b]} if b in regions else {}),
+        }
         for b in bibs
     ] + [
         {"value": b, "state": "rejected", "method": "manual", "content_sha256": sha}
         for b in sorted(dropped)
     ]
     photo["processing_state"] = "processed"
-    _count(index)
+    update_counts(index)
+
+
+def _archive_review(photo: dict) -> None:
+    if photo.get("manual_review") or any(
+        b["method"] == "manual" for b in photo["bibs"]
+    ):
+        photo.setdefault("manual_history", []).append(
+            {
+                "review": deepcopy(photo.get("manual_review")),
+                "bibs": deepcopy([b for b in photo["bibs"] if b["method"] == "manual"]),
+            }
+        )
 
 
 def bibs_of(photo: dict) -> list[str]:

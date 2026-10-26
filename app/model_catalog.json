@@ -1,0 +1,26 @@
+{
+  "text_detector": {
+    "path": "text_detection_ppocr/text_detection_en_ppocrv3_2023may.onnx",
+    "sha256": "03f550c6b406fda8bf54bd8327815f6c7e2edd98cea02348c93d879254366587",
+    "bytes": 2423490,
+    "url": "https://media.githubusercontent.com/media/opencv/opencv_zoo/48b10fa505aeb51fbd127fc60a5c660040e823b7/models/text_detection_ppocr/text_detection_en_ppocrv3_2023may.onnx"
+  },
+  "text_reader": {
+    "path": "text_recognition_crnn/text_recognition_CRNN_CH_2021sep.onnx",
+    "sha256": "2dc566fd01ac2118b25c6960508ebd758b64c421a2bfa78dc05401ada6737e0b",
+    "bytes": 64906971,
+    "url": "https://media.githubusercontent.com/media/opencv/opencv_zoo/48b10fa505aeb51fbd127fc60a5c660040e823b7/models/text_recognition_crnn/text_recognition_CRNN_CH_2021sep.onnx"
+  },
+  "appearance": {
+    "path": "person_reid_youtureid/person_reid_youtu_2021nov.onnx",
+    "sha256": "0579683334d4b9440221606dcb461656dd0dc64143b18f48faedaced9b4f580d",
+    "bytes": 106878407,
+    "url": "https://media.githubusercontent.com/media/opencv/opencv_zoo/48b10fa505aeb51fbd127fc60a5c660040e823b7/models/person_reid_youtureid/person_reid_youtu_2021nov.onnx"
+  },
+  "people_detector": {
+    "path": "object_detection_nanodet/object_detection_nanodet_2022nov.onnx",
+    "sha256": "4b82da9944b88577175ee23a459dce2e26e6e4be573def65b1055dc2d9720186",
+    "bytes": 3800954,
+    "url": "https://media.githubusercontent.com/media/opencv/opencv_zoo/48b10fa505aeb51fbd127fc60a5c660040e823b7/models/object_detection_nanodet/object_detection_nanodet_2022nov.onnx"
+  }
+}

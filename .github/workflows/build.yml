@@ -82,7 +82,11 @@ jobs:
           # Pin PyInstaller so a future major release cannot break builds.
           pyi=(uv run --with "pyinstaller>=6,<7" pyinstaller)
           common=(--noconfirm --windowed \
-                  --collect-submodules app --add-data "app/app.ico${sep}app")
+                  --collect-submodules app --collect-all onnxruntime \
+                  --add-data "app/app.ico${sep}app" \
+                  --add-data "app/model_catalog.json${sep}app" \
+                  --add-data "licenses${sep}licenses" \
+                  --add-data "MODEL_NOTICES.md${sep}.")
           if [ "$RUNNER_OS" = "macOS" ]; then
             # --name sets the .app folder name, which is what the dock shows.
             # The zip around it keeps the artifact name, so download URLs are
@@ -128,6 +132,7 @@ jobs:
         env:
           QT_QPA_PLATFORM: offscreen
         run: |
+          "$ASSET" --check-model-runtime
           set +e
           timeout 20 "$ASSET"
           code=$?
