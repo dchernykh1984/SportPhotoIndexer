@@ -9,6 +9,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
+from PIL import Image
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QPixmap
 from PySide6.QtWidgets import (
@@ -121,20 +122,31 @@ class MainWindow(QMainWindow):
     def open_folder(self, folder: Path) -> None:
         try:
             existing = indexer.load(folder)
-        except indexer.IndexError_ as exc:
+        except (indexer.IndexError_, OSError) as exc:
             QMessageBox.warning(self, "Open folder", str(exc))
             return
-        self._folder = folder
-        self._index = existing
-        settings.save({**settings.load(), "folder": str(folder)})
-        self.rescan()
-
-    def rescan(self) -> None:
-        if self._folder is None:
+        previous = self._folder, self._index
+        self._folder, self._index = folder, existing
+        if not self.rescan():
+            self._folder, self._index = previous
             return
-        index, report = indexer.scan(
-            self._folder, self._index, previews=self._chk_previews.isChecked()
-        )
+        settings.save({**settings.load(), "folder": str(folder)})
+
+    def rescan(self) -> bool:
+        if self._folder is None:
+            return False
+        try:
+            index, report = indexer.scan(
+                self._folder, self._index, previews=self._chk_previews.isChecked()
+            )
+        except (
+            indexer.IndexError_,
+            OSError,
+            ValueError,
+            Image.DecompressionBombError,
+        ) as exc:
+            QMessageBox.warning(self, "Scan folder", str(exc))
+            return False
         self._index = index
         self._write()
         self._lbl_folder.setText(str(self._folder))
@@ -147,6 +159,7 @@ class MainWindow(QMainWindow):
         ]
         self._lbl_status.setText(self._summary() + " | " + "; ".join(notes))
         self._list.setCurrentRow(self._first_unchecked())
+        return True
 
     def _on_import_csv(self) -> None:
         if self._index is None or self._folder is None:
