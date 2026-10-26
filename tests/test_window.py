@@ -103,3 +103,46 @@ def test_an_unreadable_last_folder_does_not_prevent_starting(monkeypatch, album)
     assert w._folder is None
     assert w._list.count() == 0
     w.deleteLater()
+
+
+def test_a_failed_csv_save_does_not_claim_success_or_change_the_open_index(
+    win, album, monkeypatch, tmp_path
+):
+    win.open_folder(album)
+    before = indexer.load(album)
+    table = tmp_path / "bibs.csv"
+    table.write_text("file;bibs\nIMG_0001.jpg;12\n", encoding="utf-8")
+    monkeypatch.setattr(
+        mw.QFileDialog, "getOpenFileName", lambda *args: (str(table), "")
+    )
+
+    def refuse(*args):
+        raise indexer.StaleIndexError("changed elsewhere")
+
+    monkeypatch.setattr(indexer, "save", refuse)
+    successes = []
+    monkeypatch.setattr(
+        mw.QMessageBox, "information", lambda *args: successes.append(args)
+    )
+    win._on_import_csv()
+    assert successes == []
+    assert win._index == before
+    assert indexer.load(album) == before
+
+
+def test_a_failed_rescan_save_keeps_the_previous_index_and_list(
+    win, album, monkeypatch
+):
+    from tests.conftest import make_photo
+
+    win.open_folder(album)
+    before = indexer.load(album)
+    make_photo(album, "new.jpg")
+
+    def refuse(*args):
+        raise OSError("disk full")
+
+    monkeypatch.setattr(indexer, "save", refuse)
+    assert win.rescan() is False
+    assert win._index == before
+    assert win._list.count() == 3

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import csv
 import sys
 from pathlib import Path
 
@@ -54,7 +55,7 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
     try:
         return args.run(args)
-    except indexer.IndexError_ as exc:
+    except (indexer.IndexError_, OSError, csv.Error) as exc:
         print(f"error: {exc}", file=sys.stderr)
         return 2
 
