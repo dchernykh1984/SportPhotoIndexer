@@ -115,7 +115,8 @@ def _asset(folder: Path, path: Path, sha: str) -> dict:
 
 
 def _make_preview(folder: Path, original: Path) -> Path:
-    target = folder / PREVIEW_DIR / f"{original.stem}.jpg"
+    # The full name, so same.jpg and same.png do not share one preview.
+    target = folder / PREVIEW_DIR / f"{original.name}.jpg"
     target.parent.mkdir(exist_ok=True)
     with Image.open(original) as source:
         img = ImageOps.exif_transpose(source).convert("RGB")
@@ -139,6 +140,10 @@ def scan(
     index = json.loads(json.dumps(index)) if index else new_index()
     report = ScanReport()
     by_path = {p["original"]["path"]: p for p in index["photos"]}
+    # Photos that left the folder, kept so the same file coming back gets its old id.
+    gone_before = {
+        (r["path"], r["sha256"]): r["id"] for r in index.get("removed_photos", [])
+    }
     files = photo_files(folder)
     photos = []
     for n, path in enumerate(files, 1):
@@ -147,25 +152,51 @@ def scan(
         sha = sha256_of(path)
         rel = path.name
         photo = by_path.pop(rel, None)
+        changed = False
         if photo is None:
-            photo = {"id": str(uuid.uuid4()), "processing_state": "pending", "bibs": []}
+            old_id = gone_before.pop((rel, sha), None)
+            photo = {
+                "id": old_id or str(uuid.uuid4()),
+                "processing_state": "pending",
+                "bibs": [],
+            }
             report.added += 1
         elif photo["original"]["sha256"] != sha:
+            changed = True
             report.changed += 1
             kept = [b for b in photo["bibs"] if b.get("method") != "manual"]
             report.stale_bibs += len(photo["bibs"]) - len(kept)
             photo["bibs"] = kept
             photo["processing_state"] = "pending"
         photo["original"] = _asset(folder, path, sha)
-        if previews or path.stat().st_size > THUMBNAIL_LIMIT_BYTES:
+        # A preview made from the old file would show the old picture: remake it.
+        if (
+            previews
+            or (changed and "preview" in photo)
+            or path.stat().st_size > THUMBNAIL_LIMIT_BYTES
+        ):
             preview = _make_preview(folder, path)
             photo["preview"] = _asset(folder, preview, sha256_of(preview))
             report.previews += 1
         photos.append(photo)
-    gone = [p["id"] for p in by_path.values()]
+    gone = list(by_path.values())
     report.removed = len(gone)
+    back = {p["id"] for p in photos}
     index["photos"] = photos
-    index["removed_photo_ids"] = sorted({*index.get("removed_photo_ids", []), *gone})
+    index["removed_photo_ids"] = sorted(
+        ({*index.get("removed_photo_ids", []), *(p["id"] for p in gone)}) - back
+    )
+    index["removed_photos"] = [
+        {"id": pid, "path": key[0], "sha256": key[1]}
+        for key, pid in gone_before.items()
+    ] + [
+        {
+            "id": p["id"],
+            "path": p["original"]["path"],
+            "sha256": p["original"]["sha256"],
+        }
+        for p in gone
+    ]
     index["processing"]["inventory_complete"] = True
     _count(index)
     if report.stale_bibs:

@@ -111,7 +111,7 @@ def test_only_root_images_are_photos(album):
 def test_previews_on_request_and_for_photos_dropbox_cannot_shrink(album, monkeypatch):
     index, report = indexer.scan(album, None, previews=True)
     assert report.previews == 3
-    assert index["photos"][0]["preview"]["path"] == "_previews/IMG_0001.jpg"
+    assert index["photos"][0]["preview"]["path"] == "_previews/IMG_0001.jpg.jpg"
     monkeypatch.setattr(indexer, "THUMBNAIL_LIMIT_BYTES", 0)
     index, report = indexer.scan(album, None)
     assert report.previews == 3
@@ -158,3 +158,41 @@ def test_the_index_is_replaced_in_one_step(album, monkeypatch):
         indexer.save(album, index)
     assert indexer.load(album)["revision"] == 1
     assert [p.name for p in album.iterdir() if p.name.startswith(".photo-index-")] == []
+
+
+def test_a_photo_that_comes_back_keeps_its_id(album, tmp_path):
+    index, _ = _scan_and_save(album)
+    original_id = index["photos"][2]["id"]
+    kept = tmp_path / "kept.jpg"
+    (album / "IMG_0003.jpg").rename(kept)
+    index, _ = _scan_and_save(album)
+    assert original_id in index["removed_photo_ids"]
+    kept.rename(album / "IMG_0003.jpg")
+    index, _ = _scan_and_save(album)
+    assert index["photos"][2]["id"] == original_id
+    assert original_id not in index["removed_photo_ids"]
+    assert problems(indexer.load(album)) == []
+
+
+def test_a_replaced_photo_gets_a_new_preview(album):
+    index, _ = indexer.scan(album, None, previews=True)
+    indexer.save(album, index)
+    old = index["photos"][0]["preview"]["sha256"]
+    make_photo(album, "IMG_0001.jpg", "black")
+    index, _ = indexer.scan(album, indexer.load(album))
+    assert index["photos"][0]["preview"]["sha256"] != old
+
+
+def test_same_named_photos_of_two_formats_get_their_own_previews(tmp_path):
+    folder = tmp_path / "album"
+    folder.mkdir()
+    make_photo(folder, "same.jpg", "red")
+    make_photo(folder, "same.png", "blue")
+    index, _ = indexer.scan(folder, None, previews=True)
+    paths = [p["preview"]["path"] for p in index["photos"]]
+    assert len(set(paths)) == 2
+    for photo in index["photos"]:
+        assert (
+            indexer.sha256_of(folder / photo["preview"]["path"])
+            == photo["preview"]["sha256"]
+        )
