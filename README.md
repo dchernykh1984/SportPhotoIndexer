@@ -28,6 +28,18 @@ Bibs keep exactly what you type: `012` stays `012`, letters stay letters. If a p
 file is replaced, the bibs typed for the old file are dropped (they were about
 different pixels) and the photo is "not checked" again.
 
+### Limits
+
+- One album: at most 5000 photos, 20 bibs on a photo, and an index file of at most 5 MB
+  (the site's own limits; the program refuses to write an index the site would refuse).
+- Only photos at the top of the folder are indexed; subfolders are not read.
+- Dropbox makes no thumbnail of a photo over 20 MB, so the program puts a small preview
+  of such photos into `_previews/`.
+- Dropbox limits the traffic of shared links: 1 TB a day on paid plans, 20 GB on Basic.
+  Over it, all the owner's shared links pause for a day.
+- Do not index one folder from two computers at once: the second one is told the index
+  changed and has to reopen the folder.
+
 ### Bibs from a table
 
 *Import bibs (CSV)...* takes a table with the file name in the first column and the
