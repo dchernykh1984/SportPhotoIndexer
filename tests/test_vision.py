@@ -115,3 +115,30 @@ def test_people_detection_preserves_aspect_and_maps_padding_back_to_the_photo(
         inputs[0][0, :, 0, 0],
         np.array([-103.53, -116.28, -123.675]) / [57.375, 57.12, 58.395],
     )
+
+
+def test_small_bibs_in_large_photos_are_read_at_native_scale_and_mapped_back():
+    engine = CpuVision.__new__(CpuVision)
+
+    def infer(key, tensor):
+        if key == "text_reader":
+            return [logits_for([2, 0, 1])]
+        # A tiny green bib is unreadable after shrinking the whole large frame,
+        # but survives in an overlapping native-resolution tile.
+        green = (tensor[0, 1] > 1) & (tensor[0, 0] < 0) & (tensor[0, 2] < 0)
+        probability = np.zeros((736, 736), dtype=np.float32)
+        if green.sum() >= 40:
+            probability[green] = 0.99
+        return [probability]
+
+    engine._run = infer
+    image = Image.new("RGB", (2400, 1800), "white")
+    from PIL import ImageDraw
+
+    ImageDraw.Draw(image).rectangle((1800, 1200, 1820, 1210), fill=(0, 255, 0))
+    readings = engine.ocr(image)
+    assert readings and {r.value for r in readings} == {"10"}
+    for reading in readings:
+        x, y, w, h = reading.region
+        assert x <= 1810 / 2400 <= x + w
+        assert y <= 1205 / 1800 <= y + h
