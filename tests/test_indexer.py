@@ -174,6 +174,36 @@ def test_a_photo_that_comes_back_keeps_its_id(album, tmp_path):
     assert problems(indexer.load(album)) == []
 
 
+def test_an_index_opened_before_someone_else_saved_is_refused(album):
+    _scan_and_save(album)
+    first, second = indexer.load(album), indexer.load(album)
+    indexer.set_bibs(first, first["photos"][0]["id"], ["12"])
+    indexer.save(album, first)
+    indexer.set_bibs(second, second["photos"][1]["id"], ["7"])
+    with pytest.raises(indexer.StaleIndexError):
+        indexer.save(album, second)
+    assert indexer.bibs_of(indexer.load(album)["photos"][0]) == ["12"]
+
+
+def test_a_second_writer_waits_for_the_lock(album):
+    _scan_and_save(album)
+    (album / ".photo-index.lock").write_text("")
+    index = indexer.load(album)
+    indexer.set_bibs(index, index["photos"][0]["id"], ["1"])
+    with pytest.raises(indexer.StaleIndexError, match="another program"):
+        indexer.save(album, index)
+
+
+def test_an_index_over_the_sites_byte_limit_is_not_written(album, monkeypatch):
+    _scan_and_save(album)
+    monkeypatch.setattr(indexer, "MAX_INDEX_BYTES", 500)
+    index = indexer.load(album)
+    indexer.set_bibs(index, index["photos"][0]["id"], ["1"])
+    with pytest.raises(indexer.IndexError_, match="split the album"):
+        indexer.save(album, index)
+    assert indexer.load(album)["revision"] == 1
+
+
 def test_a_replaced_photo_gets_a_new_preview(album):
     index, _ = indexer.scan(album, None, previews=True)
     indexer.save(album, index)

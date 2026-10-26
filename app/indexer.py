@@ -15,8 +15,10 @@ import hashlib
 import json
 import os
 import tempfile
+import time
 import uuid
-from collections.abc import Callable
+from collections.abc import Callable, Iterator
+from contextlib import contextmanager
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from pathlib import Path
@@ -27,6 +29,7 @@ from app import version
 from app.index_format import (
     BIB_NORMALIZATION,
     INDEX_FILE,
+    MAX_INDEX_BYTES,
     MEDIA_TYPES,
     SCHEMA_VERSION,
     THUMBNAIL_LIMIT_BYTES,
@@ -274,21 +277,51 @@ def _content(index: dict) -> dict:
     return {k: v for k, v in index.items() if k not in ("revision", "generated_at")}
 
 
+class StaleIndexError(IndexError_):
+    pass
+
+
 def save(folder: Path, index: dict) -> bool:
     """Write the index next to the photos; False when nothing changed since last time.
 
     The revision moves only when the content does, and the file is replaced in one
-    step, so the site never reads half of it.
+    step, so the site never reads half of it. ``index`` must be based on the revision
+    now on disk: an index opened before somebody else saved is refused rather than
+    allowed to overwrite their work. A lock file keeps two programs from writing at
+    once.
     """
-    previous = load(folder)
-    if previous is not None and _content(previous) == _content(index):
-        return False
-    index["revision"] = (previous or {}).get("revision", 0) + 1
-    index["generated_at"] = datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
-    found = problems(index)
-    if found:
-        raise IndexError_("; ".join(found[:5]))
-    data = json.dumps(index, ensure_ascii=False, indent=2).encode("utf-8")
+    with _lock(folder):
+        previous = load(folder)
+        on_disk = (previous or {}).get("revision", 0)
+        if on_disk != index.get("revision", 0):
+            raise StaleIndexError(
+                f"{INDEX_FILE} was changed elsewhere (revision {on_disk});"
+                " reopen the folder"
+            )
+        if previous is not None and _content(previous) == _content(index):
+            return False
+        candidate = {
+            **index,
+            "revision": on_disk + 1,
+            "generated_at": datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ"),
+        }
+        found = problems(candidate)
+        if found:
+            raise IndexError_("; ".join(found[:5]))
+        data = json.dumps(candidate, ensure_ascii=False, separators=(",", ":")).encode()
+        if len(data) > MAX_INDEX_BYTES:
+            raise IndexError_(
+                f"the index would be {len(data)} bytes, over the site's limit of "
+                f"{MAX_INDEX_BYTES}; split the album into two folders"
+            )
+        _replace(folder, data)
+        index.update(
+            revision=candidate["revision"], generated_at=candidate["generated_at"]
+        )
+    return True
+
+
+def _replace(folder: Path, data: bytes) -> None:
     fd, tmp = tempfile.mkstemp(prefix=".photo-index-", dir=folder)
     try:
         with os.fdopen(fd, "wb") as fh:
@@ -297,4 +330,27 @@ def save(folder: Path, index: dict) -> bool:
     except BaseException:
         Path(tmp).unlink(missing_ok=True)
         raise
-    return True
+
+
+_LOCK_FILE = ".photo-index.lock"
+_STALE_LOCK_SECONDS = 60
+
+
+@contextmanager
+def _lock(folder: Path) -> Iterator[None]:
+    path = folder / _LOCK_FILE
+    try:
+        fd = os.open(path, os.O_CREAT | os.O_EXCL | os.O_WRONLY)
+    except FileExistsError:
+        age = time.time() - path.stat().st_mtime
+        if age < _STALE_LOCK_SECONDS:
+            raise StaleIndexError(
+                "another program is writing this album's index"
+            ) from None
+        path.unlink(missing_ok=True)  # left by a program that crashed
+        fd = os.open(path, os.O_CREAT | os.O_EXCL | os.O_WRONLY)
+    os.close(fd)
+    try:
+        yield
+    finally:
+        path.unlink(missing_ok=True)
