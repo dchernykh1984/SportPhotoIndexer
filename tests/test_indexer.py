@@ -196,8 +196,11 @@ def test_a_second_writer_waits_for_the_lock(album):
 
 def test_an_index_over_the_sites_byte_limit_is_not_written(album, monkeypatch):
     _scan_and_save(album)
-    monkeypatch.setattr(indexer, "MAX_INDEX_BYTES", 500)
+    monkeypatch.setattr(
+        indexer, "MAX_INDEX_BYTES", (album / INDEX_FILE).stat().st_size + 100
+    )
     index = indexer.load(album)
+    index["extra"] = "x" * 5000
     indexer.set_bibs(index, index["photos"][0]["id"], ["1"])
     with pytest.raises(indexer.IndexError_, match="split the album"):
         indexer.save(album, index)
@@ -226,3 +229,36 @@ def test_same_named_photos_of_two_formats_get_their_own_previews(tmp_path):
             indexer.sha256_of(folder / photo["preview"]["path"])
             == photo["preview"]["sha256"]
         )
+
+
+@pytest.mark.parametrize(
+    "mutate",
+    [
+        lambda d: d.update(album_id="not-a-uuid"),
+        lambda d: d.update(revision=2**63),
+        lambda d: d.update(schema_version=True),
+        lambda d: d.update(processing=[]),
+        lambda d: d["processing"].update(inventory_complete=1),
+        lambda d: d["photos"][0]["original"].update(bytes=2**63),
+        lambda d: d["photos"][0]["original"].update(view_url="javascript:alert(1)"),
+        lambda d: d["photos"][0].update(original=[]),
+        lambda d: d["photos"][0].update(processing_state=[]),
+        lambda d: d["photos"][0].update(
+            bibs=[{"value": "12", "method": [], "state": "accepted"}]
+        ),
+        lambda d: d["photos"][0].update(
+            bibs=[
+                {"value": "12", "method": "ocr", "state": "accepted", "confidence": 2}
+            ]
+        ),
+        lambda d: d.update(removed_photo_ids=[{}]),
+        lambda d: d.update(unknown="\ud800"),
+        lambda d: d["photos"][1]["original"].update(
+            path=d["photos"][0]["original"]["path"]
+        ),
+    ],
+)
+def test_check_rejects_indexes_the_site_would_refuse(album, mutate):
+    index, _ = _scan_and_save(album)
+    mutate(index)
+    assert problems(index)
