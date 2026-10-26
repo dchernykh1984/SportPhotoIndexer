@@ -7,6 +7,8 @@ photo -- nothing is lost if the program is closed halfway through an album.
 
 from __future__ import annotations
 
+import csv
+from copy import deepcopy
 from pathlib import Path
 
 from PIL import Image
@@ -147,8 +149,9 @@ class MainWindow(QMainWindow):
         ) as exc:
             QMessageBox.warning(self, "Scan folder", str(exc))
             return False
+        if not self._write(index):
+            return False
         self._index = index
-        self._write()
         self._lbl_folder.setText(str(self._folder))
         self._fill_list()
         self._set_enabled(bool(index["photos"]))
@@ -169,12 +172,15 @@ class MainWindow(QMainWindow):
         )
         if not path:
             return
+        candidate = deepcopy(self._index)
         try:
-            applied, unknown = indexer.import_csv(self._index, Path(path))
-        except indexer.IndexError_ as exc:
+            applied, unknown = indexer.import_csv(candidate, Path(path))
+        except (indexer.IndexError_, OSError, csv.Error) as exc:
             QMessageBox.warning(self, "Import bibs", str(exc))
             return
-        self._write()
+        if not self._write(candidate):
+            return
+        self._index = candidate
         self._fill_list()
         missing = f"; not in the folder: {', '.join(unknown[:5])}" if unknown else ""
         QMessageBox.information(self, "Import bibs", f"{applied} photo(s) set{missing}")
@@ -238,19 +244,22 @@ class MainWindow(QMainWindow):
         except indexer.IndexError_ as exc:
             self._lbl_status.setText(str(exc))
             return
-        indexer.set_bibs(self._index, photo["id"], bibs)
-        if not self._write():
+        candidate = deepcopy(self._index)
+        indexer.set_bibs(candidate, photo["id"], bibs)
+        if not self._write(candidate):
             return
-        self._list.item(row).setText(self._label(photo))
+        self._index = candidate
+        self._list.item(row).setText(self._label(candidate["photos"][row]))
         self._lbl_status.setText(self._summary())
         if row + 1 < self._list.count():
             self._list.setCurrentRow(row + 1)
 
-    def _write(self) -> bool:
-        if self._folder is None or self._index is None:
+    def _write(self, candidate: dict | None = None) -> bool:
+        candidate = self._index if candidate is None else candidate
+        if self._folder is None or candidate is None:
             return False
         try:
-            indexer.save(self._folder, self._index)
+            indexer.save(self._folder, candidate)
         except (indexer.IndexError_, OSError) as exc:
             QMessageBox.warning(self, f"Saving {INDEX_FILE}", str(exc))
             return False
