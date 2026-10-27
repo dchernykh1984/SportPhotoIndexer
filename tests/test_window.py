@@ -158,7 +158,7 @@ def test_one_button_runs_the_selected_automatic_stages_and_reloads_saved_results
     from tests.test_recognition import FakeVision
 
     engine = FakeVision()
-    monkeypatch.setattr(worker_module, "ensure_models", lambda *args: {})
+    monkeypatch.setattr(worker_module, "ensure_models", lambda *args, **kwargs: {})
     monkeypatch.setattr(worker_module, "PhotoPool", lambda *args: nullcontext(engine))
     win.open_folder(album)
     assert win._mode.currentIndex() == 1
@@ -190,7 +190,7 @@ def test_automatic_errors_are_visible_and_do_not_claim_success(win, album, monke
     warnings = []
     monkeypatch.setattr(mw.QMessageBox, "warning", lambda *args: warnings.append(args))
 
-    def broken(*args):
+    def broken(*args, **kwargs):
         raise OSError("offline")
 
     monkeypatch.setattr(worker_module, "ensure_models", broken)
@@ -215,7 +215,7 @@ def test_closing_during_a_model_download_requests_cancel_before_destroying_the_t
 
     ready = threading.Event()
 
-    def downloading(appearance, progress, cancel):
+    def downloading(appearance, progress, cancel, **kwargs):
         ready.set()
         while not cancel():
             threading.Event().wait(0.005)
@@ -250,8 +250,8 @@ def test_the_button_can_finish_a_real_spawned_photo_pool(win, album, monkeypatch
     from tests.test_parallel import initialize_fake
 
     monkeypatch.setattr(parallel, "_initialize", initialize_fake)
-    monkeypatch.setattr(worker_module, "ensure_models", lambda *args: {})
-    monkeypatch.setattr(worker_module, "plan_for", lambda count: parallel.Plan(2, 1))
+    monkeypatch.setattr(worker_module, "ensure_models", lambda *args, **kwargs: {})
+    monkeypatch.setattr(worker_module, "plan_for", lambda *args: parallel.Plan(2, 1))
     win.open_folder(album)
     win._on_recognize()
     assert win._worker.wait(10000)

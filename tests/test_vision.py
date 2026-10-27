@@ -254,3 +254,45 @@ def test_agreeing_reads_of_one_plate_combine_and_other_spots_stay_apart():
         (r.value, round(r.confidence, 4)) for r in _combined([a, b, far, other])
     }
     assert combined == {("7", 0.99), ("7", 0.8), ("17", 0.9)}
+
+
+class FakeFlorence:
+    def __init__(self, texts):
+        self.texts = texts
+        self.sizes = []
+
+    def read(self, image):
+        self.sizes.append(image.size)
+        return self.texts.get(image.size, [])
+
+
+def test_florence_reads_the_frame_and_each_zone_and_vets_the_small_readers_guesses():
+    engine = CpuVision.__new__(CpuVision)
+    person = (0.4, 0.25, 0.1, 0.5)  # zone: x 0.37-0.53, y 0.225-0.85 of 1000x800
+    engine._people = lambda image: [person]
+    small = [
+        Reading("12", 0.9, (0.45, 0.5, 0.02, 0.02)),  # unsure, Florence agrees
+        Reading("44", 0.9, (0.1, 0.1, 0.05, 0.05)),  # unsure, Florence saw nothing
+        Reading("7", 0.995, (0.8, 0.8, 0.05, 0.05)),  # sure on its own
+    ]
+    engine._read_crop = lambda tile: small if tile.size == (1000, 800) else []
+    image = Image.new("RGB", (1000, 800), "white")
+    assert {r.value for r in engine.ocr(image)} == {"12", "44", "7"}
+
+    engine.florence = FakeFlorence(
+        {
+            (1000, 800): [
+                ("12", 0.6, 0.45, 0.5, 0.02, 0.02),
+                ("GIANT", 0.9, 0.1, 0.1, 0.3, 0.1),  # banner text is no bib
+                ("5", 0.1, 0.6, 0.6, 0.02, 0.02),  # too unsure to keep
+            ],
+            (160, 500): [("33", 0.5, 0.5, 0.5, 0.2, 0.1)],
+        }
+    )
+    found = {r.value: r for r in engine.ocr(image)}
+    assert engine.florence.sizes == [(1000, 800), (160, 500)]
+    assert set(found) == {"12", "7", "33"}
+    # Raw 0.6 is 0.96 on the small reader's scale; agreeing reads combine.
+    assert found["12"].confidence == pytest.approx(1 - 0.1 * 0.04)
+    assert found["33"].confidence == pytest.approx(0.95)
+    assert found["33"].region == pytest.approx((0.45, 0.5375, 0.032, 0.0625))

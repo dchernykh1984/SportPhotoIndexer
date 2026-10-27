@@ -22,11 +22,14 @@ class Plan:
     threads: int
 
 
-def plan_for(photos: int) -> Plan:
+def plan_for(photos: int, model_bytes: int = 0) -> Plan:
     try:
         cores = min(psutil.cpu_count(logical=False) or 1, os.process_cpu_count() or 1)
-        # Reserve headroom for the UI/OS and roughly 1 GiB per decoded photo/task.
-        memory = max(1, psutil.virtual_memory().available * 3 // 4 // 1024**3)
+        # Reserve headroom for the UI/OS, roughly 1 GiB per decoded photo/task and
+        # each worker's own copy of the models.
+        memory = max(
+            1, psutil.virtual_memory().available * 3 // 4 // (1024**3 + model_bytes)
+        )
     except OSError, psutil.Error:
         return Plan(1, 1)
     workers = max(

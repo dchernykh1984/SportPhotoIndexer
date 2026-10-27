@@ -17,7 +17,8 @@ def catalog(monkeypatch):
         "bytes": len(payload),
         "sha256": hashlib.sha256(payload).hexdigest(),
     }
-    monkeypatch.setattr(cache, "CATALOG", {k: model for k in cache.ALL_MODELS})
+    keys = {*cache.ALL_MODELS, *(k for size in cache.SIZES.values() for k in size)}
+    monkeypatch.setattr(cache, "CATALOG", {k: model for k in keys})
     return payload
 
 
@@ -80,3 +81,29 @@ def test_offline_failure_cleans_up(tmp_path, monkeypatch, catalog):
     with pytest.raises(OSError, match="offline"):
         cache.ensure_models(False, lambda *a: None, lambda: False, tmp_path)
     assert list(tmp_path.iterdir()) == []
+
+
+def test_a_larger_size_adds_its_own_models_to_the_small_set(
+    tmp_path, monkeypatch, catalog
+):
+    monkeypatch.setattr(
+        cache.urllib.request, "urlopen", lambda *a, **k: io.BytesIO(catalog)
+    )
+    files = cache.ensure_models(
+        False, lambda *a: None, lambda: False, tmp_path, "florence-2-large"
+    )
+    assert set(files) == {*cache.OCR_MODELS, *cache.SIZES["florence-2-large"]}
+    assert "appearance" not in files
+
+
+def test_every_size_downloads_more_and_keeps_its_files_apart():
+    real = cache.CATALOG
+    sizes = [cache.download_megabytes(False, size) for size in cache.SIZES]
+    assert sizes == sorted(sizes) and len(set(sizes)) == len(sizes)
+    # Two models under one file name would replace each other on every switch.
+    names = {}
+    for model in real.values():
+        name = model["path"].rsplit("/", 1)[-1]
+        assert names.setdefault(name, model["sha256"]) == model["sha256"]
+    for key in (k for size in cache.SIZES.values() for k in size):
+        assert real[key]["url"].startswith("https://huggingface.co/")

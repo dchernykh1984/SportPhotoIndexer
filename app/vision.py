@@ -15,9 +15,19 @@ from pathlib import Path
 import numpy as np
 from PIL import Image, ImageFilter
 
+from app.florence import Florence
+
 Region = tuple[float, float, float, float]
-# Reads below this are noise; recognition accepts from its own, higher threshold.
+# Reads below this are noise; recognition accepts from ACCEPT_OCR.
 MIN_OCR = 0.8
+ACCEPT_OCR = 0.95
+# A lone digit is in every logo and word fragment; on test races it was wrong most
+# often, so it needs a sure read or two windows that agree.
+ACCEPT_LONE_DIGIT = 0.99
+# Florence-2's lowest token probability on the small reader's scale: on the labelled
+# races its 0.2 kept as much as the small reader's MIN_OCR, its 0.5 was as right as
+# ACCEPT_OCR and a lone digit at 0.9 as right as ACCEPT_LONE_DIGIT.
+FLORENCE_SCALE = ([0.2, 0.5, 0.9, 1.0], [MIN_OCR, ACCEPT_OCR, ACCEPT_LONE_DIGIT, 1.0])
 
 
 @dataclass(frozen=True)
@@ -133,19 +143,30 @@ def _letterbox(image, side):
     return square, (left, top, width, height)
 
 
+def _zone(region):
+    """Where a person's bib can be: past the body to a handlebar in front, a seat
+    post behind and the bike below. Left, top, right, bottom as image fractions."""
+    x, y, w, h = region
+    return (
+        max(0, x - 0.3 * w),
+        max(0, y - 0.05 * h),
+        min(1, x + 1.3 * w),
+        min(1, y + 1.2 * h),
+    )
+
+
 def _person_windows(region, size):
-    """Overlapping squares, 0.4 of a person's height, over them and beside them.
+    """Overlapping squares, 0.4 of a person's height, over a person's zone.
 
     A bib on a chest, arm, belt, handlebar or seat post is too small for the text
     detector in the whole frame or a native-resolution tile: it finds plate digits
-    only once they are about a tenth of its input. The zone reaches past the body to
-    a handlebar in front, a seat post behind and the bike below.
+    only once they are about a tenth of its input.
     """
     width, height = size
-    x, y, w, h = region
-    left, right = max(0, x - 0.3 * w) * width, min(1, x + 1.3 * w) * width
-    top, bottom = max(0, y - 0.05 * h) * height, min(1, y + 1.2 * h) * height
-    side = max(64, 0.4 * h * height)
+    left, top, right, bottom = _zone(region)
+    left, right = left * width, right * width
+    top, bottom = top * height, bottom * height
+    side = max(64, 0.4 * region[3] * height)
 
     def starts(start, end):
         count = max(1, math.ceil((end - start - side) / (0.75 * side)) + 1)
@@ -198,6 +219,17 @@ def _combined(readings):
         )
         for best, *rest in clusters
     ]
+
+
+def _bib_like(text):
+    return bool(re.fullmatch(r"[A-Za-z0-9-]{1,32}", text)) and any(
+        c.isdigit() for c in text
+    )
+
+
+def _sure(reading):
+    needed = ACCEPT_LONE_DIGIT if len(reading.value) == 1 else ACCEPT_OCR
+    return reading.confidence >= needed
 
 
 def _whole_bibs(readings):
@@ -295,7 +327,38 @@ def person_boxes(outputs):
     return [_region(box, 416) for box in kept if box[2] > box[0] and box[3] > box[1]]
 
 
+def _read_florence(florence: Florence, image: Image.Image, people) -> list[Reading]:
+    """The whole frame and each person's zone, stretched to the model's input.
+
+    A crop a pixel wider can change what greedy decoding reads, so the edges are
+    truncated exactly as on the benchmark (docs/recognition-benchmark.md).
+    """
+    found = []
+    for left, top, right, bottom in [(0, 0, 1, 1), *map(_zone, people)]:
+        box = (
+            int(left * image.width),
+            int(top * image.height),
+            int(right * image.width),
+            int(bottom * image.height),
+        )
+        if min(box[2] - box[0], box[3] - box[1]) < 16:
+            continue
+        with image.crop(box) as crop:
+            texts = florence.read(crop)
+        for text, probability, x, y, w, h in texts:
+            if probability >= FLORENCE_SCALE[0][0] and _bib_like(text):
+                width, height = right - left, bottom - top
+                region = (left + x * width, top + y * height, w * width, h * height)
+                found.append(Reading(text, probability, region))
+    return [
+        Reading(r.value, float(np.interp(r.confidence, *FLORENCE_SCALE)), r.region)
+        for r in _combined(_whole_bibs(found))
+    ]
+
+
 class CpuVision:
+    florence: Florence | None = None
+
     def __init__(self, models: dict[str, Path], *, threads: int = 1) -> None:
         import onnxruntime as ort
 
@@ -305,22 +368,28 @@ class CpuVision:
         options.intra_op_num_threads = threads
         options.inter_op_num_threads = 1
         options.add_session_config_entry("session.intra_op.allow_spinning", "0")
+        # A larger set's Florence-2 parts are keyed "florence-2-base/vision_encoder".
         self.sessions = {
-            key: ort.InferenceSession(
+            key.rpartition("/")[2]: ort.InferenceSession(
                 str(path), sess_options=options, providers=["CPUExecutionProvider"]
             )
             for key, path in models.items()
+            if Path(path).suffix == ".onnx"
         }
         metadata = self.sessions["text_reader"].get_modelmeta().custom_metadata_map
         self.characters = [*metadata["character"].splitlines(), " "]
+        vocabulary = [Path(p) for p in models.values() if Path(p).suffix == ".json"]
+        if vocabulary:
+            self.florence = Florence(self.sessions, vocabulary[0])
 
     def _run(self, key, blob):
         session = self.sessions[key]
         return session.run(None, {session.get_inputs()[0].name: blob})
 
     def ocr(self, image: Image.Image) -> list[Reading]:
+        people = self._people(image)
         boxes = [(0, 0, image.width, image.height)]
-        for person in self._people(image):
+        for person in people:
             boxes.extend(_person_windows(person, image.size))
         found = []
         for box in boxes:
@@ -328,7 +397,14 @@ class CpuVision:
                 for reading in self._read_crop(tile):
                     if mapped := _map_reading(reading, box, image):
                         found.append(mapped)
-        return _combined(_whole_bibs(found))
+        small = _combined(_whole_bibs(found))
+        if self.florence is None:
+            return small
+        # Florence-2 misreads far less: an unsure small read stays only when it agrees.
+        read = _read_florence(self.florence, image, people)
+        seen = {r.value for r in read}
+        kept = [r for r in small if _sure(r) or r.value in seen]
+        return _combined(_whole_bibs([*kept, *read]))
 
     def _read_crop(self, image: Image.Image) -> list[Reading]:
         square, padding = _letterbox(image, 736)
@@ -363,11 +439,7 @@ class CpuVision:
                 continue  # a box under a pixel once mapped back to a small window
             text, confidence = self._read_text(crop)
             text = text.strip()
-            if (
-                re.fullmatch(r"[A-Za-z0-9-]{1,32}", text)
-                and any(c.isdigit() for c in text)
-                and confidence >= MIN_OCR
-            ):
+            if _bib_like(text) and confidence >= MIN_OCR:
                 readings.append(Reading(text, confidence, region))
         return readings
 
