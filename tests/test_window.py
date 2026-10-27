@@ -152,12 +152,14 @@ def test_a_failed_rescan_save_keeps_the_previous_index_and_list(
 def test_one_button_runs_the_selected_automatic_stages_and_reloads_saved_results(
     win, album, monkeypatch, appearance
 ):
+    from contextlib import nullcontext
+
     from app import recognition_worker as worker_module
     from tests.test_recognition import FakeVision
 
     engine = FakeVision()
     monkeypatch.setattr(worker_module, "ensure_models", lambda *args: {})
-    monkeypatch.setattr(worker_module, "CpuVision", lambda *args: engine)
+    monkeypatch.setattr(worker_module, "PhotoPool", lambda *args: nullcontext(engine))
     win.open_folder(album)
     assert win._mode.currentIndex() == 1
     assert not win._btn_stop.isEnabled()

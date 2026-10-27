@@ -6,7 +6,7 @@ from PySide6.QtCore import QThread, Signal
 
 from app import recognition
 from app.model_cache import CancelledError, ensure_models
-from app.vision import CpuVision
+from app.parallel import PhotoPool, plan_for
 
 
 class RecognitionWorker(QThread):
@@ -25,15 +25,17 @@ class RecognitionWorker(QThread):
             models = ensure_models(
                 self.appearance, self.progress.emit, self.isInterruptionRequested
             )
-            engine = CpuVision(models)
-            self.report = recognition.run(
-                self.folder,
-                self.index,
-                engine,
-                appearance=self.appearance,
-                progress=self.progress.emit,
-                cancel=self.isInterruptionRequested,
-            )
+            plan = plan_for(len(self.index["photos"]))
+            self.progress.emit(f"Preparing {plan.workers} parallel photo workers", 0, 1)
+            with PhotoPool(models, plan) as engine:
+                self.report = recognition.run(
+                    self.folder,
+                    self.index,
+                    engine,
+                    appearance=self.appearance,
+                    progress=self.progress.emit,
+                    cancel=self.isInterruptionRequested,
+                )
         except CancelledError:
             self.report.cancelled = True
         except (
