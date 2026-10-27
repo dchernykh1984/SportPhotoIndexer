@@ -132,6 +132,47 @@ def test_frozen_runtime_probe_also_exercises_spawn():
     parallel.check_runtime()
 
 
+def initialize_crashed(models, threads):
+    import os
+
+    os._exit(5)
+
+
+def test_a_crashed_child_cannot_publish_a_partial_index(album, monkeypatch):
+    from concurrent.futures.process import BrokenProcessPool
+
+    monkeypatch.setattr(parallel, "_initialize", initialize_crashed)
+    data = prepared(album)
+    before = indexer.load(album)
+    with (
+        pytest.raises(BrokenProcessPool),
+        parallel.PhotoPool({}, parallel.Plan(2, 1)) as pool,
+    ):
+        run(album, data, pool)
+    assert indexer.load(album) == before
+
+
+def test_a_file_changed_after_inference_but_before_commit_is_not_published(
+    album, monkeypatch
+):
+    from tests.conftest import make_photo
+
+    monkeypatch.setattr(parallel, "_initialize", initialize_fake)
+    data = prepared(album)
+
+    def progress(phase, n, total):
+        if phase == "Reading bib numbers":
+            for photo in data["photos"]:
+                make_photo(album, photo["original"]["path"], "black")
+
+    with (
+        pytest.raises(parallel.ChangedPhotoError),
+        parallel.PhotoPool({}, parallel.Plan(2, 1)) as pool,
+    ):
+        run(album, data, pool, progress=progress)
+    assert all(not photo["bibs"] for photo in indexer.load(album)["photos"])
+
+
 def test_spawned_inference_keeps_manual_decisions_and_matches_serial_results(
     album, monkeypatch
 ):
