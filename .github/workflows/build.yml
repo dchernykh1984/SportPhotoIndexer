@@ -83,7 +83,9 @@ jobs:
           pyi=(uv run --with "pyinstaller>=6,<7" pyinstaller)
           common=(--noconfirm --windowed \
                   --collect-submodules app --collect-all onnxruntime \
+                  --collect-all pillow_heif \
                   --add-data "app/app.ico${sep}app" \
+                  --add-data "app/codec_probe.heic${sep}app" \
                   --add-data "app/model_catalog.json${sep}app" \
                   --add-data "licenses${sep}licenses" \
                   --add-data "MODEL_NOTICES.md${sep}.")

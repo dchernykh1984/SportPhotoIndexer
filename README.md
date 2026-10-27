@@ -10,10 +10,13 @@ their photos by bib, and in their own race album.
 1. **One folder per photographer's album**, with the photos at its top level (the
    site opens a photo straight from Dropbox only for files at the root). Use the
    folder as it sits in your Dropbox, synced to this computer.
-2. **Open it**: *Open folder...*. The program lists the photos and writes
+2. **Open it**: *Open folder...*. JPEG, PNG, WebP, HEIC/HEIF (including HIF), TIFF,
+   BMP, GIF and AVIF are supported. The program lists the photos and writes
    `photo-index.v1.json` into the folder at once. Nothing else in the folder is
    changed; photos over 20 MB get a small copy in `_previews/`, because Dropbox
-   cannot shrink them for the site.
+   cannot shrink them for the site. HEIC/HEIF, TIFF, BMP, GIF and AVIF always get a
+   separate JPEG preview for the app and site. Originals keep their format and bytes.
+   A multi-image file contributes its primary image (HEIF) or first frame/page.
 3. **Recognize automatically**: the default mode reads bibs first, then uses riders with
    accepted bibs as appearance references for other photos of this album. Choose *Bib
    numbers only* to skip the second phase. Inspect the list's `check:` suggestions.

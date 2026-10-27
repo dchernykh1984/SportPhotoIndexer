@@ -264,7 +264,8 @@ class MainWindow(QMainWindow):
         if photo is None or self._folder is None:
             self._image.clear()
             return
-        pixmap = QPixmap(str(self._folder / photo["original"]["path"]))
+        asset = photo.get("preview", photo["original"])
+        pixmap = QPixmap(str(self._folder / asset["path"]))
         self._image.setPixmap(
             pixmap.scaled(
                 self._image.size(),
