@@ -231,3 +231,16 @@ def test_cached_ocr_reapplies_calibration_without_repeating_inference(
     run(album, data, cached, appearance=False)
     assert cached.calls == []
     assert data["photos"][0]["bibs"][0]["state"] == "candidate"
+
+
+def test_an_unavailable_cached_photo_does_not_abort_the_other_photos(album):
+    data = prepared(album)
+    run(album, data, FakeVision(), appearance=False)
+    (album / data["photos"][1]["original"]["path"]).unlink()
+    cached = FakeVision()
+    report = run(album, data, cached, appearance=False)
+    assert len(report.errors) == 1
+    assert data["photos"][1]["processing_state"] == "failed"
+    assert data["photos"][0]["processing_state"] == "processed"
+    assert data["photos"][2]["processing_state"] == "processed"
+    assert cached.calls == []

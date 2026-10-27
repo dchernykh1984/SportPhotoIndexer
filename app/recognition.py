@@ -90,9 +90,16 @@ def _ocr(folder, index, engine, appearance, progress, cancel, report):
         if photo.get("recognition", {}).get("ocr") != stamp:
             pending.append(photo)
         else:
-            _verify(folder, photo)
-            _merge(photo, "ocr", [b for b in photo["bibs"] if b["method"] == "ocr"])
-            photo["processing_state"] = "pending" if appearance else "processed"
+            try:
+                _verify(folder, photo)
+                _merge(photo, "ocr", [b for b in photo["bibs"] if b["method"] == "ocr"])
+                photo.pop("recognition_error", None)
+                photo["processing_state"] = "pending" if appearance else "processed"
+            except OSError as exc:
+                photo["processing_state"] = "failed"
+                photo["recognition_error"] = str(exc)[:500]
+                report.errors.append(f"{photo['original']['path']}: {exc}")
+            _checkpoint(folder, index)
     completed = total - len(pending)
     with closing(results(folder, pending, engine, "ocr", cancel)) as computed:
         for photo, (readings, error) in computed:
