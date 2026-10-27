@@ -17,6 +17,9 @@ their photos by bib, and in their own race album.
    cannot shrink them for the site. HEIC/HEIF, TIFF, BMP, GIF and AVIF always get a
    separate JPEG preview for the app and site. Originals keep their format and bytes.
    A multi-image file contributes its primary image (HEIF) or first frame/page.
+   AVIF needs Pillow's native AVIF codec, unavailable on Windows ARM64; an explicit
+   error is shown there rather than silently leaving AVIF files out. HEIC/HEIF works
+   on Windows ARM64 as well as x64, macOS and Linux.
 3. **Recognize automatically**: the default mode reads bibs first, then uses riders with
    accepted bibs as appearance references for other photos of this album. Choose *Bib
    numbers only* to skip the second phase. Inspect the list's `check:` suggestions.

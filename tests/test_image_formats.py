@@ -3,7 +3,7 @@
 import hashlib
 
 import pytest
-from PIL import Image
+from PIL import AvifImagePlugin, Image
 from pillow_heif import register_heif_opener
 
 from app import indexer, parallel
@@ -24,6 +24,10 @@ from tests.test_recognition import FakeVision
 def test_extra_photo_formats_keep_the_original_and_always_make_a_jpeg_preview(
     tmp_path, suffix, format_, mime
 ):
+    if format_ == "AVIF" and not AvifImagePlugin.SUPPORTED:
+        pytest.skip(
+            "Pillow has no AVIF codec on Windows ARM64; HEIC is tested separately"
+        )
     register_heif_opener(decode_threads=1)
     path = tmp_path / ("camera" + suffix)
     Image.new("RGB", (64, 48), "red").save(path, format=format_)
@@ -47,6 +51,20 @@ def test_extra_photo_formats_keep_the_original_and_always_make_a_jpeg_preview(
 
 def test_the_frozen_decoder_probe_can_read_an_actual_heic():
     assert parallel._runtime_probe()
+
+
+def test_an_unavailable_avif_decoder_is_reported_instead_of_dropping_the_photo(
+    tmp_path, monkeypatch
+):
+    monkeypatch.setattr(AvifImagePlugin, "SUPPORTED", False)
+    path = tmp_path / "phone.avif"
+    path.write_bytes(b"AVIF test input")
+    assert path in indexer.photo_files(tmp_path)
+    with pytest.raises(OSError, match="AVIF decoding is unavailable"):
+        indexer.scan(tmp_path)
+    photo = {"original": {"path": path.name, "sha256": indexer.sha256_of(path)}}
+    readings, error = parallel.infer(tmp_path, photo, "ocr", FakeVision())
+    assert not readings and "AVIF decoding is unavailable" in error
 
 
 def test_rescanning_an_unchanged_heic_reuses_its_mandatory_preview(
