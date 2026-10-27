@@ -62,8 +62,9 @@ A body that reviewers can act on has four parts:
 
 ## 5. CI
 
-Six checks run on a PR: `pre-commit`, `commitizen`, `audit` (pip-audit), `tests`,
-`build / targets` and `build / build (ubuntu-22.04, linux-x86_64)`.
+Eight checks run on a PR: `pre-commit`, `commitizen`, `audit` (pip-audit), `tests`,
+`build / targets`, `build / build (ubuntu-22.04, linux-x86_64)` and the two
+`windows-runtime` checks (x64 and ARM64) for spawn and native photo codecs.
 
 ```bash
 gh pr checks <number>
