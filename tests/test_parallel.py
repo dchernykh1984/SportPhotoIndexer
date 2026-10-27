@@ -33,6 +33,18 @@ def test_plan_respects_physical_cores_affinity_memory_and_photo_count(
     assert (plan.workers, plan.threads) == expected
 
 
+def test_each_worker_needs_memory_for_its_own_copy_of_the_models(monkeypatch):
+    monkeypatch.setattr(parallel.psutil, "cpu_count", lambda **kw: 8)
+    monkeypatch.setattr(parallel.os, "process_cpu_count", lambda: 8)
+    monkeypatch.setattr(
+        parallel.psutil,
+        "virtual_memory",
+        lambda: SimpleNamespace(available=16 * 1024**3),
+    )
+    assert parallel.plan_for(100) == parallel.Plan(8, 1)
+    assert parallel.plan_for(100, 3 * 1024**3) == parallel.Plan(3, 2)
+
+
 def test_unavailable_resource_information_falls_back_to_one_worker(monkeypatch):
     def denied(*args, **kwargs):
         raise OSError("not available")

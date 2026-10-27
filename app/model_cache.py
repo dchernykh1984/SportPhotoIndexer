@@ -21,10 +21,28 @@ CATALOG = json.loads(
 # OCR reads bibs around the people it finds, so the person detector belongs to it.
 OCR_MODELS = ("text_detector", "text_reader", "people_detector")
 ALL_MODELS = (*OCR_MODELS, "appearance")
+_FLORENCE = ("vision_encoder", "embed_tokens", "encoder_model", "decoder_model_merged")
+# Larger sizes add Florence-2, which reads bibs the small reader misses; each size
+# is offered only while it finds more (docs/recognition-benchmark.md).
+SIZES = {
+    "small": (),
+    **{
+        size: (*(f"{size}/{part}" for part in _FLORENCE), "florence-2/tokenizer")
+        for size in ("florence-2-base", "florence-2-large")
+    },
+}
 
 
-def download_megabytes(appearance: bool) -> int:
-    keys = ALL_MODELS if appearance else OCR_MODELS
+def ocr_models(size: str = "small") -> tuple[str, ...]:
+    return (*OCR_MODELS, *SIZES[size])
+
+
+def _keys(appearance: bool, size: str) -> tuple[str, ...]:
+    return (*ocr_models(size), *(("appearance",) if appearance else ()))
+
+
+def download_megabytes(appearance: bool, size: str = "small") -> int:
+    keys = _keys(appearance, size)
     return math.ceil(sum(CATALOG[key]["bytes"] for key in keys) / 1_000_000)
 
 
@@ -55,11 +73,12 @@ def ensure_models(
     progress: Callable[[str, int, int], None],
     cancel: Callable[[], bool],
     cache: Path | None = None,
+    size: str = "small",
 ) -> dict[str, Path]:
     cache = cache if cache is not None else app_path("data/models")
     cache.mkdir(parents=True, exist_ok=True)
     result = {}
-    for key in ALL_MODELS if appearance else OCR_MODELS:
+    for key in _keys(appearance, size):
         check_cancel(cancel)
         model = CATALOG[key]
         path = cache / Path(model["path"]).name

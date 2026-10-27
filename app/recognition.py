@@ -15,23 +15,19 @@ import numpy as np
 
 from app import indexer
 from app.index_format import MAX_BIBS_PER_PHOTO
-from app.model_cache import CATALOG, OCR_MODELS, CancelledError, check_cancel
+from app.model_cache import CATALOG, CancelledError, check_cancel, ocr_models
 from app.parallel import ChangedPhotoError as ChangedPhotoError
 from app.parallel import results
 from app.parallel import verify as _verify
-from app.vision import contains
+from app.vision import ACCEPT_LONE_DIGIT, ACCEPT_OCR, contains
 
-ENGINE_ID = (
-    "people-v2:"
-    + hashlib.sha256(
-        ",".join(CATALOG[k]["sha256"] for k in OCR_MODELS).encode()
-    ).hexdigest()[:16]
-)
-ACCEPT_OCR = 0.95
-# A lone digit is in every logo and word fragment; on test races it was wrong most
-# often, so it needs a sure read or two windows that agree.
-ACCEPT_LONE_DIGIT = 0.99
 APPEARANCE_THRESHOLD = 0.8
+
+
+def engine_id(size: str = "small") -> str:
+    """Saved bibs are reused only from the same models: another size reads again."""
+    models = ",".join(CATALOG[k]["sha256"] for k in ocr_models(size))
+    return "people-v2:" + hashlib.sha256(models.encode()).hexdigest()[:16]
 
 
 @dataclass
@@ -87,13 +83,14 @@ def _checkpoint(folder, index):
     indexer.save(folder, index)
 
 
-def _ocr(folder, index, engine, appearance, progress, cancel, report):
+def _ocr(folder, index, engine, appearance, size, progress, cancel, report):
+    engine_name = engine_id(size)
     total = len(index["photos"])
     pending = []
     cached = 0
     for photo in index["photos"]:
         check_cancel(cancel)
-        stamp = {"sha256": photo["original"]["sha256"], "engine": ENGINE_ID}
+        stamp = {"sha256": photo["original"]["sha256"], "engine": engine_name}
         if photo.get("recognition", {}).get("ocr") != stamp:
             pending.append(photo)
         else:
@@ -130,7 +127,7 @@ def _ocr(folder, index, engine, appearance, progress, cancel, report):
                 ]
                 photo.setdefault("recognition", {})["ocr"] = {
                     "sha256": photo["original"]["sha256"],
-                    "engine": ENGINE_ID,
+                    "engine": engine_name,
                 }
                 _merge(photo, "ocr", observations)
                 photo.pop("recognition_error", None)
@@ -243,6 +240,7 @@ def run(
     appearance: bool,
     progress: Callable[[str, int, int], None],
     cancel: Callable[[], bool],
+    size: str = "small",
 ) -> Report:
     """Mutate the worker's snapshot, refusing concurrent edits.
 
@@ -251,7 +249,7 @@ def run(
     """
     report = Report()
     try:
-        _ocr(folder, index, engine, appearance, progress, cancel, report)
+        _ocr(folder, index, engine, appearance, size, progress, cancel, report)
         if appearance:
             with tempfile.TemporaryDirectory(prefix="photo-appearance-") as temp:
                 with closing(sqlite3.connect(str(Path(temp) / "crops.sqlite3"))) as db:

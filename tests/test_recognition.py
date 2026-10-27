@@ -51,6 +51,7 @@ def run(album, data, engine, **options):
         appearance=options.pop("appearance", True),
         progress=options.pop("progress", lambda *args: None),
         cancel=options.pop("cancel", lambda: False),
+        size=options.pop("size", "small"),
     )
 
 
@@ -150,7 +151,7 @@ def test_cancel_keeps_a_partial_checkpoint_and_resume_skips_completed_ocr(album)
     assert report.cancelled
     saved = indexer.load(album)
     assert not saved["processing"]["complete"]
-    assert saved["photos"][0]["recognition"]["ocr"]["engine"] == recognition.ENGINE_ID
+    assert saved["photos"][0]["recognition"]["ocr"]["engine"] == recognition.engine_id()
     resumed = FakeVision()
     run(album, saved, resumed)
     assert [color for kind, color in resumed.calls if kind == "ocr"] == [1, 2]
@@ -244,6 +245,16 @@ def test_cached_ocr_reapplies_calibration_without_repeating_inference(
     run(album, data, cached, appearance=False)
     assert cached.calls == []
     assert data["photos"][0]["bibs"][0]["state"] == "candidate"
+
+
+def test_bibs_saved_by_one_model_size_are_read_again_by_another(album):
+    data = prepared(album)
+    run(album, data, FakeVision(), appearance=False)
+    larger = FakeVision()
+    run(album, data, larger, appearance=False, size="florence-2-base")
+    assert [kind for kind, _ in larger.calls] == ["ocr"] * 3
+    stamp = data["photos"][0]["recognition"]["ocr"]["engine"]
+    assert stamp == recognition.engine_id("florence-2-base") != recognition.engine_id()
 
 
 def test_an_unavailable_cached_photo_does_not_abort_the_other_photos(album):
