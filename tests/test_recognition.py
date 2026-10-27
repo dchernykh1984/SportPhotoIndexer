@@ -244,3 +244,26 @@ def test_an_unavailable_cached_photo_does_not_abort_the_other_photos(album):
     assert data["photos"][0]["processing_state"] == "processed"
     assert data["photos"][2]["processing_state"] == "processed"
     assert cached.calls == []
+
+
+def test_stop_is_honored_while_checking_only_cached_photos(album):
+    data = prepared(album)
+    run(album, data, FakeVision(), appearance=False)
+    stopped = False
+    checked = []
+
+    def progress(phase, n, total):
+        nonlocal stopped
+        checked.append(n)
+        stopped = True
+
+    report = run(
+        album,
+        data,
+        FakeVision(),
+        appearance=False,
+        progress=progress,
+        cancel=lambda: stopped,
+    )
+    assert report.cancelled
+    assert checked == [1]
