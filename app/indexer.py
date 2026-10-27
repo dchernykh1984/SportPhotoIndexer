@@ -129,7 +129,16 @@ def _asset(folder: Path, path: Path, sha: str) -> dict:
     }
 
 
+def check_decoder(path: Path) -> None:
+    if path.suffix.lower() == ".avif" and not AvifImagePlugin.SUPPORTED:
+        raise OSError(
+            "AVIF decoding is unavailable in this build (including Windows ARM64). "
+            "Use JPEG, PNG, WebP or HEIC/HEIF, or index this album on another platform."
+        )
+
+
 def _make_preview(folder: Path, original: Path) -> Path:
+    check_decoder(original)
     # The full name, so same.jpg and same.png do not share one preview.
     target = folder / PREVIEW_DIR / f"{original.name}.jpg"
     target.parent.mkdir(exist_ok=True)

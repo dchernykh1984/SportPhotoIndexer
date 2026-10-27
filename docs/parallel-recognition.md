@@ -80,6 +80,10 @@ decoder is also limited to one thread. Camera formats always get separate JPEG
 previews so neither Qt nor the site needs native HEIC support. The packaged runtime
 probe decodes a tiny generated HEIC fixture in the spawned child. Multi-image HEIF
 uses its primary image; GIF/TIFF use the first frame/page. Original files are read only.
+Pillow's Windows ARM64 wheel lacks AVIF (unlike HEIC, supplied by pillow-heif).
+AVIF files are not silently dropped: missing-decoder errors name the limitation.
+CI runs the HEIC tests there and skips only the unavailable AVIF round-trip, while
+testing the explicit missing-decoder path on every platform.
 
 ## Primary references
 

@@ -59,6 +59,7 @@ def _initialize(models, threads):
 def infer(folder, photo, method, engine=None):
     """Return values or a per-photo I/O error, never mutate the photo or album."""
     try:
+        indexer.check_decoder(folder / photo["original"]["path"])
         with Image.open(verify(folder, photo)) as source:
             with ImageOps.exif_transpose(source) as oriented:
                 with oriented.convert("RGB") as image:
