@@ -242,3 +242,20 @@ def test_a_heic_photo_is_visible_through_its_jpeg_preview(win, tmp_path):
     win.open_folder(tmp_path)
     assert win._list.count() == 1
     assert not win._image.pixmap().isNull()
+
+
+def test_the_button_can_finish_a_real_spawned_photo_pool(win, album, monkeypatch):
+    from app import parallel
+    from app import recognition_worker as worker_module
+    from tests.test_parallel import initialize_fake
+
+    monkeypatch.setattr(parallel, "_initialize", initialize_fake)
+    monkeypatch.setattr(worker_module, "ensure_models", lambda *args: {})
+    monkeypatch.setattr(worker_module, "plan_for", lambda count: parallel.Plan(2, 1))
+    win.open_folder(album)
+    win._on_recognize()
+    assert win._worker.wait(10000)
+    _app.processEvents()
+    assert win._worker is None
+    assert "Recognition finished" in win._lbl_status.text()
+    assert win._index == indexer.load(album)

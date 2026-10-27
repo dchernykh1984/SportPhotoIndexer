@@ -59,6 +59,28 @@ outperformed threads on this workload, which includes Python pixel/component loo
 The 8-process probe was 3.39 times faster than the previous serial configuration;
 that is a measurement of this sample, not a guarantee for another CPU or album.
 
+Full end-to-end comparison on all 158 photos, including model startup, original
+SHA-256 checks, OCR, appearance matching, validation and manifest writes:
+
+| Configuration | Seconds | Peak process-tree RSS |
+| --- | ---: | ---: |
+| Previous version, 1 photo / 4 model threads | 319.196 | 581 MiB |
+| Automatic plan, 5 photos / 2 model threads each | 107.258 | 3052 MiB |
+
+Available RAM at startup limited the automatic plan to five photo workers; their
+two model threads still fit the ten-core budget. This run was **2.98 times faster**.
+Both versions produced 30 appearance references and proposed bibs on 53 photos,
+with no processing errors. Per-photo bib/method/state sets matched on every photo.
+The measurements used separate temporary albums, without completed OCR checkpoints.
+Original bytes were checked afterwards and remained unchanged. Pool startup is part
+of the time, and the comparison is not a claim of identical speedup on other hardware.
+
+HEIC decoding is supplied by `pillow-heif` with one decode thread; Pillow's AVIF
+decoder is also limited to one thread. Camera formats always get separate JPEG
+previews so neither Qt nor the site needs native HEIC support. The packaged runtime
+probe decodes a tiny generated HEIC fixture in the spawned child. Multi-image HEIF
+uses its primary image; GIF/TIFF use the first frame/page. Original files are read only.
+
 ## Primary references
 
 - [ONNX Runtime thread management](https://onnxruntime.ai/docs/performance/tune-performance/threading.html):
