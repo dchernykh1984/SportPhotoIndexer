@@ -64,10 +64,18 @@ one spot combine); other reads from 0.80 up are candidates.
 Other bib scripts can be typed or imported from CSV.
 The scores are not calibrated race accuracy.
 The appearance phase uses whole-person crops (kit, helmet and build, plus bike pixels
-inside the crop), without face recognition. It searches **only this album**: put one
+inside the crop). It searches **only this album**: put one
 event in a folder. It needs unambiguous accepted bib references; overlapping riders
 seed nothing. A team/relay bib can keep references of several different riders.
 Appearance matches with cosine similarity at least 0.80 are always **candidates**.
+The mode *Bib numbers, then rider appearance and faces* also compares faces (39 MB
+more): it looks for a clear face in the top of each person and suggests a bib when face
+and body agree on it (face 0.30 and body 0.60), or when the body alone matches from 0.80
+and leads every other bib by 0.05. Faces find people out of race kit, at the awards
+too. On the first labelled race it doubled the people found without a readable bib (23
+to 45 of 378) with fewer wrong suggestions; on the second, where few references are
+right, it added wrong suggestions (64 to 77). Face vectors, like body vectors, last one
+run.
 Similar kit and riding poses can produce wrong suggestions. On two hand-labelled races
 ([recognition benchmark](docs/recognition-benchmark.md)) it found 62-73% of visible
 handlebar plates and about half of side-on seat-post plates. About one accepted value in

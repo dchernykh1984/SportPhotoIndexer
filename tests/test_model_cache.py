@@ -17,7 +17,8 @@ def catalog(monkeypatch):
         "bytes": len(payload),
         "sha256": hashlib.sha256(payload).hexdigest(),
     }
-    keys = {*cache.ALL_MODELS, *(k for size in cache.SIZES.values() for k in size)}
+    keys = {*cache.ALL_MODELS, *cache.FACE_MODELS}
+    keys |= {k for size in cache.SIZES.values() for k in size}
     monkeypatch.setattr(cache, "CATALOG", {k: model for k in keys})
     return payload
 
@@ -96,10 +97,21 @@ def test_a_larger_size_adds_its_own_models_to_the_small_set(
     assert "appearance" not in files
 
 
+def test_faces_add_only_the_two_face_models(tmp_path, monkeypatch, catalog):
+    monkeypatch.setattr(
+        cache.urllib.request, "urlopen", lambda *a, **k: io.BytesIO(catalog)
+    )
+    files = cache.ensure_models(
+        True, lambda *a: None, lambda: False, tmp_path, faces=True
+    )
+    assert set(files) == {*cache.ALL_MODELS, *cache.FACE_MODELS}
+
+
 def test_every_size_downloads_more_and_keeps_its_files_apart():
     real = cache.CATALOG
     sizes = [cache.download_megabytes(False, size) for size in cache.SIZES]
     assert sizes == sorted(sizes) and len(set(sizes)) == len(sizes)
+    assert cache.download_megabytes(True, faces=True) > cache.download_megabytes(True)
     # Two models under one file name would replace each other on every switch.
     names = {}
     for model in real.values():

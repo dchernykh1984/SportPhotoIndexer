@@ -1,6 +1,6 @@
 """Measure the app's recognition on a labelled album without touching the album.
 
-    uv run python -m tools.album.measure ALBUM WORKDIR COPYDIR [MODELS] [SIZE]
+    uv run python -m tools.album.measure ALBUM WORKDIR COPYDIR [MODELS] [SIZE] [faces]
 
 COPYDIR gets symbolic links to the album's photos, then the app's own scan and
 recognition (appearance included) run there, exactly as the window runs them. The
@@ -10,6 +10,7 @@ belong to nobody on the photo -- also counting those that are some starter's bib
 (only those reach a participant's album on the site). Run it on the main branch and
 on a change to compare. COPYDIR keeps its index, so a second run reuses saved OCR
 read with the same model SIZE (small by default; see app.model_cache.SIZES).
+A last argument "faces" matches riders by face as well as by body.
 """
 
 from __future__ import annotations
@@ -24,15 +25,18 @@ from app.parallel import PhotoPool, plan_for
 from tools.album.labels import read
 
 
-def run(album: Path, copy: Path, models: Path, size: str = "small") -> dict:
+def run(
+    album: Path, copy: Path, models: Path, size: str = "small", faces: bool = False
+) -> dict:
     copy.mkdir(parents=True, exist_ok=True)
     for photo in indexer.photo_files(album):
         if not (copy / photo.name).exists():
             (copy / photo.name).symlink_to(photo.resolve())
     index, _ = indexer.scan(copy, indexer.load(copy))
     indexer.save(copy, index)
-    paths = ensure_models(True, lambda *a: None, lambda: False, models, size)
-    plan = plan_for(len(index["photos"]), download_megabytes(True, size) * 1_000_000)
+    paths = ensure_models(True, lambda *a: None, lambda: False, models, size, faces)
+    megabytes = download_megabytes(True, size, faces)
+    plan = plan_for(len(index["photos"]), megabytes * 1_000_000)
     started = time.time()
     with PhotoPool(paths, plan) as engine:
         report = recognition.run(
@@ -43,6 +47,7 @@ def run(album: Path, copy: Path, models: Path, size: str = "small") -> dict:
             progress=lambda *a: None,
             cancel=lambda: False,
             size=size,
+            faces=faces,
         )
     print(f"recognition took {time.time() - started:.0f} s, {report}")
     return index
@@ -81,4 +86,4 @@ if __name__ == "__main__":
     album, work, copy = map(Path, sys.argv[1:4])
     models = Path(sys.argv[4]) if len(sys.argv) > 4 else Path("data/models")
     size = sys.argv[5] if len(sys.argv) > 5 else "small"
-    score(work, run(album, copy, models, size))
+    score(work, run(album, copy, models, size, sys.argv[6:] == ["faces"]))
