@@ -46,3 +46,7 @@ the window. Handler behaviour is protected only by the Qt-level tests in
 - `ship-a-change` -- branch, commit, open the PR with `gh`, watch CI to green.
 - `review-cycle` -- review a branch or PR and land the fixes.
 - `qt-window-tests` -- how to test PySide6 windows here.
+- `index-an-album` -- index a photo folder by eye: bibs, start protocol, starters
+  without a readable bib, and the index written through `app.cli`.
+- `measure-recognition` -- score the app's recognition on a labelled album before
+  and after a change; what earlier measurements taught.
