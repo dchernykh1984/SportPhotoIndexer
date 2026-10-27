@@ -266,6 +266,8 @@ class MainWindow(QMainWindow):
             return
         asset = photo.get("preview", photo["original"])
         pixmap = QPixmap(str(self._folder / asset["path"]))
+        if pixmap.isNull() and asset is not photo["original"]:
+            pixmap = QPixmap(str(self._folder / photo["original"]["path"]))
         self._image.setPixmap(
             pixmap.scaled(
                 self._image.size(),

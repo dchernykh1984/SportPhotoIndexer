@@ -259,3 +259,12 @@ def test_the_button_can_finish_a_real_spawned_photo_pool(win, album, monkeypatch
     assert win._worker is None
     assert "Recognition finished" in win._lbl_status.text()
     assert win._index == indexer.load(album)
+
+
+def test_a_broken_optional_preview_does_not_hide_a_readable_jpeg(win, album):
+    win._chk_previews.setChecked(True)
+    win.open_folder(album)
+    photo = win._index["photos"][0]
+    (album / photo["preview"]["path"]).write_bytes(b"not a preview")
+    win._show_photo(0)
+    assert not win._image.pixmap().isNull()
