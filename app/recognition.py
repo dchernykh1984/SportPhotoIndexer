@@ -85,11 +85,16 @@ def _checkpoint(folder, index):
 def _ocr(folder, index, engine, appearance, progress, cancel, report):
     total = len(index["photos"])
     pending = []
+    cached = 0
     for photo in index["photos"]:
+        check_cancel(cancel)
         stamp = {"sha256": photo["original"]["sha256"], "engine": ENGINE_ID}
         if photo.get("recognition", {}).get("ocr") != stamp:
             pending.append(photo)
         else:
+            cached += 1
+            progress("Checking saved bib numbers", cached, total)
+            check_cancel(cancel)
             try:
                 _verify(folder, photo)
                 _merge(photo, "ocr", [b for b in photo["bibs"] if b["method"] == "ocr"])
