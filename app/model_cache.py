@@ -18,8 +18,9 @@ from app.paths import app_path
 CATALOG = json.loads(
     Path(__file__).with_name("model_catalog.json").read_text(encoding="utf-8")
 )
-OCR_MODELS = ("text_detector", "text_reader")
-ALL_MODELS = (*OCR_MODELS, "people_detector", "appearance")
+# OCR reads bibs around the people it finds, so the person detector belongs to it.
+OCR_MODELS = ("text_detector", "text_reader", "people_detector")
+ALL_MODELS = (*OCR_MODELS, "appearance")
 
 
 def download_megabytes(appearance: bool) -> int:

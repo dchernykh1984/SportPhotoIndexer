@@ -39,7 +39,7 @@ file is replaced, old observations no longer apply: manual decisions are archive
 ### Automatic recognition and stopping
 
 Recognition runs on this computer's CPU; photos are not uploaded to a recognition service.
-There are no recognition API fees. First use needs internet to download up to **11 MB**
+There are no recognition API fees. First use needs internet to download up to **15 MB**
 of OCR models, or **121 MB** including appearance models. Progress names the download;
 verified models stay in `data/models` next to the portable app and work offline afterwards.
 Give that folder enough writable disk space. [Models and licenses](MODEL_NOTICES.md)
@@ -54,18 +54,20 @@ See [CPU policy and measurements](docs/parallel-recognition.md). Sustained full 
 can still trigger hardware thermal throttling; limiting workers prevents oversubscription,
 not heat itself.
 
-The current reader handles digits and Latin letters, keeping leading zeroes and case.
-Other bib scripts can be typed or imported from CSV. An OCR confidence of at least 0.98
-is accepted; 0.60-0.98 is a candidate. The scores are not calibrated race accuracy.
+Bibs are read wherever a person carries them -- chest, arm, belt, handlebar or seat
+post: the program finds the people in a photo and reads enlarged windows around each of
+them and the bike beside them, as well as the whole frame. A number on a banner, flag or
+car away from people is still read in the whole frame, so check suggestions.
+The reader handles digits and Latin letters, keeping leading zeroes and case. An OCR
+confidence of at least 0.98 is accepted; 0.80-0.98 is a candidate. Other bib scripts
+can be typed or imported from CSV. The scores are not calibrated race accuracy.
 The appearance phase uses whole-person crops (kit, helmet and build, plus bike pixels
 inside the crop), without face recognition. It searches **only this album**: put one
 event in a folder. It needs unambiguous accepted bib references; overlapping riders
 seed nothing. A team/relay bib can keep references of several different riders.
 Appearance matches with cosine similarity at least 0.80 are always **candidates**.
-Similar kit and riding poses can produce wrong suggestions. A real-race pilot exposed small-number and aspect-ratio failures, now guarded by regression
-tests. OCR reads overlapping 768-pixel tiles on large photos instead of shrinking away the
-bibs. A complete manually labelled precision/recall benchmark is still pending; review
-suggestions before relying on them. Cross-album appearance search is not implemented.
+Similar kit and riding poses can produce wrong suggestions. A complete manually labelled
+precision/recall benchmark is still pending; review suggestions before relying on them. Cross-album appearance search is not implemented.
 
 **Stop** terminates the read-only photo workers and keeps every already-saved photo.
 Photos can finish out of order; the progress count measures returned photos. Start again to resume OCR without repeating

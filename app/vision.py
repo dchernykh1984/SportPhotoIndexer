@@ -16,6 +16,8 @@ import numpy as np
 from PIL import Image, ImageFilter
 
 Region = tuple[float, float, float, float]
+# Reads below this are noise; recognition accepts from its own, higher threshold.
+MIN_OCR = 0.8
 
 
 @dataclass(frozen=True)
@@ -131,20 +133,85 @@ def _letterbox(image, side):
     return square, (left, top, width, height)
 
 
-def _tile_boxes(image):
-    """Full context plus overlapping 768px windows for small, distant bibs."""
-    yield (0, 0, image.width, image.height)
-    if max(image.size) <= 1600:
-        return
+def _person_windows(region, size):
+    """Overlapping squares, 0.4 of a person's height, over them and beside them.
 
-    def starts(length):
-        end = max(0, length - 768)
-        count = math.ceil(end / 640)
-        return [round(n * end / count) for n in range(count + 1)] if count else [0]
+    A bib on a chest, arm, belt, handlebar or seat post is too small for the text
+    detector in the whole frame or a native-resolution tile: it finds plate digits
+    only once they are about a tenth of its input. The zone reaches past the body to
+    a handlebar in front, a seat post behind and the bike below.
+    """
+    width, height = size
+    x, y, w, h = region
+    left, right = max(0, x - 0.3 * w) * width, min(1, x + 1.3 * w) * width
+    top, bottom = max(0, y - 0.05 * h) * height, min(1, y + 1.2 * h) * height
+    side = max(64, 0.4 * h * height)
 
-    for y in starts(image.height):
-        for x in starts(image.width):
-            yield (x, y, min(x + 768, image.width), min(y + 768, image.height))
+    def starts(start, end):
+        count = max(1, math.ceil((end - start - side) / (0.75 * side)) + 1)
+        span = end - start - side
+        return [
+            start + span * (n / (count - 1) if count > 1 else 0.5) for n in range(count)
+        ]
+
+    for b in starts(top, bottom):
+        for a in starts(left, right):
+            a, b = max(0, a), max(0, b)
+            yield (
+                round(a),
+                round(b),
+                round(min(width, a + side)),
+                round(min(height, b + side)),
+            )
+
+
+def _overlap(a, b):
+    return (
+        a[0] < b[0] + b[2]
+        and b[0] < a[0] + a[2]
+        and a[1] < b[1] + b[3]
+        and b[1] < a[1] + a[3]
+    )
+
+
+def _combined(readings):
+    """One reading per bib and spot: windows overlap, so a plate is often read twice.
+
+    Independent reads that agree raise the confidence to 1 - prod(1 - c); a lone
+    digit read once stays as uncertain as the reader said.
+    """
+    clusters: list[list[Reading]] = []
+    for reading in sorted(readings, key=lambda r: r.confidence, reverse=True):
+        for cluster in clusters:
+            if cluster[0].value == reading.value and _overlap(
+                cluster[0].region, reading.region
+            ):
+                cluster.append(reading)
+                break
+        else:
+            clusters.append([reading])
+    return [
+        Reading(
+            best.value,
+            1 - math.prod(1 - r.confidence for r in [best, *rest]),
+            best.region,
+        )
+        for best, *rest in clusters
+    ]
+
+
+def _whole_bibs(readings):
+    """Drop a fragment read on the same plate as a longer bib: "6" over "16"."""
+    return [
+        r
+        for r in readings
+        if not any(
+            len(o.value) > len(r.value)
+            and r.value in o.value
+            and _overlap(r.region, o.region)
+            for o in readings
+        )
+    ]
 
 
 def _map_reading(reading, box, image):
@@ -252,21 +319,26 @@ class CpuVision:
         return session.run(None, {session.get_inputs()[0].name: blob})
 
     def ocr(self, image: Image.Image) -> list[Reading]:
+        boxes = [(0, 0, image.width, image.height)]
+        for person in self._people(image):
+            boxes.extend(_person_windows(person, image.size))
         found = []
-        for box in _tile_boxes(image):
+        for box in boxes:
             with image.crop(box) as tile:
                 for reading in self._read_crop(tile):
                     if mapped := _map_reading(reading, box, image):
                         found.append(mapped)
-        return found
+        return _combined(_whole_bibs(found))
 
     def _read_crop(self, image: Image.Image) -> list[Reading]:
         square, padding = _letterbox(image, 736)
+        # The OpenCV Zoo export takes (BGR - mean) / 255; dividing by Paddle's std
+        # saturates it, so it sees either no text or text everywhere.
         blob = _blob(
             square,
             (736, 736),
-            (123.675, 116.28, 103.53),
-            (58.395, 57.12, 57.375),
+            (122.67891434, 116.66876762, 104.00698793),
+            (255.0,) * 3,
             bgr=True,
         )
         probability = np.asarray(self._run("text_detector", blob)[0]).squeeze()
@@ -287,12 +359,14 @@ class CpuVision:
             if region is None:
                 continue
             crop = _crop(image, region)
+            if min(crop.size) < 2:
+                continue  # a box under a pixel once mapped back to a small window
             text, confidence = self._read_text(crop)
             text = text.strip()
             if (
                 re.fullmatch(r"[A-Za-z0-9-]{1,32}", text)
                 and any(c.isdigit() for c in text)
-                and confidence >= 0.6
+                and confidence >= MIN_OCR
             ):
                 readings.append(Reading(text, confidence, region))
         return readings
@@ -309,7 +383,7 @@ class CpuVision:
             probabilities=True,
         )
 
-    def riders(self, image: Image.Image) -> list[Rider]:
+    def _people(self, image: Image.Image) -> list[Region]:
         square, padding = _letterbox(image, 416)
         blob = _blob(
             square,
@@ -318,11 +392,15 @@ class CpuVision:
             (57.375, 57.12, 58.395),
             bgr=True,
         )
+        regions = (
+            _unpad(padded, padding, 416)
+            for padded in person_boxes(self._run("people_detector", blob))
+        )
+        return [region for region in regions if region is not None]
+
+    def riders(self, image: Image.Image) -> list[Rider]:
         found = []
-        for padded_region in person_boxes(self._run("people_detector", blob)):
-            region = _unpad(padded_region, padding, 416)
-            if region is None:
-                continue
+        for region in self._people(image):
             crop = _crop(image, region)
             features = self._run(
                 "appearance",
