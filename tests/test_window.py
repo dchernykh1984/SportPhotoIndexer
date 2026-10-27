@@ -10,7 +10,7 @@ os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
 from PySide6.QtWidgets import QApplication
 
-from app import indexer, settings
+from app import indexer, recognition, settings
 from app import main_window as mw
 
 _app = QApplication.instance() or QApplication([])
@@ -182,6 +182,36 @@ def test_one_button_runs_the_selected_automatic_stages_and_reloads_saved_results
         assert all(kind == "ocr" for kind, _ in engine.calls)
     assert win._index == indexer.load(album)
     assert "Recognition finished" in win._lbl_status.text()
+
+
+def test_the_chosen_model_size_is_downloaded_used_and_remembered(
+    win, album, monkeypatch
+):
+    from contextlib import nullcontext
+
+    from app import recognition_worker as worker_module
+    from tests.test_recognition import FakeVision
+
+    asked = []
+    monkeypatch.setattr(
+        worker_module, "ensure_models", lambda *a, **k: asked.append(k["size"]) or {}
+    )
+    engine = FakeVision()
+    monkeypatch.setattr(worker_module, "PhotoPool", lambda *a: nullcontext(engine))
+    win.open_folder(album)
+    assert win._size.currentData() == "small"
+    assert "MB" in win._size.currentText()
+    win._size.setCurrentIndex(win._size.findData("florence-2-large"))
+    win._on_recognize()
+    assert not win._size.isEnabled()
+    assert win._worker.wait(10000)
+    _app.processEvents()
+    assert asked == ["florence-2-large"]
+    stamp = indexer.load(album)["photos"][0]["recognition"]["ocr"]["engine"]
+    assert stamp == recognition.engine_id("florence-2-large")
+    again = mw.MainWindow()
+    assert again._size.currentData() == "florence-2-large"
+    again.deleteLater()
 
 
 def test_automatic_errors_are_visible_and_do_not_claim_success(win, album, monkeypatch):

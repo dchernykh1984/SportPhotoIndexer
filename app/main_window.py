@@ -39,6 +39,12 @@ from app.recognition_worker import RecognitionWorker
 
 _PENDING = "not checked"
 _NO_BIB = "no bib"
+# Larger models find more bibs and take longer (docs/recognition-benchmark.md).
+_SIZES = {
+    "small": "Small models",
+    "florence-2-base": "Medium: Florence-2 base",
+    "florence-2-large": "Large: Florence-2 large",
+}
 
 
 class MainWindow(QMainWindow):
@@ -86,6 +92,14 @@ class MainWindow(QMainWindow):
         self._mode.addItems(["Bib numbers only", "Bib numbers, then rider appearance"])
         self._mode.setCurrentIndex(1)
         automatic.addWidget(self._mode)
+        self._size = QComboBox()
+        for size, title in _SIZES.items():
+            self._size.addItem(f"{title} ({download_megabytes(False, size)} MB)", size)
+        self._size.setCurrentIndex(
+            max(0, self._size.findData(settings.load().get("model_size")))
+        )
+        self._size.currentIndexChanged.connect(self._on_size)
+        automatic.addWidget(self._size)
         self._btn_auto = QPushButton("Recognize automatically")
         self._btn_auto.clicked.connect(self._on_recognize)
         automatic.addWidget(self._btn_auto)
@@ -99,9 +113,9 @@ class MainWindow(QMainWindow):
         root.addLayout(automatic)
         help_text = QLabel(
             "Runs on this computer (no photo uploads or recognition fees). "
-            "First use downloads "
-            f"up to {download_megabytes(False)} MB for bibs, "
-            f"{download_megabytes(True)} MB with appearance; then works offline. "
+            "First use downloads the chosen models, "
+            f"{download_megabytes(True) - download_megabytes(False)} MB more with"
+            " appearance; then works offline. "
             "Bibs: digits and Latin letters. Appearance searches this album only, "
             "using the "
             "rider's whole look, without face recognition. Suggestions need checking. "
@@ -148,8 +162,12 @@ class MainWindow(QMainWindow):
             self._btn_save,
             self._btn_auto,
             self._mode,
+            self._size,
         ):
             widget.setEnabled(on)
+
+    def _on_size(self) -> None:
+        settings.save({**settings.load(), "model_size": self._size.currentData()})
 
     # -- album ---------------------------------------------------------------------
 
@@ -327,6 +345,7 @@ class MainWindow(QMainWindow):
             self._folder,
             self._index,
             appearance=self._mode.currentIndex() == 1,
+            size=self._size.currentData(),
             parent=self,
         )
         self._worker.progress.connect(self._recognition_progress)
