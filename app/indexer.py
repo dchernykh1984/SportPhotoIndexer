@@ -24,7 +24,8 @@ from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from pathlib import Path
 
-from PIL import Image, ImageOps
+from PIL import AvifImagePlugin, Image, ImageOps
+from pillow_heif import register_heif_opener
 
 from app import version
 from app.index_format import (
@@ -32,6 +33,7 @@ from app.index_format import (
     INDEX_FILE,
     MAX_INDEX_BYTES,
     MEDIA_TYPES,
+    PREVIEW_MEDIA_TYPES,
     SCHEMA_VERSION,
     THUMBNAIL_LIMIT_BYTES,
     bib_problem,
@@ -43,6 +45,8 @@ from app.index_format import (
 PREVIEW_DIR = "_previews"
 PREVIEW_SIDE = 1024
 _CHUNK = 1024 * 1024
+register_heif_opener(decode_threads=1, thumbnails=False)
+AvifImagePlugin.DEFAULT_MAX_THREADS = 1
 
 
 class IndexError_(ValueError):  # noqa: N801,N818 -- not the builtin IndexError
@@ -180,6 +184,7 @@ def scan(
         # A preview made from the old file would show the old picture: remake it.
         if (
             previews
+            or MEDIA_TYPES[path.suffix.lower()] not in PREVIEW_MEDIA_TYPES
             or (
                 "preview" in photo and not (folder / photo["preview"]["path"]).is_file()
             )

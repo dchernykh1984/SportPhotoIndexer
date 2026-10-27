@@ -20,7 +20,16 @@ MEDIA_TYPES = {
     ".jpeg": "image/jpeg",
     ".png": "image/png",
     ".webp": "image/webp",
+    ".heic": "image/heic",
+    ".heif": "image/heif",
+    ".hif": "image/heif",
+    ".tif": "image/tiff",
+    ".tiff": "image/tiff",
+    ".bmp": "image/bmp",
+    ".gif": "image/gif",
+    ".avif": "image/avif",
 }
+PREVIEW_MEDIA_TYPES = {"image/jpeg", "image/png", "image/webp"}
 # Dropbox makes no thumbnail of a file bigger than this; such a photo needs a preview.
 THUMBNAIL_LIMIT_BYTES = 20 * 1024 * 1024
 # The site's defaults (PHOTO_INDEX_MAX_*); an album over them is refused on import.
@@ -99,7 +108,7 @@ def _asset_problems(asset: object, where: str) -> list[str]:
     if type(size) is not int or not 1 <= size < 2**63:
         found.append(f"{where}.bytes: must be a positive integer")
     if not _member(asset.get("media_type"), set(MEDIA_TYPES.values())):
-        found.append(f"{where}.media_type: must be JPEG, PNG or WebP")
+        found.append(f"{where}.media_type: must be a supported photo format")
     url = asset.get("view_url", "")
     if not isinstance(url, str) or (
         url and (len(url) > MAX_PATH or not _VIEW_URL.fullmatch(url))
@@ -182,6 +191,17 @@ def photo_problems(photo: object, where: str) -> list[str]:
     found += _asset_problems(photo.get("original"), f"{where}.original")
     if photo.get("preview") is not None:
         found += _asset_problems(photo["preview"], f"{where}.preview")
+        if isinstance(photo["preview"], dict) and not _member(
+            photo["preview"].get("media_type"), PREVIEW_MEDIA_TYPES
+        ):
+            found.append(f"{where}.preview.media_type: must be JPEG, PNG or WebP")
+    original = photo.get("original")
+    if (
+        isinstance(original, dict)
+        and not _member(original.get("media_type"), PREVIEW_MEDIA_TYPES)
+        and photo.get("preview") is None
+    ):
+        found.append(f"{where}.preview: required for this original format")
     if not _member(photo.get("processing_state"), _PROCESSING):
         found.append(f"{where}.processing_state: must be pending, processed or failed")
     bibs = photo.get("bibs", [])

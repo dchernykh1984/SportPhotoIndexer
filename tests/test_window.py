@@ -232,3 +232,13 @@ def test_closing_during_a_model_download_requests_cancel_before_destroying_the_t
     _app.processEvents()
     assert win._worker is None
     assert "Stopped" in win._lbl_status.text()
+
+
+def test_a_heic_photo_is_visible_through_its_jpeg_preview(win, tmp_path):
+    from PIL import Image
+
+    path = tmp_path / "phone.HEIC"
+    Image.new("RGB", (64, 48), "red").save(path, format="HEIF")
+    win.open_folder(tmp_path)
+    assert win._list.count() == 1
+    assert not win._image.pixmap().isNull()

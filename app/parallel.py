@@ -125,6 +125,12 @@ def _runtime_probe():
     import onnxruntime as ort
 
     ort.disable_telemetry_events()
+    from pathlib import Path
+
+    with Image.open(Path(__file__).with_name("codec_probe.heic")) as image:
+        image.load()
+        if image.size != (2, 2):
+            raise RuntimeError("The HEIC decoder is missing")
     return (
         "CPUExecutionProvider" in ort.get_available_providers()
         and plan_for(1).workers == 1

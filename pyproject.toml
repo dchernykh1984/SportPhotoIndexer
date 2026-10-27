@@ -11,6 +11,7 @@ dependencies = [
     "onnxruntime>=1.31,<2",
     "certifi>=2026.9.30",
     "psutil>=7.2,<8",
+    "pillow-heif>=1.8.1,<2",
 ]
 
 [dependency-groups]
