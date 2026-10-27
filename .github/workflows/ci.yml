@@ -66,3 +66,21 @@ jobs:
         run: uv sync
       - name: Run tests
         run: uv run pytest
+
+  windows-runtime:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest, windows-11-arm]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+      - uses: astral-sh/setup-uv@v7
+        with:
+          enable-cache: true
+          python-version: "3.14"
+      - name: Install dependencies
+        run: uv sync --locked
+      - name: Check spawn and native photo codecs
+        run: uv run --locked pytest tests/test_parallel.py tests/test_image_formats.py -n 0 --no-cov -q
