@@ -1,5 +1,23 @@
 # Changelog
 
+## [0.3.0](https://github.com/dchernykh1984/SportPhotoIndexer/compare/sport-photo-indexer-v0.2.0...sport-photo-indexer-v0.3.0) (2026-10-27)
+
+
+### Features
+
+* index HEIC and other photo formats without changing originals ([b7a6983](https://github.com/dchernykh1984/SportPhotoIndexer/commit/b7a69832ad9497625e834bdcbcfcac3d6c4ffd02))
+* recognize photos in parallel within the available CPU budget ([28473b0](https://github.com/dchernykh1984/SportPhotoIndexer/commit/28473b0ae682eda0c2e9196fd398f1db7814bfd3))
+
+
+### Bug Fixes
+
+* honor Stop while checking cached recognition results ([3a88212](https://github.com/dchernykh1984/SportPhotoIndexer/commit/3a88212cdd29958c1a077abe246595d9e5927786))
+* keep processing when a cached photo becomes unavailable ([8b29f3e](https://github.com/dchernykh1984/SportPhotoIndexer/commit/8b29f3ebc6f03ee8deebc2328fbaf2e3464c20df))
+* rebuild camera previews when their cached bytes were modified ([c823b6b](https://github.com/dchernykh1984/SportPhotoIndexer/commit/c823b6ba53563b2f7b4e02cc4f08dc430ebc9501))
+* report unavailable AVIF decoding on Windows ARM64 ([5e625a3](https://github.com/dchernykh1984/SportPhotoIndexer/commit/5e625a372c2791b14f690242494f476078198eeb))
+* reuse unchanged camera previews when rescanning an album ([014f47d](https://github.com/dchernykh1984/SportPhotoIndexer/commit/014f47dee0e3b266854b666d19f4bc4ef6628124))
+* show readable originals when optional previews are unavailable ([cf28236](https://github.com/dchernykh1984/SportPhotoIndexer/commit/cf28236e2f73c745411fe73468c614d79ebc110b))
+
 ## [0.2.0](https://github.com/dchernykh1984/SportPhotoIndexer/compare/sport-photo-indexer-v0.1.0...sport-photo-indexer-v0.2.0) (2026-10-27)
 
 
