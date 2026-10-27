@@ -46,13 +46,11 @@ def _classified(observation, method, lock):
     if state == "rejected":
         return observation
     if method == "ocr":
-        # Letters read beside digits were sponsor text and car plates on test races,
-        # never a bib: such values stay suggestions.
-        value = observation["value"]
-        needed = ACCEPT_LONE_DIGIT if len(value) == 1 else ACCEPT_OCR
+        # Any bib format is accepted alike: races use letters too ("A12").
+        needed = ACCEPT_LONE_DIGIT if len(observation["value"]) == 1 else ACCEPT_OCR
         state = (
             "accepted"
-            if (observation.get("confidence") or 0) >= needed and value.isdigit()
+            if (observation.get("confidence") or 0) >= needed
             else "candidate"
         )
     if lock:

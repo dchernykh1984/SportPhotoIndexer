@@ -58,9 +58,9 @@ Bibs are read wherever a person carries them -- chest, arm, belt, handlebar or s
 post: the program finds the people in a photo and reads enlarged windows around each of
 them and the bike beside them, as well as the whole frame. A number on a banner, flag or
 car away from people is still read in the whole frame, so check suggestions.
-The reader handles digits and Latin letters, keeping leading zeroes and case. Digits read
-with confidence of at least 0.95 are accepted, a single digit from 0.99 (agreeing reads of
-one spot combine); other reads from 0.80 up, and any value with letters, are candidates.
+The reader handles digits and Latin letters, keeping leading zeroes and case. A bib read
+with confidence of at least 0.95 is accepted, a single digit from 0.99 (agreeing reads of
+one spot combine); other reads from 0.80 up are candidates.
 Other bib scripts can be typed or imported from CSV.
 The scores are not calibrated race accuracy.
 The appearance phase uses whole-person crops (kit, helmet and build, plus bike pixels
@@ -70,8 +70,9 @@ seed nothing. A team/relay bib can keep references of several different riders.
 Appearance matches with cosine similarity at least 0.80 are always **candidates**.
 Similar kit and riding poses can produce wrong suggestions. On two hand-labelled races
 ([recognition benchmark](docs/recognition-benchmark.md)) it found 62-73% of visible
-handlebar plates and about half of side-on seat-post plates; one accepted bib in ten (one
-in three on the harder race) was wrong, so review suggestions before relying on them. Cross-album appearance search is not implemented.
+handlebar plates and about half of side-on seat-post plates. About one accepted value in
+ten was wrong on the first race and half on the second, most of those there matching no
+starter (a car plate, a display), so review suggestions before relying on them. Cross-album appearance search is not implemented.
 
 **Stop** terminates the read-only photo workers and keeps every already-saved photo.
 Photos can finish out of order; the progress count measures returned photos. Start again to resume OCR without repeating

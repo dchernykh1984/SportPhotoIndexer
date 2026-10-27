@@ -212,7 +212,7 @@ def test_appearance_respects_the_bib_already_known_for_the_same_rider_crop(album
     assert all(b["state"] == "candidate" for b in green["bibs"])
 
 
-def test_near_threshold_lone_digit_and_lettered_reads_stay_candidates(album):
+def test_near_threshold_and_lone_digit_reads_stay_candidates_any_format_accepted(album):
     data = prepared(album)
     engine = FakeVision()
     engine.readings[0] = [
@@ -220,7 +220,7 @@ def test_near_threshold_lone_digit_and_lettered_reads_stay_candidates(album):
         Reading("12", 0.96, (0.6, 0.1, 0.05, 0.02)),
         Reading("4", 0.98, (0.1, 0.5, 0.05, 0.02)),
         Reading("7", 0.995, (0.6, 0.5, 0.05, 0.02)),
-        Reading("PN837", 0.999, (0.1, 0.1, 0.05, 0.02)),
+        Reading("A12", 0.97, (0.1, 0.1, 0.05, 0.02)),
     ]
     run(album, data, engine, appearance=False)
     states = {b["value"]: b["state"] for b in data["photos"][0]["bibs"]}
@@ -229,7 +229,7 @@ def test_near_threshold_lone_digit_and_lettered_reads_stay_candidates(album):
         "12": "accepted",
         "4": "candidate",
         "7": "accepted",
-        "PN837": "candidate",
+        "A12": "accepted",
     }
 
 

@@ -15,16 +15,22 @@ head-on (no plate in view), and banners, bottles and helmet stickers carry numbe
 ## Results
 
 *Found* is the share of visible pairs the index contains. *Wrong* is the share of
-the index's values that belong to nobody on that photo. *All* counts accepted bibs
-and candidates (uncertain reads and appearance suggestions), as a participant's
+the index's values that belong to nobody on that photo; in brackets, how many of those
+wrong values are some starter's bib, so the site would show the photo to that starter.
+The rest (car plates, a display's "8888") match no registration. *All* counts accepted
+bibs and candidates (uncertain reads and appearance suggestions), as a participant's
 registration album shows them.
 
 | Album | Version | Accepted: found | Accepted: wrong | All: found | All: wrong |
 | --- | --- | ---: | ---: | ---: | ---: |
-| Alatau XCO | 0.3.0 | 41.0% | 7.3% (14/192) | 58.8% | 36.4% (155/426) |
-| Alatau XCO | people windows | **62.0%** | 9.3% (28/302) | **72.7%** | **26.7%** (123/460) |
-| UBT TT | 0.3.0 | 48.9% | 29.0% (9/31) | 57.8% | 76.5% (88/115) |
-| UBT TT | people windows | 48.9% | 37.1% (13/35) | 57.8% | **70.0%** (63/90) |
+| Alatau XCO | 0.3.0 | 41.0% | 14 of 192 (12 bibs) | 58.8% | 155 of 426 (135 bibs) |
+| Alatau XCO | people windows | **62.0%** | 29 of 303 (24 bibs) | **72.7%** | **123 of 460 (109 bibs)** |
+| UBT TT | 0.3.0 | 48.9% | 9 of 31 (2 bibs) | 57.8% | 88 of 115 (38 bibs) |
+| UBT TT | people windows | 48.9% | 25 of 47 (7 bibs) | 57.8% | 64 of 91 (36 bibs) |
+
+Bibs with letters are accepted like digits, so that a race numbered "A12" works without
+settings. On UBT TT this accepts 12 lettered values that are not bibs at all (a display's
+"B8888", a car plate), which no participant's album shows.
 
 Speed is unchanged: 500 Alatau photos, appearance included, on six workers of a ten-core
 Mac took 399 s with 0.3.0 and 399 s and 427 s in two runs with people windows.
@@ -45,5 +51,6 @@ Mac took 399 s with 0.3.0 and 399 s and 427 s in two runs with people windows.
   riders shot head-on with a seat-post plate. People without a readable bib are left to
   the appearance phase.
 - Wrong: lone digits in logos and word fragments (they now need a sure read or two
-  agreeing windows), part of a plate split by a brake cable ("3" of "30"), numbers that
-  really are on a person or near one (helmet sticker, bottle, tyre size).
+  agreeing windows), part of a plate split by a brake cable ("3" of "30"), numbers and
+  codes that really are on a person or near one (helmet sticker, bottle, tyre size,
+  a car plate).
