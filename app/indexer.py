@@ -189,7 +189,12 @@ def scan(
                 and "preview" not in photo
             )
             or (
-                "preview" in photo and not (folder / photo["preview"]["path"]).is_file()
+                "preview" in photo
+                and (
+                    not (folder / photo["preview"]["path"]).is_file()
+                    or sha256_of(folder / photo["preview"]["path"])
+                    != photo["preview"]["sha256"]
+                )
             )
             or (changed and "preview" in photo)
             or path.stat().st_size > THUMBNAIL_LIMIT_BYTES

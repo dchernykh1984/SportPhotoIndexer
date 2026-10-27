@@ -65,6 +65,25 @@ def test_rescanning_an_unchanged_heic_reuses_its_mandatory_preview(
     assert again["photos"] == data["photos"] and report.previews == 0
 
 
+def test_rescanning_repairs_a_modified_heic_preview_without_changing_its_original(
+    tmp_path,
+):
+    path = tmp_path / "phone.heic"
+    Image.new("RGB", (64, 48), "red").save(path, format="HEIF")
+    data, _ = indexer.scan(tmp_path)
+    indexer.save(tmp_path, data)
+    photo = data["photos"][0]
+    preview = tmp_path / photo["preview"]["path"]
+    preview.write_bytes(b"broken cached preview")
+    again, report = indexer.scan(tmp_path, data)
+    assert report.previews == 1
+    assert again["photos"][0]["id"] == photo["id"]
+    assert indexer.sha256_of(path) == photo["original"]["sha256"]
+    assert indexer.sha256_of(preview) == again["photos"][0]["preview"]["sha256"]
+    with Image.open(preview) as image:
+        assert image.format == "JPEG"
+
+
 def test_heif_primary_image_is_used_in_preview_and_a_spawned_worker(
     tmp_path, monkeypatch
 ):
