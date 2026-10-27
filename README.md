@@ -68,8 +68,10 @@ inside the crop), without face recognition. It searches **only this album**: put
 event in a folder. It needs unambiguous accepted bib references; overlapping riders
 seed nothing. A team/relay bib can keep references of several different riders.
 Appearance matches with cosine similarity at least 0.80 are always **candidates**.
-Similar kit and riding poses can produce wrong suggestions. A complete manually labelled
-precision/recall benchmark is still pending; review suggestions before relying on them. Cross-album appearance search is not implemented.
+Similar kit and riding poses can produce wrong suggestions. On two hand-labelled races
+([recognition benchmark](docs/recognition-benchmark.md)) it found 62-73% of visible
+handlebar plates and about half of side-on seat-post plates; one accepted bib in ten (one
+in three on the harder race) was wrong, so review suggestions before relying on them. Cross-album appearance search is not implemented.
 
 **Stop** terminates the read-only photo workers and keeps every already-saved photo.
 Photos can finish out of order; the progress count measures returned photos. Start again to resume OCR without repeating
