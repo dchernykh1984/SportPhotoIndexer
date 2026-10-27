@@ -49,6 +49,22 @@ def test_the_frozen_decoder_probe_can_read_an_actual_heic():
     assert parallel._runtime_probe()
 
 
+def test_rescanning_an_unchanged_heic_reuses_its_mandatory_preview(
+    tmp_path, monkeypatch
+):
+    path = tmp_path / "phone.heic"
+    Image.new("RGB", (64, 48), "red").save(path, format="HEIF")
+    data, _ = indexer.scan(tmp_path)
+    indexer.save(tmp_path, data)
+
+    def unexpected(*args):
+        raise AssertionError("An unchanged camera photo should reuse its preview")
+
+    monkeypatch.setattr(indexer, "_make_preview", unexpected)
+    again, report = indexer.scan(tmp_path, data)
+    assert again["photos"] == data["photos"] and report.previews == 0
+
+
 def test_heif_primary_image_is_used_in_preview_and_a_spawned_worker(
     tmp_path, monkeypatch
 ):

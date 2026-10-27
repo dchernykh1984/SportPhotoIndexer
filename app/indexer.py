@@ -184,7 +184,10 @@ def scan(
         # A preview made from the old file would show the old picture: remake it.
         if (
             previews
-            or MEDIA_TYPES[path.suffix.lower()] not in PREVIEW_MEDIA_TYPES
+            or (
+                MEDIA_TYPES[path.suffix.lower()] not in PREVIEW_MEDIA_TYPES
+                and "preview" not in photo
+            )
             or (
                 "preview" in photo and not (folder / photo["preview"]["path"]).is_file()
             )
