@@ -212,12 +212,25 @@ def test_appearance_respects_the_bib_already_known_for_the_same_rider_crop(album
     assert all(b["state"] == "candidate" for b in green["bibs"])
 
 
-def test_near_threshold_reads_stay_candidates_for_human_review(album):
+def test_near_threshold_lone_digit_and_lettered_reads_stay_candidates(album):
     data = prepared(album)
     engine = FakeVision()
-    engine.readings[0] = [Reading("4", 0.96, BIB_BOX)]
+    engine.readings[0] = [
+        Reading("44", 0.94, BIB_BOX),
+        Reading("12", 0.96, (0.6, 0.1, 0.05, 0.02)),
+        Reading("4", 0.98, (0.1, 0.5, 0.05, 0.02)),
+        Reading("7", 0.995, (0.6, 0.5, 0.05, 0.02)),
+        Reading("PN837", 0.999, (0.1, 0.1, 0.05, 0.02)),
+    ]
     run(album, data, engine, appearance=False)
-    assert data["photos"][0]["bibs"][0]["state"] == "candidate"
+    states = {b["value"]: b["state"] for b in data["photos"][0]["bibs"]}
+    assert states == {
+        "44": "candidate",
+        "12": "accepted",
+        "4": "candidate",
+        "7": "accepted",
+        "PN837": "candidate",
+    }
 
 
 def test_cached_ocr_reapplies_calibration_without_repeating_inference(

@@ -27,7 +27,10 @@ ENGINE_ID = (
         ",".join(CATALOG[k]["sha256"] for k in OCR_MODELS).encode()
     ).hexdigest()[:16]
 )
-ACCEPT_OCR = 0.98
+ACCEPT_OCR = 0.95
+# A lone digit is in every logo and word fragment; on test races it was wrong most
+# often, so it needs a sure read or two windows that agree.
+ACCEPT_LONE_DIGIT = 0.99
 APPEARANCE_THRESHOLD = 0.8
 
 
@@ -43,9 +46,13 @@ def _classified(observation, method, lock):
     if state == "rejected":
         return observation
     if method == "ocr":
+        # Letters read beside digits were sponsor text and car plates on test races,
+        # never a bib: such values stay suggestions.
+        value = observation["value"]
+        needed = ACCEPT_LONE_DIGIT if len(value) == 1 else ACCEPT_OCR
         state = (
             "accepted"
-            if (observation.get("confidence") or 0) >= ACCEPT_OCR
+            if (observation.get("confidence") or 0) >= needed and value.isdigit()
             else "candidate"
         )
     if lock:
