@@ -58,9 +58,11 @@ Bibs are read wherever a person carries them -- chest, arm, belt, handlebar or s
 post: the program finds the people in a photo and reads enlarged windows around each of
 them and the bike beside them, as well as the whole frame. A number on a banner, flag or
 car away from people is still read in the whole frame, so check suggestions.
-The reader handles digits and Latin letters, keeping leading zeroes and case. An OCR
-confidence of at least 0.98 is accepted; 0.80-0.98 is a candidate. Other bib scripts
-can be typed or imported from CSV. The scores are not calibrated race accuracy.
+The reader handles digits and Latin letters, keeping leading zeroes and case. Digits read
+with confidence of at least 0.95 are accepted, a single digit from 0.99 (agreeing reads of
+one spot combine); other reads from 0.80 up, and any value with letters, are candidates.
+Other bib scripts can be typed or imported from CSV.
+The scores are not calibrated race accuracy.
 The appearance phase uses whole-person crops (kit, helmet and build, plus bike pixels
 inside the crop), without face recognition. It searches **only this album**: put one
 event in a folder. It needs unambiguous accepted bib references; overlapping riders
