@@ -12,11 +12,13 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 import numpy as np
-from PIL import Image, ImageOps
 
 from app import indexer
 from app.index_format import MAX_BIBS_PER_PHOTO
 from app.model_cache import CATALOG, OCR_MODELS, CancelledError, check_cancel
+from app.parallel import ChangedPhotoError as ChangedPhotoError
+from app.parallel import results
+from app.parallel import verify as _verify
 from app.vision import contains
 
 ENGINE_ID = (
@@ -34,24 +36,6 @@ class Report:
     cancelled: bool = False
     errors: list[str] = field(default_factory=list)
     seeds: int = 0
-
-
-class ChangedPhotoError(indexer.IndexError_):
-    pass
-
-
-def _verify(folder, photo):
-    path = folder / photo["original"]["path"]
-    if indexer.sha256_of(path) != photo["original"]["sha256"]:
-        raise ChangedPhotoError(
-            f"{path.name} changed; rescan the folder before recognition"
-        )
-    return path
-
-
-def _open(folder, photo):
-    with Image.open(_verify(folder, photo)) as source:
-        return ImageOps.exif_transpose(source).convert("RGB")
 
 
 def _classified(observation, method, lock):
@@ -100,17 +84,21 @@ def _checkpoint(folder, index):
 
 def _ocr(folder, index, engine, appearance, progress, cancel, report):
     total = len(index["photos"])
-    for n, photo in enumerate(index["photos"], 1):
-        check_cancel(cancel)
-        progress("Reading bib numbers", n, total)
+    pending = []
+    for photo in index["photos"]:
         stamp = {"sha256": photo["original"]["sha256"], "engine": ENGINE_ID}
-        try:
+        if photo.get("recognition", {}).get("ocr") != stamp:
+            pending.append(photo)
+        else:
             _verify(folder, photo)
-            metadata = photo.setdefault("recognition", {})
-            if metadata.get("ocr") != stamp:
-                with _open(folder, photo) as image:
-                    readings = engine.ocr(image)
-                check_cancel(cancel)
+            _merge(photo, "ocr", [b for b in photo["bibs"] if b["method"] == "ocr"])
+            photo["processing_state"] = "pending" if appearance else "processed"
+    completed = total - len(pending)
+    with closing(results(folder, pending, engine, "ocr", cancel)) as computed:
+        for photo, (readings, error) in computed:
+            progress("Reading bib numbers", completed + 1, total)
+            check_cancel(cancel)
+            if not error:
                 _verify(folder, photo)
                 observations = [
                     {
@@ -123,16 +111,20 @@ def _ocr(folder, index, engine, appearance, progress, cancel, report):
                     }
                     for r in readings
                 ]
-                metadata["ocr"] = stamp
+                photo.setdefault("recognition", {})["ocr"] = {
+                    "sha256": photo["original"]["sha256"],
+                    "engine": ENGINE_ID,
+                }
+                _merge(photo, "ocr", observations)
+                photo.pop("recognition_error", None)
+                photo["processing_state"] = "pending" if appearance else "processed"
             else:
-                observations = [b for b in photo["bibs"] if b["method"] == "ocr"]
-            _merge(photo, "ocr", observations)
-            photo.pop("recognition_error", None)
-            photo["processing_state"] = "pending" if appearance else "processed"
-        except (OSError, Image.DecompressionBombError) as exc:
-            photo["processing_state"] = "failed"
-            photo["recognition_error"] = str(exc)[:500]
-            report.errors.append(f"{photo['original']['path']}: {exc}")
+                photo["processing_state"] = "failed"
+                photo["recognition_error"] = error
+                report.errors.append(f"{photo['original']['path']}: {error}")
+            _checkpoint(folder, index)
+            completed += 1
+    if not pending:
         _checkpoint(folder, index)
 
 
@@ -158,15 +150,16 @@ def _known_bibs(photo, riders):
 
 def _references(folder, index, engine, db, progress, cancel, report):
     seeds, values = [], []
-    for n, photo in enumerate(index["photos"], 1):
-        check_cancel(cancel)
-        progress("Finding rider references", n, len(index["photos"]))
-        if photo["processing_state"] == "failed":
-            continue
-        try:
-            with _open(folder, photo) as image:
-                riders = engine.riders(image)
+    photos = [p for p in index["photos"] if p["processing_state"] != "failed"]
+    with closing(results(folder, photos, engine, "riders", cancel)) as computed:
+        for n, (photo, (riders, error)) in enumerate(computed, 1):
+            progress("Finding rider references", n, len(photos))
             check_cancel(cancel)
+            if error:
+                photo["processing_state"] = "failed"
+                report.errors.append(f"{photo['original']['path']}: {error}")
+                _checkpoint(folder, index)
+                continue
             _verify(folder, photo)
             for rider, bibs in zip(riders, _known_bibs(photo, riders), strict=True):
                 db.execute(
@@ -178,13 +171,14 @@ def _references(folder, index, engine, db, progress, cancel, report):
                         json.dumps(sorted(bibs)),
                     ),
                 )
-                for value in sorted(bibs):
-                    values.append(value)
-                    seeds.append(rider.vector)
-        except (OSError, Image.DecompressionBombError) as exc:
-            photo["processing_state"] = "failed"
-            report.errors.append(f"{photo['original']['path']}: {exc}")
-            _checkpoint(folder, index)
+    # Stable input order keeps equal-score suggestions deterministic across schedules.
+    for photo in photos:
+        for vector, known in db.execute(
+            "SELECT vector, known_bibs FROM crops WHERE photo_id=?", (photo["id"],)
+        ):
+            for value in json.loads(known):
+                values.append(value)
+                seeds.append(np.frombuffer(vector, dtype=np.float32))
     report.seeds = len(seeds)
     return values, np.asarray(seeds, dtype=np.float32)
 

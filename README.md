@@ -39,6 +39,15 @@ verified models stay in `data/models` next to the portable app and work offline 
 Give that folder enough writable disk space. [Models and licenses](MODEL_NOTICES.md)
 list the pinned sources and hashes; failed downloads can be retried.
 
+Photos are processed in parallel automatically. The worker count is bounded by physical
+CPU cores, the CPUs available to this process, the album size and available RAM. Models
+share that CPU budget instead of starting a full set of threads for every photo. The
+preparation status shows the chosen photo-worker count. No configuration is required.
+The index is still written by one coordinator; parallel workers only read the originals.
+See [CPU policy and measurements](docs/parallel-recognition.md). Sustained full CPU load
+can still trigger hardware thermal throttling; limiting workers prevents oversubscription,
+not heat itself.
+
 The current reader handles digits and Latin letters, keeping leading zeroes and case.
 Other bib scripts can be typed or imported from CSV. An OCR confidence of at least 0.98
 is accepted; 0.60-0.98 is a candidate. The scores are not calibrated race accuracy.
@@ -52,7 +61,8 @@ tests. OCR reads overlapping 768-pixel tiles on large photos instead of shrinkin
 bibs. A complete manually labelled precision/recall benchmark is still pending; review
 suggestions before relying on them. Cross-album appearance search is not implemented.
 
-**Stop** keeps every already-saved photo. Start again to resume OCR without repeating
+**Stop** terminates the read-only photo workers and keeps every already-saved photo.
+Photos can finish out of order; the progress count measures returned photos. Start again to resume OCR without repeating
 unchanged completed OCR. Appearance is recomputed after restart; its vectors live only
 in a private temporary database outside the album and are deleted on exit. Changing the
 model version invalidates OCR checkpoints. If a file changed, rescan before restarting.

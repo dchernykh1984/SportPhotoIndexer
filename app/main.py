@@ -1,25 +1,25 @@
 """Entry point for Sport Photo Indexer."""
 
+import multiprocessing
 import sys
 from pathlib import Path
-
-from PySide6.QtGui import QIcon
-from PySide6.QtWidgets import QApplication
-
-from app.main_window import MainWindow
 
 _APP_NAME = "Sport Photo Indexer"
 _ICON = str(Path(__file__).parent / "app.ico")
 
 
 def main() -> None:
+    multiprocessing.freeze_support()
     if sys.argv[1:] == ["--check-model-runtime"]:
-        import onnxruntime as ort
+        from app.parallel import check_runtime
 
-        ort.disable_telemetry_events()
-        if "CPUExecutionProvider" not in ort.get_available_providers():
-            raise RuntimeError("The CPU recognition runtime is missing")
+        check_runtime()
         return
+    from PySide6.QtGui import QIcon
+    from PySide6.QtWidgets import QApplication
+
+    from app.main_window import MainWindow
+
     # Must run before QApplication -- Qt reads the process name on init.
     _macos_set_process_name(_APP_NAME)
     _windows_set_app_id(_APP_NAME)

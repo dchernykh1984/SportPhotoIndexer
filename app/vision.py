@@ -7,7 +7,6 @@ Coordinates refer to the EXIF-oriented image and are normalized x, y, width, hei
 from __future__ import annotations
 
 import math
-import os
 import re
 import string
 from dataclasses import dataclass
@@ -230,13 +229,15 @@ def person_boxes(outputs):
 
 
 class CpuVision:
-    def __init__(self, models: dict[str, Path]) -> None:
+    def __init__(self, models: dict[str, Path], *, threads: int = 1) -> None:
         import onnxruntime as ort
 
         ort.disable_telemetry_events()
         options = ort.SessionOptions()
         options.log_severity_level = 3
-        options.intra_op_num_threads = min(4, os.cpu_count() or 1)
+        options.intra_op_num_threads = threads
+        options.inter_op_num_threads = 1
+        options.add_session_config_entry("session.intra_op.allow_spinning", "0")
         self.sessions = {
             key: ort.InferenceSession(
                 str(path), sess_options=options, providers=["CPUExecutionProvider"]
