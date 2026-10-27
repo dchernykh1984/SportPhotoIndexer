@@ -15,6 +15,7 @@ from pathlib import Path
 import numpy as np
 from PIL import Image, ImageFilter
 
+from app import faces
 from app.florence import Florence
 
 Region = tuple[float, float, float, float]
@@ -41,6 +42,8 @@ class Reading:
 class Rider:
     region: Region
     vector: np.ndarray
+    # A clear, frontal enough face, only when the face models are loaded.
+    face: np.ndarray | None = None
 
 
 def contains(outer: Region, inner: Region) -> bool:
@@ -358,6 +361,7 @@ def _read_florence(florence: Florence, image: Image.Image, people) -> list[Readi
 
 class CpuVision:
     florence: Florence | None = None
+    reads_faces = False
 
     def __init__(self, models: dict[str, Path], *, threads: int = 1) -> None:
         import onnxruntime as ort
@@ -378,6 +382,7 @@ class CpuVision:
         }
         metadata = self.sessions["text_reader"].get_modelmeta().custom_metadata_map
         self.characters = [*metadata["character"].splitlines(), " "]
+        self.reads_faces = "face_detector" in self.sessions
         vocabulary = [Path(p) for p in models.values() if Path(p).suffix == ".json"]
         if vocabulary:
             self.florence = Florence(self.sessions, vocabulary[0])
@@ -482,5 +487,27 @@ class CpuVision:
             )[0].ravel()
             norm = float(np.linalg.norm(features))
             if norm and np.isfinite(features).all():
-                found.append(Rider(region, features / norm))
+                face = self._face(image, region) if self.reads_faces else None
+                found.append(Rider(region, features / norm, face))
         return found
+
+    def _face(self, image: Image.Image, region: Region) -> np.ndarray | None:
+        with image.crop(faces.head_box(region, image.size)) as head:
+            if min(head.size) < 8:
+                return None
+            square, (left, top, width, _) = _letterbox(head, 640)
+            bgr = np.asarray(square, dtype=np.float32)[:, :, ::-1].transpose(2, 0, 1)
+            session = self.sessions["face_detector"]
+            names = [o.name for o in session.get_outputs()]
+            outputs = self._run("face_detector", np.ascontiguousarray(bgr[None]))
+            face = faces.best_face(
+                dict(zip(names, outputs, strict=True)), (left, top), width / head.width
+            )
+            # Small or doubtful faces matched strangers on the labelled races.
+            if face is None or face[0] < 0.8 or face[1] < 24:
+                return None
+            rgb = np.asarray(faces.aligned(head, face[2]), dtype=np.float32)
+        tensor = np.ascontiguousarray(rgb.transpose(2, 0, 1)[None])
+        vector = self._run("face_vectors", tensor)[0].ravel()
+        norm = float(np.linalg.norm(vector))
+        return vector / norm if norm and np.isfinite(vector).all() else None

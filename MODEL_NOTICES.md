@@ -12,6 +12,8 @@ The weights are not bundled and no photo or appearance vector is uploaded by rec
 | Bib text | PP-OCRv5 English mobile (embedded character dictionary) | 7,872,351 bytes |
 | People (where to read bibs; rider bodies) | NanoDet COCO person detector | 3,800,954 bytes |
 | Whole-body appearance | Youtu ReID, 768 dimensions | 106,878,407 bytes |
+| Faces, only in the faces mode | YuNet face detector (2023mar) | 232,589 bytes |
+| Faces, only in the faces mode | SFace face embedding, 128 dimensions | 38,696,353 bytes |
 
 Sources, model descriptions and original inference adapters:
 
@@ -20,8 +22,11 @@ Sources, model descriptions and original inference adapters:
 - <https://github.com/RapidAI/RapidOCR/blob/80b427d69bfc5b91a12913394875910296c6f315/python/rapidocr/ch_ppocr_rec/main.py>
 - <https://github.com/opencv/opencv_zoo/tree/48b10fa505aeb51fbd127fc60a5c660040e823b7/models/object_detection_nanodet>
 - <https://github.com/opencv/opencv_zoo/tree/48b10fa505aeb51fbd127fc60a5c660040e823b7/models/person_reid_youtureid>
+- <https://github.com/opencv/opencv_zoo/tree/48b10fa505aeb51fbd127fc60a5c660040e823b7/models/face_detection_yunet>
+- <https://github.com/opencv/opencv_zoo/tree/48b10fa505aeb51fbd127fc60a5c660040e823b7/models/face_recognition_sface>
 
-The models and adapters carry Apache-2.0 licenses retained under `licenses/`.
+The models and adapters carry Apache-2.0 licenses retained under `licenses/`, except
+YuNet, which is MIT (Shiqi Yu, 2020).
 The reader is PaddleOCR converted to ONNX by RapidOCR; its embedded dictionary supplies
 the exact case-sensitive token order. A legacy CRNN adapter notice is retained as well.
 PP-OCR's notice credits the PaddlePaddle Authors. The text and ReID adapter notices
@@ -29,7 +34,10 @@ credit Shenzhen Institute of Artificial Intelligence and Robotics for Society (2
 Third-party copyrights remain their owners'. The app's Pillow/NumPy preprocessing and
 postprocessing adapt those model interfaces for ONNX Runtime without an OpenCV dependency.
 
-There is no face detector, face embedding model, selfie search or face database.
+Faces are compared only in the mode *Bib numbers, then rider appearance and faces*: YuNet
+looks for a face in the top of each detected person and SFace describes it. Face vectors
+live in the same private temporary database as body vectors and are deleted when the run
+ends. There is no selfie search, no search across albums and no face database.
 ReID describes the full person crop (kit, helmet and build, with surrounding bike pixels
 where they fall in that crop). Similar clothing and unusual riding poses can confuse it.
 The models have been exercised on the pilot race photos, but full ground-truth calibration

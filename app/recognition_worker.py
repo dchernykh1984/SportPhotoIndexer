@@ -13,13 +13,21 @@ class RecognitionWorker(QThread):
     progress = Signal(str, int, int)
 
     def __init__(
-        self, folder, index, *, appearance: bool, size: str = "small", parent=None
+        self,
+        folder,
+        index,
+        *,
+        appearance: bool,
+        size: str = "small",
+        faces: bool = False,
+        parent=None,
     ):
         super().__init__(parent)
         self.folder = folder
         self.index = deepcopy(index)
         self.appearance = appearance
         self.size = size
+        self.faces = faces
         self.report = recognition.Report()
         self.error = ""
 
@@ -30,10 +38,11 @@ class RecognitionWorker(QThread):
                 self.progress.emit,
                 self.isInterruptionRequested,
                 size=self.size,
+                faces=self.faces,
             )
             plan = plan_for(
                 len(self.index["photos"]),
-                download_megabytes(self.appearance, self.size) * 1_000_000,
+                download_megabytes(self.appearance, self.size, self.faces) * 1_000_000,
             )
             self.progress.emit(f"Preparing {plan.workers} parallel photo workers", 0, 1)
             with PhotoPool(models, plan) as engine:
@@ -45,6 +54,7 @@ class RecognitionWorker(QThread):
                     progress=self.progress.emit,
                     cancel=self.isInterruptionRequested,
                     size=self.size,
+                    faces=self.faces,
                 )
         except CancelledError:
             self.report.cancelled = True

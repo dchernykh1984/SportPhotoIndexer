@@ -18,60 +18,17 @@ in WORKDIR; nothing is written into the album.
 from __future__ import annotations
 
 import csv
-import hashlib
-import math
 import sys
-import urllib.request
 from concurrent.futures import ProcessPoolExecutor
 from pathlib import Path
 
 import numpy as np
 from PIL import Image, ImageOps
 
-from app import vision
+from app import faces, vision
 from app.model_cache import ensure_models
 
-ZOO = (
-    "https://media.githubusercontent.com/media/opencv/opencv_zoo/"
-    "48b10fa505aeb51fbd127fc60a5c660040e823b7/models/"
-)
-FACE_MODELS = {
-    "faces": (
-        "face_detection_yunet/face_detection_yunet_2023mar.onnx",
-        232589,
-        "8f2383e4dd3cfbb4553ea8718107fc0423210dc964f9f4280604804ed2552fa4",
-    ),
-    "face_vectors": (
-        "face_recognition_sface/face_recognition_sface_2021dec.onnx",
-        38696353,
-        "0ba9fbfa01b5270c96627c4ef784da859931e02f04419c829e83484087c34e79",
-    ),
-}
-# ArcFace's five-point template for a 112x112 face: eyes, nose tip, mouth corners.
-TEMPLATE = np.array(
-    [
-        [38.2946, 51.6963],
-        [73.5318, 51.5014],
-        [56.0252, 71.7366],
-        [41.5493, 92.3655],
-        [70.7299, 92.2041],
-    ]
-)
 _sessions: dict = {}
-
-
-def face_models(folder: Path) -> dict[str, Path]:
-    folder.mkdir(parents=True, exist_ok=True)
-    paths = {}
-    for key, (url, size, sha) in FACE_MODELS.items():
-        path = folder / Path(url).name
-        if not (path.exists() and path.stat().st_size == size):
-            urllib.request.urlretrieve(ZOO + url, path)  # noqa: S310 -- pinned https
-        if hashlib.sha256(path.read_bytes()).hexdigest() != sha:
-            path.unlink()
-            raise SystemExit(f"{path.name}: checksum mismatch, run again")
-        paths[key] = path
-    return paths
 
 
 def _init(paths: dict[str, Path]) -> None:
@@ -110,47 +67,11 @@ def _people(image: Image.Image) -> list[vision.Region]:
 def _best_face(crop: Image.Image) -> tuple[float, float, np.ndarray] | None:
     """YuNet on the crop letterboxed to 640: score, face height, landmarks (crop px)."""
     square, (left, top, width, _) = vision._letterbox(crop, 640)
-    scale = width / crop.width
     tensor = np.asarray(square, dtype=np.float32)[:, :, ::-1].transpose(2, 0, 1)[None]
-    names = [o.name for o in _sessions["faces"].get_outputs()]
-    out = dict(zip(names, _run("faces", np.ascontiguousarray(tensor)), strict=True))
-    best = None
-    for stride in (8, 16, 32):
-        cols = 640 // stride
-        score = np.sqrt(
-            np.clip(out[f"cls_{stride}"][0, :, 0], 0, 1)
-            * np.clip(out[f"obj_{stride}"][0, :, 0], 0, 1)
-        )
-        i = int(score.argmax())
-        if score[i] < 0.6 or (best and score[i] <= best[0]):
-            continue
-        row, col = divmod(i, cols)
-        box, kps = out[f"bbox_{stride}"][0, i], out[f"kps_{stride}"][0, i]
-        points = (
-            np.array([[kps[2 * k] + col, kps[2 * k + 1] + row] for k in range(5)])
-            * stride
-        )
-        points = (points - (left, top)) / scale
-        best = (float(score[i]), math.exp(box[3]) * stride / scale, points)
-    return best
-
-
-def _aligned(image: Image.Image, points: np.ndarray) -> Image.Image:
-    """Similarity transform (Umeyama) of the landmarks onto the template."""
-    mu_s, mu_d = points.mean(0), TEMPLATE.mean(0)
-    src, dst = points - mu_s, TEMPLATE - mu_d
-    u, d, vt = np.linalg.svd(dst.T @ src / 5)
-    sign = np.ones(2)
-    sign[1] = np.sign(np.linalg.det(u) * np.linalg.det(vt))
-    rotation = u @ np.diag(sign) @ vt
-    a = (d * sign).sum() / src.var(0).sum() * rotation
-    inverse = np.linalg.inv(a)
-    shift = -inverse @ (mu_d - a @ mu_s)
-    return image.transform(
-        (112, 112),
-        Image.Transform.AFFINE,
-        (*inverse[0], shift[0], *inverse[1], shift[1]),
-        resample=Image.Resampling.BILINEAR,
+    names = [o.name for o in _sessions["face_detector"].get_outputs()]
+    outputs = _run("face_detector", np.ascontiguousarray(tensor))
+    return faces.best_face(
+        dict(zip(names, outputs, strict=True)), (left, top), width / crop.width
     )
 
 
@@ -158,21 +79,13 @@ def _photo(args: tuple[Path, int, str]) -> list[tuple]:
     album, n, name = args
     with Image.open(album / name) as source:
         image = ImageOps.exif_transpose(source).convert("RGB")
-    width, height = image.size
     found = []
     for x, y, w, h in _people(image):
-        head = image.crop(
-            (
-                max(0, (x - 0.1 * w) * width),
-                max(0, (y - 0.05 * h) * height),
-                min(width, (x + 1.1 * w) * width),
-                min(height, (y + 0.45 * h) * height),
-            )
-        )
+        head = image.crop(faces.head_box((x, y, w, h), image.size))
         face = _best_face(head) if min(head.size) >= 8 else None
         vector = np.zeros(128, np.float32)
         if face:
-            tensor = np.asarray(_aligned(head, face[2]), dtype=np.float32)
+            tensor = np.asarray(faces.aligned(head, face[2]), dtype=np.float32)
             tensor = np.ascontiguousarray(tensor.transpose(2, 0, 1)[None])
             raw = _run("face_vectors", tensor)[0].ravel()
             vector = raw / (np.linalg.norm(raw) or 1)
@@ -181,8 +94,8 @@ def _photo(args: tuple[Path, int, str]) -> list[tuple]:
 
 
 def index(album: Path, work: Path, models: Path) -> None:
-    paths = ensure_models(False, lambda *a: None, lambda: False, cache=models)
-    paths = {"people_detector": paths["people_detector"], **face_models(models)}
+    paths = ensure_models(False, lambda *a: None, lambda: False, models, faces=True)
+    paths = {k: paths[k] for k in ("people_detector", "face_detector", "face_vectors")}
     with (work / "photos.csv").open(encoding="utf-8") as fh:
         rows = [(album, int(r[0]), r[1]) for r in csv.reader(fh)]
     with ProcessPoolExecutor(initializer=_init, initargs=(paths,)) as pool:

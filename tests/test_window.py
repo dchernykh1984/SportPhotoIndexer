@@ -214,6 +214,32 @@ def test_the_chosen_model_size_is_downloaded_used_and_remembered(
     again.deleteLater()
 
 
+def test_the_faces_mode_downloads_face_models_and_matches_by_face(
+    win, album, monkeypatch
+):
+    from contextlib import nullcontext
+
+    from app import recognition_worker as worker_module
+    from tests.test_recognition import FakeVision
+
+    asked = []
+    monkeypatch.setattr(
+        worker_module, "ensure_models", lambda *a, **k: asked.append(k) or {}
+    )
+    engine = FakeVision()
+    monkeypatch.setattr(worker_module, "PhotoPool", lambda *a: nullcontext(engine))
+    win.open_folder(album)
+    assert "faces" not in win._mode.currentText()
+    win._mode.setCurrentIndex(2)
+    assert "faces" in win._mode.currentText()
+    win._on_recognize()
+    assert win._worker.wait(10000)
+    _app.processEvents()
+    assert asked[0]["faces"] is True and asked[0]["size"] == "small"
+    assert ("riders", 0) in engine.calls
+    assert "Recognition finished" in win._lbl_status.text()
+
+
 def test_automatic_errors_are_visible_and_do_not_claim_success(win, album, monkeypatch):
     from app import recognition_worker as worker_module
 

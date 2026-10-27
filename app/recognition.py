@@ -22,6 +22,11 @@ from app.parallel import verify as _verify
 from app.vision import ACCEPT_LONE_DIGIT, ACCEPT_OCR, contains
 
 APPEARANCE_THRESHOLD = 0.8
+# With faces: SFace's own same-person threshold is 0.363; agreeing with the body,
+# a little less already picked the right bib. Alone, the body must lead by 0.05.
+FACE_AGREES = 0.3
+BODY_AGREES = 0.6
+BODY_LEAD = 0.05
 
 
 def engine_id(size: str = "small") -> str:
@@ -163,7 +168,7 @@ def _known_bibs(photo, riders):
 
 
 def _references(folder, index, engine, db, progress, cancel, report):
-    seeds, values = [], []
+    seeds, references, owners, values = [], [], [], []
     photos = [p for p in index["photos"] if p["processing_state"] != "failed"]
     with closing(results(folder, photos, engine, "riders", cancel)) as computed:
         for n, (photo, (riders, error)) in enumerate(computed, 1):
@@ -177,28 +182,77 @@ def _references(folder, index, engine, db, progress, cancel, report):
             _verify(folder, photo)
             for rider, bibs in zip(riders, _known_bibs(photo, riders), strict=True):
                 db.execute(
-                    "INSERT INTO crops VALUES (?, ?, ?, ?)",
+                    "INSERT INTO crops VALUES (?, ?, ?, ?, ?)",
                     (
                         photo["id"],
                         json.dumps(rider.region),
                         rider.vector.astype(np.float32).tobytes(),
+                        _blob(rider.face),
                         json.dumps(sorted(bibs)),
                     ),
                 )
     # Stable input order keeps equal-score suggestions deterministic across schedules.
     for photo in photos:
-        for vector, known in db.execute(
-            "SELECT vector, known_bibs FROM crops WHERE photo_id=?", (photo["id"],)
+        for vector, face, known in db.execute(
+            "SELECT vector, face, known_bibs FROM crops WHERE photo_id=?",
+            (photo["id"],),
         ):
             for value in json.loads(known):
                 values.append(value)
+                owners.append(photo["id"])
                 seeds.append(np.frombuffer(vector, dtype=np.float32))
+                references.append(_vector(face))
     report.seeds = len(seeds)
-    return values, np.asarray(seeds, dtype=np.float32)
+    return values, owners, np.asarray(seeds, dtype=np.float32), references
 
 
-def _appearance(folder, index, engine, db, progress, cancel, report):
-    values, seeds = _references(folder, index, engine, db, progress, cancel, report)
+def _blob(vector):
+    return None if vector is None else vector.astype(np.float32).tobytes()
+
+
+def _vector(blob):
+    return None if blob is None else np.frombuffer(blob, dtype=np.float32)
+
+
+def _likeness(references, face):
+    """Face similarity to each reference; -2 where the reference shows no face."""
+    return np.array([-2.0 if f is None else float(f @ face) for f in references])
+
+
+def _best(scores, values, owners, photo_id):
+    """The bib whose reference matches best, and its lead over the next bib.
+
+    A reference on the same photo is another person, never this one.
+    """
+    best: dict[str, float] = {}
+    for score, value, owner in zip(scores, values, owners, strict=True):
+        if owner != photo_id and score > best.get(value, -2.0):
+            best[value] = float(score)
+    ranked = sorted(best.items(), key=lambda kv: kv[1], reverse=True)
+    if not ranked:
+        return None, -1.0, 0.0
+    second = ranked[1][1] if len(ranked) > 1 else -1.0
+    return ranked[0][0], ranked[0][1], ranked[0][1] - second
+
+
+def _face_matches(body, likeness, values, owners, photo_id):
+    """A face and the body agree on one bib, or the body alone is sure and well
+    ahead of any other bib: on the labelled races this found more people, at
+    awards too, and suggested fewer wrong bibs than the body alone."""
+    value, score, lead = _best(body, values, owners, photo_id)
+    if likeness is not None:
+        known, face, _ = _best(likeness, values, owners, photo_id)
+        if known == value and face >= FACE_AGREES and score >= BODY_AGREES:
+            return [(value, max(face, score))]
+    if value is not None and score >= APPEARANCE_THRESHOLD and lead >= BODY_LEAD:
+        return [(value, score)]
+    return []
+
+
+def _appearance(folder, index, engine, db, faces, progress, cancel, report):
+    values, owners, seeds, references = _references(
+        folder, index, engine, db, progress, cancel, report
+    )
     for n, photo in enumerate(index["photos"], 1):
         check_cancel(cancel)
         progress("Matching rider appearance", n, len(index["photos"]))
@@ -206,8 +260,8 @@ def _appearance(folder, index, engine, db, progress, cancel, report):
             continue
         _verify(folder, photo)
         observations = []
-        for region, vector, known in db.execute(
-            "SELECT region, vector, known_bibs FROM crops WHERE photo_id=?",
+        for region, vector, face, known in db.execute(
+            "SELECT region, vector, face, known_bibs FROM crops WHERE photo_id=?",
             (photo["id"],),
         ):
             if not len(seeds):
@@ -215,13 +269,22 @@ def _appearance(folder, index, engine, db, progress, cancel, report):
             if json.loads(known):
                 continue  # an unambiguous accepted bib already identifies this crop
             scores = seeds @ np.frombuffer(vector, dtype=np.float32)
-            for i in np.flatnonzero(scores >= APPEARANCE_THRESHOLD):
+            if faces:
+                query = _vector(face)
+                likeness = None if query is None else _likeness(references, query)
+                matches = _face_matches(scores, likeness, values, owners, photo["id"])
+            else:
+                matches = [
+                    (values[i], scores[i])
+                    for i in np.flatnonzero(scores >= APPEARANCE_THRESHOLD)
+                ]
+            for value, score in matches:
                 observations.append(
                     {
-                        "value": values[i],
+                        "value": value,
                         "method": "appearance",
                         "state": "candidate",
-                        "confidence": float(np.clip(scores[i], 0, 1)),
+                        "confidence": float(np.clip(score, 0, 1)),
                         "region": dict(
                             zip(("x", "y", "w", "h"), json.loads(region), strict=True)
                         ),
@@ -241,6 +304,7 @@ def run(
     progress: Callable[[str, int, int], None],
     cancel: Callable[[], bool],
     size: str = "small",
+    faces: bool = False,
 ) -> Report:
     """Mutate the worker's snapshot, refusing concurrent edits.
 
@@ -254,11 +318,13 @@ def run(
             with tempfile.TemporaryDirectory(prefix="photo-appearance-") as temp:
                 with closing(sqlite3.connect(str(Path(temp) / "crops.sqlite3"))) as db:
                     db.execute(
-                        "CREATE TABLE crops "
-                        "(photo_id TEXT, region TEXT, vector BLOB, known_bibs TEXT)"
+                        "CREATE TABLE crops (photo_id TEXT, region TEXT,"
+                        " vector BLOB, face BLOB, known_bibs TEXT)"
                     )
                     db.execute("CREATE INDEX crop_photo ON crops(photo_id)")
-                    _appearance(folder, index, engine, db, progress, cancel, report)
+                    _appearance(
+                        folder, index, engine, db, faces, progress, cancel, report
+                    )
     except CancelledError:
         report.cancelled = True
     return report

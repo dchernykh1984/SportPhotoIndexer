@@ -52,6 +52,7 @@ def run(album, data, engine, **options):
         progress=options.pop("progress", lambda *args: None),
         cancel=options.pop("cancel", lambda: False),
         size=options.pop("size", "small"),
+        faces=options.pop("faces", False),
     )
 
 
@@ -211,6 +212,39 @@ def test_appearance_respects_the_bib_already_known_for_the_same_rider_crop(album
     assert {b["value"] for b in blue["bibs"]} == {"99"}
     assert {b["value"] for b in green["bibs"]} == {"012", "99"}
     assert all(b["state"] == "candidate" for b in green["bibs"])
+
+
+def test_a_matching_face_lets_a_weaker_body_match_through(album):
+    data = prepared(album)
+    engine = FakeVision()
+    face = np.array([0.0, 1.0])
+    engine.crops[0] = [Rider(BOX, np.array([1.0, 0.0]), face)]
+    # Changed clothes: the body is only 0.7 alike, the face is the same.
+    engine.crops[1] = [Rider(BOX, np.array([0.7, np.sqrt(0.51)]), face)]
+    engine.crops[2] = [Rider(BOX, np.array([0.7, np.sqrt(0.51)]), -face)]
+    run(album, data, engine)
+    assert data["photos"][1]["bibs"] == []
+    run(album, data, engine, faces=True)
+    _, green, blue = data["photos"]
+    assert [(b["value"], b["state"]) for b in green["bibs"]] == [("012", "candidate")]
+    assert green["bibs"][0]["confidence"] == pytest.approx(1.0)
+    assert blue["bibs"] == []  # another face
+
+
+def test_with_faces_an_ambiguous_body_suggests_nobody(album):
+    data = prepared(album)
+    engine = FakeVision()
+    engine.readings[2] = [Reading("99", 0.99, BIB_BOX)]
+    engine.crops[2] = engine.crops[0]  # different bibs, visually indistinguishable kit
+    run(album, data, engine, faces=True)
+    assert data["photos"][1]["bibs"] == []
+
+
+def test_with_faces_a_sure_body_match_ahead_of_other_bibs_still_counts(album):
+    data = prepared(album)
+    run(album, data, FakeVision(), faces=True)  # nobody shows a face
+    assert [b["value"] for b in data["photos"][1]["bibs"]] == ["012"]
+    assert data["photos"][2]["bibs"] == []
 
 
 def test_near_threshold_and_lone_digit_reads_stay_candidates_any_format_accepted(album):

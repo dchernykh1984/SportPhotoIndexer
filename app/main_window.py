@@ -89,7 +89,13 @@ class MainWindow(QMainWindow):
         automatic = QHBoxLayout()
         automatic.addWidget(QLabel("Automatic search:"))
         self._mode = QComboBox()
-        self._mode.addItems(["Bib numbers only", "Bib numbers, then rider appearance"])
+        self._mode.addItems(
+            [
+                "Bib numbers only",
+                "Bib numbers, then rider appearance",
+                "Bib numbers, then rider appearance and faces",
+            ]
+        )
         self._mode.setCurrentIndex(1)
         automatic.addWidget(self._mode)
         self._size = QComboBox()
@@ -117,8 +123,9 @@ class MainWindow(QMainWindow):
             f"{download_megabytes(True) - download_megabytes(False)} MB more with"
             " appearance; then works offline. "
             "Bibs: digits and Latin letters. Appearance searches this album only, "
-            "using the "
-            "rider's whole look, without face recognition. Suggestions need checking. "
+            "using the rider's whole look; the faces mode compares faces too "
+            f"({download_megabytes(True, faces=True) - download_megabytes(True)} MB"
+            " more). Suggestions need checking. "
             "Put only one event in a folder. Stop keeps saved progress."
         )
         help_text.setWordWrap(True)
@@ -344,8 +351,9 @@ class MainWindow(QMainWindow):
         self._worker = RecognitionWorker(
             self._folder,
             self._index,
-            appearance=self._mode.currentIndex() == 1,
+            appearance=self._mode.currentIndex() >= 1,
             size=self._size.currentData(),
+            faces=self._mode.currentIndex() == 2,
             parent=self,
         )
         self._worker.progress.connect(self._recognition_progress)
