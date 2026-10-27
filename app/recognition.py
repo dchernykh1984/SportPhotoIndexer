@@ -22,7 +22,7 @@ from app.parallel import verify as _verify
 from app.vision import contains
 
 ENGINE_ID = (
-    "tiles768-v1:"
+    "people-v2:"
     + hashlib.sha256(
         ",".join(CATALOG[k]["sha256"] for k in OCR_MODELS).encode()
     ).hexdigest()[:16]

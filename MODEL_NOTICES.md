@@ -10,7 +10,7 @@ The weights are not bundled and no photo or appearance vector is uploaded by rec
 | --- | --- | --- |
 | Text regions | PP-OCRv3 English detector | 2,423,490 bytes |
 | Bib text | PP-OCRv5 English mobile (embedded character dictionary) | 7,872,351 bytes |
-| Rider bodies | NanoDet COCO person detector | 3,800,954 bytes |
+| People (where to read bibs; rider bodies) | NanoDet COCO person detector | 3,800,954 bytes |
 | Whole-body appearance | Youtu ReID, 768 dimensions | 106,878,407 bytes |
 
 Sources, model descriptions and original inference adapters:

@@ -8,7 +8,16 @@ import numpy as np
 import pytest
 from PIL import Image
 
-from app.vision import CpuVision, contains, decode_text, person_boxes
+from app.vision import (
+    CpuVision,
+    Reading,
+    _combined,
+    _person_windows,
+    _whole_bibs,
+    contains,
+    decode_text,
+    person_boxes,
+)
 
 
 def logits_for(tokens):
@@ -96,14 +105,24 @@ def test_cpu_engine_uses_the_expected_input_shapes_and_only_body_embeddings(
         }
     )
     image = Image.new("RGB", (1200, 800), "white")
-    (reading,) = engine.ocr(image)
-    assert reading.value == "012"
-    assert reading.region[2] > 0 and reading.region[3] > 0
+    readings = engine.ocr(image)
+    assert readings and {r.value for r in readings} == {"012"}
+    assert all(r.region[2] > 0 and r.region[3] > 0 for r in readings)
+    # Bibs are read in the whole frame, then around the person found first.
+    assert calls[:3] == [
+        ("people_detector", (1, 3, 416, 416)),
+        ("text_detector", (1, 3, 736, 736)),
+        ("text_reader", (1, 3, 48, 320)),
+    ]
+    assert {c for c in calls} == {
+        ("people_detector", (1, 3, 416, 416)),
+        ("text_detector", (1, 3, 736, 736)),
+        ("text_reader", (1, 3, 48, 320)),
+    }
+    calls.clear()
     (rider,) = engine.riders(image)
     assert np.linalg.norm(rider.vector) == pytest.approx(1.0)
     assert calls == [
-        ("text_detector", (1, 3, 736, 736)),
-        ("text_reader", (1, 3, 48, 320)),
         ("people_detector", (1, 3, 416, 416)),
         ("appearance", (1, 3, 256, 128)),
     ]
@@ -134,7 +153,11 @@ def test_people_detection_preserves_aspect_and_maps_padding_back_to_the_photo(
     )
 
 
-def test_small_bibs_in_large_photos_are_read_at_native_scale_and_mapped_back():
+def test_a_small_bib_beside_a_person_is_read_enlarged_and_mapped_back(monkeypatch):
+    from PIL import ImageDraw
+
+    from app import vision
+
     engine = CpuVision.__new__(CpuVision)
     engine.characters = [
         *string.digits,
@@ -143,29 +166,55 @@ def test_small_bibs_in_large_photos_are_read_at_native_scale_and_mapped_back():
         *string.punctuation,
         " ",
     ]
+    detector_inputs = []
 
     def infer(key, tensor):
+        if key == "people_detector":
+            return []
         if key == "text_reader":
             return [_probabilities(logits_for([2, 0, 1]))]
-        # A tiny green bib is unreadable after shrinking the whole large frame,
-        # but survives in an overlapping native-resolution tile.
-        green = (tensor[0, 1] > 1) & (tensor[0, 0] < 0) & (tensor[0, 2] < 0)
+        detector_inputs.append(tensor)
+        # A tiny green plate: too few pixels in the whole frame, enough once enlarged.
+        green = (tensor[0, 1] > 0.5) & (tensor[0, 0] < 0) & (tensor[0, 2] < 0)
         probability = np.zeros((736, 736), dtype=np.float32)
         if green.sum() >= 40:
             probability[green] = 0.99
         return [probability]
 
     engine._run = infer
+    # A rider in the middle; the plate sits behind them, past the body's box.
+    monkeypatch.setattr(vision, "person_boxes", lambda output: [(0.4, 0.3, 0.1, 0.5)])
     image = Image.new("RGB", (2400, 1800), "white")
-    from PIL import ImageDraw
-
-    ImageDraw.Draw(image).rectangle((1800, 1200, 1820, 1210), fill=(0, 255, 0))
+    ImageDraw.Draw(image).rectangle((1265, 1200, 1285, 1210), fill=(0, 255, 0))
     readings = engine.ocr(image)
     assert readings and {r.value for r in readings} == {"10"}
     for reading in readings:
         x, y, w, h = reading.region
-        assert x <= 1810 / 2400 <= x + w
+        assert x <= 1275 / 2400 <= x + w
         assert y <= 1205 / 1800 <= y + h
+    # The OpenCV Zoo detector takes (BGR - mean) / 255: black padding stays small.
+    assert np.allclose(
+        detector_inputs[0][0, :, 0, 0],
+        -np.array([122.67891434, 116.66876762, 104.00698793]) / 255,
+    )
+
+
+def test_person_windows_cover_the_body_and_the_bike_beside_it_at_a_fixed_scale():
+    windows = list(_person_windows((0.4, 0.2, 0.1, 0.5), (2000, 1000)))
+    sides = {(r - x, b - y) for x, y, r, b in windows}
+    assert sides == {(200, 200)}  # 0.4 of a 500-pixel person, square
+    left = min(x for x, *_ in windows)
+    right = max(r for _, _, r, _ in windows)
+    bottom = max(b for *_, b in windows)
+    assert left <= 740 and right >= 1060 and bottom >= 800
+    assert all(0 <= x < r <= 2000 and 0 <= y < b <= 1000 for x, y, r, b in windows)
+
+
+def test_a_fragment_of_a_longer_bib_on_the_same_plate_is_dropped():
+    plate = Reading("16", 0.99, (0.5, 0.5, 0.1, 0.05))
+    fragment = Reading("6", 0.99, (0.55, 0.5, 0.05, 0.05))
+    elsewhere = Reading("1", 0.99, (0.1, 0.1, 0.05, 0.05))
+    assert _whole_bibs([plate, fragment, elsewhere]) == [plate, elsewhere]
 
 
 def test_paddle_reader_uses_crop_aspect_and_the_embedded_case_sensitive_dictionary():
@@ -194,3 +243,14 @@ def test_paddle_reader_uses_crop_aspect_and_the_embedded_case_sensitive_dictiona
     assert tensor.shape == (1, 3, 48, 320)
     assert np.all(tensor[:, :, :, :24] == 1)
     assert np.all(tensor[:, :, :, 24:] == 0)
+
+
+def test_agreeing_reads_of_one_plate_combine_and_other_spots_stay_apart():
+    a = Reading("7", 0.9, (0.5, 0.5, 0.1, 0.05))
+    b = Reading("7", 0.9, (0.52, 0.5, 0.1, 0.05))
+    far = Reading("7", 0.8, (0.1, 0.1, 0.05, 0.05))
+    other = Reading("17", 0.9, (0.5, 0.5, 0.1, 0.05))
+    combined = {
+        (r.value, round(r.confidence, 4)) for r in _combined([a, b, far, other])
+    }
+    assert combined == {("7", 0.99), ("7", 0.8), ("17", 0.9)}
