@@ -3,10 +3,12 @@
 from __future__ import annotations
 
 import hashlib
+import http.client
 import json
 import math
 import ssl
 import tempfile
+import urllib.parse
 import urllib.request
 from collections.abc import Callable
 from pathlib import Path
@@ -102,6 +104,26 @@ def ensure_models(
 
 
 def _download(key, path, progress, cancel) -> None:
+    # The sources after the first are byte-identical copies, so a source that is down
+    # or has lost the file costs one request instead of the model.
+    failed = []
+    for url in CATALOG[key]["urls"]:
+        try:
+            download(key, url, path, progress, cancel)
+            return
+        except (OSError, http.client.HTTPException, ModelError) as exc:
+            failed.append(f"{urllib.parse.urlsplit(url).netloc}: {exc}")
+    raise ModelError("\n".join([f"{key}: every source failed; retry", *failed]))
+
+
+def download(
+    key: str,
+    url: str,
+    path: Path,
+    progress: Callable[[str, int, int], None],
+    cancel: Callable[[], bool],
+) -> None:
+    """Fetch one source of the model; only a file of its pinned size and hash lands."""
     model = CATALOG[key]
     tmp: Path | None = None
     try:
@@ -110,18 +132,18 @@ def _download(key, path, progress, cancel) -> None:
             context = ssl.create_default_context(cafile=certifi.where())
             # URLs are fixed HTTPS entries in the committed catalog.
             with urllib.request.urlopen(  # noqa: S310
-                model["url"], timeout=15, context=context
+                url, timeout=15, context=context
             ) as response:
                 size = 0
                 while chunk := response.read(64 * 1024):
                     check_cancel(cancel)
                     size += len(chunk)
                     if size > model["bytes"]:
-                        raise ModelError(f"{key}: download exceeds the expected size")
+                        raise ModelError("download exceeds the expected size")
                     stream.write(chunk)
                     progress(f"Downloading {key}", size, model["bytes"])
         if size != model["bytes"] or _digest(tmp, cancel) != model["sha256"]:
-            raise ModelError(f"{key}: download checksum does not match; retry")
+            raise ModelError("download checksum does not match")
         tmp.replace(path)
     finally:
         if tmp is not None:
