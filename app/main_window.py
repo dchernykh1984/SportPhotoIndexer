@@ -143,13 +143,15 @@ class MainWindow(QMainWindow):
                 "Bib numbers, then rider appearance and faces",
             ]
         )
-        self._mode.setCurrentIndex(1)
+        # The search that finds the most is the default (docs/recognition-benchmark.md).
+        self._mode.setCurrentIndex(2)
         automatic.addWidget(self._mode)
         self._size = QComboBox()
         for size, title in _SIZES.items():
             self._size.addItem(f"{title} ({download_megabytes(False, size)} MB)", size)
+        saved = self._size.findData(settings.load().get("model_size"))
         self._size.setCurrentIndex(
-            max(0, self._size.findData(settings.load().get("model_size")))
+            saved if saved >= 0 else self._size.findData("florence-2-base")
         )
         self._size.currentIndexChanged.connect(self._on_size)
         automatic.addWidget(self._size)

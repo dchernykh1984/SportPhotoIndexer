@@ -20,9 +20,11 @@ their photos by bib, and in their own race album.
    AVIF needs Pillow's native AVIF codec, unavailable on Windows ARM64; an explicit
    error is shown there rather than silently leaving AVIF files out. HEIC/HEIF works
    on Windows ARM64 as well as x64, macOS and Linux.
-3. **Recognize automatically**: the default mode reads bibs first, then uses riders with
-   accepted bibs as appearance references for other photos of this album. Choose *Bib
-   numbers only* to skip the second phase. Inspect the list's `check:` suggestions.
+3. **Recognize automatically**: by default with the *Large* models and the mode that
+   reads bibs first, then uses riders with accepted bibs as appearance and face
+   references for other photos of this album. Choose *Small models* for a quicker run
+   with a 15 MB download, and *Bib numbers only* to skip the second phase. Inspect the
+   list's `check:` suggestions.
    Type the accepted bibs and press **Enter** to confirm/correct a photo and move on;
    Enter with an empty field explicitly accepts no bibs. Manual entry and CSV also
    work without downloading any models.
