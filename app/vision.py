@@ -204,12 +204,8 @@ def _overlap(a, b):
     )
 
 
-def _combined(readings):
-    """One reading per bib and spot: windows overlap, so a plate is often read twice.
-
-    Independent reads that agree raise the confidence to 1 - prod(1 - c); a lone
-    digit read once stays as uncertain as the reader said.
-    """
+def _clusters(readings):
+    """Readings grouped by bib and spot, the most confident first in each group."""
     clusters: list[list[Reading]] = []
     for reading in sorted(readings, key=lambda r: r.confidence, reverse=True):
         for cluster in clusters:
@@ -220,14 +216,32 @@ def _combined(readings):
                 break
         else:
             clusters.append([reading])
+    return clusters
+
+
+def _combined(readings):
+    """One reading per bib and spot: windows overlap, so a plate is often read twice.
+
+    Independent reads that agree raise the confidence to 1 - prod(1 - c); a lone
+    digit read once stays as uncertain as the reader said.
+    """
     return [
         Reading(
             best.value,
             1 - math.prod(1 - r.confidence for r in [best, *rest]),
             best.region,
         )
-        for best, *rest in clusters
+        for best, *rest in _clusters(readings)
     ]
+
+
+def _related(a, b):
+    """Two different reads of one plate, one part of the other: "6" and "16"."""
+    return (
+        a.value != b.value
+        and (a.value in b.value or b.value in a.value)
+        and _overlap(a.region, b.region)
+    )
 
 
 def _bib_like(text):
@@ -400,24 +414,38 @@ class CpuVision:
     def ocr(self, image: Image.Image) -> list[Reading]:
         people = self._people(image)
         boxes = [(0, 0, image.width, image.height)]
-        shares = (WINDOWS,) if self.florence is None else (WINDOWS, FINER_WINDOWS)
         for person in people:
-            for share in shares:
-                boxes.extend(_person_windows(person, image.size, share))
+            boxes.extend(_person_windows(person, image.size))
+        small = _combined(_whole_bibs(self._read_windows(image, boxes)))
+        if self.florence is None:
+            return small
+        read = _read_florence(self.florence, image, people)
+        # The finer windows see the same pixels many times over: one vote per spot,
+        # and only for bibs that neither cut nor extend a read already made, so they
+        # add bibs without taking any away.
+        finer = [
+            b for p in people for b in _person_windows(p, image.size, FINER_WINDOWS)
+        ]
+        settled = [*small, *read]
+        extra = [
+            best
+            for best, *_ in _clusters(self._read_windows(image, finer))
+            if not any(_related(best, other) for other in settled)
+        ]
+        small = _combined([*small, *extra])
+        # Florence-2 misreads far less: an unsure small read stays only when it agrees.
+        seen = {r.value for r in read}
+        kept = [r for r in small if _sure(r) or r.value in seen]
+        return _combined(_whole_bibs([*kept, *read]))
+
+    def _read_windows(self, image: Image.Image, boxes) -> list[Reading]:
         found = []
         for box in boxes:
             with image.crop(box) as tile:
                 for reading in self._read_crop(tile):
                     if mapped := _map_reading(reading, box, image):
                         found.append(mapped)
-        small = _combined(_whole_bibs(found))
-        if self.florence is None:
-            return small
-        # Florence-2 misreads far less: an unsure small read stays only when it agrees.
-        read = _read_florence(self.florence, image, people)
-        seen = {r.value for r in read}
-        kept = [r for r in small if _sure(r) or r.value in seen]
-        return _combined(_whole_bibs([*kept, *read]))
+        return found
 
     def _read_crop(self, image: Image.Image) -> list[Reading]:
         square, padding = _letterbox(image, 736)
