@@ -52,8 +52,12 @@ def _classified(observation, method, lock, starters):
     state = observation.get("state", "candidate")
     if method == "ocr":
         # Derived again on every run, so a changed start protocol needs no new read.
-        if starters and _loose(observation["value"]) not in starters:
-            return {**observation, "state": "rejected"}
+        if starters:
+            spelled = starters.get(_loose(observation["value"]))
+            if spelled is None:
+                return {**observation, "state": "rejected"}
+            # The site matches bibs exactly: "012" read for starter "12" is "12".
+            observation = {**observation, "value": spelled}
         # Any bib format is accepted alike: races use letters too ("A12").
         needed = ACCEPT_LONE_DIGIT if len(observation["value"]) == 1 else ACCEPT_OCR
         state = (
@@ -68,7 +72,7 @@ def _classified(observation, method, lock, starters):
     return {**observation, "state": state}
 
 
-def _merge(photo, method, observations, starters=frozenset()):
+def _merge(photo, method, observations, starters=None):
     manual = [b for b in photo["bibs"] if b["method"] == "manual"]
     reviewed = {b["value"] for b in manual}
     lock = photo.get("manual_review", {}).get("lock_accepted_set", False)
@@ -83,14 +87,16 @@ def _merge(photo, method, observations, starters=frozenset()):
     accepted = {b["value"] for b in retained if b["state"] == "accepted"}
     choices = {}
     for observation in observations:
+        observation = _classified(observation, method, lock, starters)
         value = observation["value"]
         if value in reviewed or value in accepted:
             continue
-        observation = _classified(observation, method, lock, starters)
         if value not in choices or (observation.get("confidence") or 0) > (
             choices[value].get("confidence") or 0
         ):
             choices[value] = observation
+    # The site takes at most MAX_BIBS_PER_PHOTO: bibs still in play keep their place
+    # ahead of reads the protocol rejected, which then may not survive a cleared one.
     automatic = sorted(
         [*retained, *choices.values()],
         key=lambda b: (b["state"] != "rejected", b.get("confidence") or 0),
@@ -328,13 +334,14 @@ def run(
 
     OCR checkpoints survive cancellation. Vectors live in a private temporary database,
     removed on every exit. Restarting recomputes appearance. Read bibs that are not in
-    ``starters`` (the start protocol, when given) are kept as rejected.
+    ``starters`` (the start protocol, when given) are kept as rejected; the others are
+    saved as the protocol spells them.
     """
     report = Report()
-    starters = frozenset(map(_loose, starters))
+    spelling = {_loose(bib): bib for bib in starters}
     try:
         _ocr(
-            folder, index, engine, appearance, size, starters, progress, cancel, report
+            folder, index, engine, appearance, size, spelling, progress, cancel, report
         )
         if appearance:
             with tempfile.TemporaryDirectory(prefix="photo-appearance-") as temp:

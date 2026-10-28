@@ -310,8 +310,9 @@ def test_a_protocol_matches_bibs_whatever_their_leading_zeroes_and_case(album):
     engine = FakeVision()
     engine.readings[1] = [Reading("A7", 0.99, BIB_BOX)]
     run(album, data, engine, appearance=False, starters=frozenset({"12", "a07"}))
-    assert indexer.bibs_of(data["photos"][0]) == ["012"]
-    assert indexer.bibs_of(data["photos"][1]) == ["A7"]
+    # Saved as the protocol spells them: the site matches a starter's bib exactly.
+    assert indexer.bibs_of(data["photos"][0]) == ["12"]
+    assert indexer.bibs_of(data["photos"][1]) == ["a07"]
 
 
 def test_a_bib_the_protocol_hid_is_not_rejected_by_the_person_checking_the_photo(
