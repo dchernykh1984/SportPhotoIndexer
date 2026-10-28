@@ -327,6 +327,15 @@ def test_a_bib_the_protocol_hid_is_not_rejected_by_the_person_checking_the_photo
     assert ("012", "candidate") in [(b["value"], b["state"]) for b in red["bibs"]]
 
 
+def test_a_numbers_only_run_drops_older_suggestions_outside_the_protocol(album):
+    data = prepared(album)
+    run(album, data, FakeVision())
+    green = data["photos"][1]
+    assert green["bibs"][0]["method"] == "appearance"
+    run(album, data, FakeVision(), appearance=False, starters=frozenset({"7"}))
+    assert green["bibs"] == []
+
+
 def test_an_unavailable_cached_photo_does_not_abort_the_other_photos(album):
     data = prepared(album)
     run(album, data, FakeVision(), appearance=False)
