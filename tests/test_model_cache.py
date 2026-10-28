@@ -111,6 +111,37 @@ def test_sources_open_over_verified_tls_with_the_connect_timeout(monkeypatch):
     }
 
 
+@pytest.mark.parametrize(
+    "error",
+    [
+        TimeoutError("The read operation timed out"),
+        ConnectionResetError(errno.ECONNRESET, "Connection reset by peer"),
+    ],
+)
+def test_a_host_failing_before_its_headers_fails_like_any_source(monkeypatch, error):
+    def fail(self, url, timeout):
+        raise error
+
+    monkeypatch.setattr(urllib.request.OpenerDirector, "open", fail)
+    with pytest.raises(urllib.error.URLError) as failure:
+        cache._open("https://example.test/a.onnx")
+    assert failure.value.reason is error
+
+
+def test_an_http_error_reaches_the_caller_as_itself(monkeypatch):
+    missing = urllib.error.HTTPError(
+        "https://example.test", 404, "Not Found", email.message.Message(), None
+    )
+
+    def fail(self, url, timeout):
+        raise missing
+
+    monkeypatch.setattr(urllib.request.OpenerDirector, "open", fail)
+    with pytest.raises(urllib.error.HTTPError) as failure:
+        cache._open("https://example.test/a.onnx")
+    assert failure.value is missing
+
+
 def test_offline_failure_names_every_source_and_cleans_up(
     tmp_path, monkeypatch, catalog
 ):
