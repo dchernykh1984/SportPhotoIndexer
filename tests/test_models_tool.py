@@ -159,3 +159,38 @@ def test_the_upload_command_survives_a_folder_with_a_space(
     models.main(tmp_path / "My Models")
     path = tmp_path / "My Models" / "a.onnx"
     assert f"--clobber '{path}'" in capsys.readouterr().out
+
+
+def test_what_to_do_about_a_model_is_said_before_the_next_model_is_checked(
+    tmp_path, monkeypatch, capsys
+):
+    catalog = {
+        "a": {"path": "dir/a.onnx", "urls": [ONE]},
+        "b": {"path": "dir/b.onnx", "urls": ["https://three.test/b.onnx"]},
+    }
+    monkeypatch.setattr(model_cache, "CATALOG", catalog)
+    monkeypatch.setattr(models, "CATALOG", catalog)
+
+    def download(key, url, path, progress, cancel):
+        if url.startswith(models.MIRROR):
+            raise urllib.error.HTTPError(
+                url, 404, "Not Found", email.message.Message(), None
+            )
+        if url == ONE:
+            raise model_cache.ModelError("download checksum does not match")
+
+    monkeypatch.setattr(models, "download_from", download)
+    models.main(tmp_path)
+    out = capsys.readouterr().out
+    next_model = out.index("https://three.test/b.onnx")
+    assert (
+        out.index(f"-> remove from app/model_catalog.json once it stays down: {ONE}")
+        < next_model
+    )
+    assert (
+        out.index(
+            f"-> upload: gh release upload models-v1 --clobber {tmp_path / 'a.onnx'}"
+        )
+        < next_model
+    )
+    assert "failed on every try" not in out

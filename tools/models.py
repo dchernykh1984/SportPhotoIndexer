@@ -89,9 +89,18 @@ def check(folder: Path) -> tuple[list[str], list[str], list[str]]:
             failed |= not (ours and empty)
             if not ours:
                 dead.append(url)
+                # Said at once, so a run cut off by its time limit still says it.
+                print(
+                    f"-> remove from app/model_catalog.json once it stays down: {url}"
+                )
         if failed and not mirrored and not unknown:
             missing.append(name)
+            print(f"-> upload: {_upload(folder / name)}")
     return missing, dead, unread
+
+
+def _upload(path: Path) -> str:
+    return f"gh release upload {RELEASE} --clobber {shlex.quote(str(path))}"
 
 
 def main(folder: Path) -> int:
@@ -105,12 +114,11 @@ def main(folder: Path) -> int:
             " --notes 'Copies of models whose sources failed; see MODEL_NOTICES.md.'"
         )
         for name in missing:
-            file = shlex.quote(str(folder / name))
-            print(f"  gh release upload {RELEASE} --clobber {file}")
+            print(f"  {_upload(folder / name)}")
     if dead:
         # The app tries a dead source before the mirror on every fresh download.
         print(
-            "\nThese sources failed on every try. Once one stays down, remove it from"
+            "\nThese sources failed. Once one stays down, remove it from"
             " app/model_catalog.json, or the app keeps trying it first:"
         )
         for url in dead:
