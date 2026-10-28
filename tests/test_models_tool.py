@@ -138,3 +138,23 @@ def test_a_full_disk_stops_the_check_instead_of_failing_every_source(
     with pytest.raises(OSError, match="No space left"):
         models.main(tmp_path)
     assert calls == [ONE]
+
+
+def test_the_upload_command_survives_a_folder_with_a_space(
+    tmp_path, monkeypatch, capsys
+):
+    catalog = {"a": {"path": "dir/a.onnx", "urls": [ONE]}}
+    monkeypatch.setattr(model_cache, "CATALOG", catalog)
+    monkeypatch.setattr(models, "CATALOG", catalog)
+
+    def download(key, url, path, progress, cancel):
+        if url.startswith(models.MIRROR):
+            raise urllib.error.HTTPError(
+                url, 404, "Not Found", email.message.Message(), None
+            )
+        raise model_cache.ModelError("download checksum does not match")
+
+    monkeypatch.setattr(models, "download_from", download)
+    models.main(tmp_path / "My Models")
+    path = tmp_path / "My Models" / "a.onnx"
+    assert f"--clobber '{path}'" in capsys.readouterr().out
