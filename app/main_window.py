@@ -362,6 +362,14 @@ class MainWindow(QMainWindow):
         self._show_protocol()
 
     def rescan(self) -> bool:
+        try:
+            return self._rescan()
+        finally:
+            # A close asked for during the scan, once its outcome has been shown.
+            if self._closing:
+                QTimer.singleShot(0, self.close)
+
+    def _rescan(self) -> bool:
         if self._folder is None:
             return False
         try:
@@ -409,8 +417,6 @@ class MainWindow(QMainWindow):
         self._scanner = None
         self._central.setEnabled(True)
         worker.deleteLater()
-        if self._closing:
-            QTimer.singleShot(0, self.close)
         if isinstance(worker.error, CancelledError):
             return None
         if worker.error is not None:
