@@ -159,9 +159,11 @@ def download(
         with tempfile.NamedTemporaryFile(dir=path.parent, delete=False) as stream:
             tmp = Path(stream.name)
             context = ssl.create_default_context(cafile=certifi.where())
-            # URLs are fixed HTTPS entries in the committed catalog.
+            # URLs are fixed HTTPS entries in the committed catalog. A minute without
+            # data before giving up a source: ModelScope pauses longer than 15 seconds
+            # in the middle of a file when it is far away.
             with urllib.request.urlopen(  # noqa: S310
-                url, timeout=15, context=context
+                url, timeout=60, context=context
             ) as response:
                 size = 0
                 while chunk := response.read(64 * 1024):
