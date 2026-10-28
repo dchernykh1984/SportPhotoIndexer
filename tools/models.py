@@ -16,7 +16,7 @@ import sys
 import urllib.error
 from pathlib import Path
 
-from app.model_cache import CATALOG, MIRROR, download, sources
+from app.model_cache import CATALOG, MIRROR, download, file_name, sources
 
 RELEASE = MIRROR.rstrip("/").rsplit("/", 1)[1]
 
@@ -38,8 +38,8 @@ def check(folder: Path) -> list[str]:
     """Report every source; the file names of the models the mirror must get."""
     folder.mkdir(parents=True, exist_ok=True)
     missing = []
-    for key, model in CATALOG.items():
-        name = Path(model["path"]).name
+    for key in CATALOG:
+        name = file_name(key)
         failed = mirrored = False
         for url in sources(key):
             ours = url.startswith(MIRROR)

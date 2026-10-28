@@ -111,7 +111,7 @@ def ensure_models(
     for key in _keys(appearance, size, faces):
         check_cancel(cancel)
         model = CATALOG[key]
-        path = cache / Path(model["path"]).name
+        path = cache / file_name(key)
         if not (
             path.exists()
             and path.stat().st_size == model["bytes"]
@@ -122,10 +122,14 @@ def ensure_models(
     return result
 
 
+def file_name(key: str) -> str:
+    """The model's file in the cache, and in the mirror release."""
+    return Path(CATALOG[key]["path"]).name
+
+
 def sources(key: str) -> tuple[str, ...]:
     """The catalog's sources of the model, then this repository's mirror."""
-    model = CATALOG[key]
-    return (*model["urls"], MIRROR + Path(model["path"]).name)
+    return (*CATALOG[key]["urls"], MIRROR + file_name(key))
 
 
 def _download(key, path, progress, cancel) -> None:
