@@ -25,7 +25,7 @@ def pauses(monkeypatch):
         (set(), "empty", False),
         ({TWO}, "empty", True),
         ({ONE, TWO}, "ok", False),
-        (set(), "wrong", True),
+        (set(), "wrong", False),
         ({ONE, TWO}, "down", False),
     ],
 )
@@ -50,14 +50,17 @@ def test_the_check_asks_for_an_upload_only_when_the_mirror_lacks_a_lost_model(
 
     monkeypatch.setattr(models, "download_from", download)
     # A dead source fails the check even when the mirror holds its model.
-    assert models.main(tmp_path) == int(upload or bool(gone))
+    assert models.main(tmp_path) == int(upload or bool(gone) or mirror == "wrong")
     out = capsys.readouterr().out
-    command = f"gh release upload models-v1 --clobber {tmp_path / 'a.onnx'}"
+    command = f"gh release upload models-v1 {tmp_path / 'a.onnx'}"
     assert (command in out) == upload
     assert out.count("FAILED") == len(gone) + (mirror in ("wrong", "down"))
     assert all(f"\n  {url}\n" in out for url in gone)
     # A mirror that cannot be read may hold the model: no upload, but a look.
     assert ("could not be read" in out) == (mirror == "down")
+    # Other bytes under the name may be what an installed app pins: never replaced.
+    assert ("holds other bytes" in out) == (mirror == "wrong")
+    assert "--clobber" not in out
 
 
 def test_a_source_that_fails_twice_is_tried_again_before_it_counts_as_lost(
@@ -158,7 +161,7 @@ def test_the_upload_command_survives_a_folder_with_a_space(
     monkeypatch.setattr(models, "download_from", download)
     models.main(tmp_path / "My Models")
     path = tmp_path / "My Models" / "a.onnx"
-    assert f"--clobber '{path}'" in capsys.readouterr().out
+    assert f"gh release upload models-v1 '{path}'" in capsys.readouterr().out
 
 
 def test_what_to_do_about_a_model_is_said_before_the_next_model_is_checked(
@@ -188,9 +191,7 @@ def test_what_to_do_about_a_model_is_said_before_the_next_model_is_checked(
         < next_model
     )
     assert (
-        out.index(
-            f"-> upload: gh release upload models-v1 --clobber {tmp_path / 'a.onnx'}"
-        )
+        out.index(f"-> upload: gh release upload models-v1 {tmp_path / 'a.onnx'}")
         < next_model
     )
     assert "failed on every try" not in out
