@@ -18,12 +18,14 @@ import shlex
 import sys
 import time
 import urllib.error
+from collections.abc import Callable
 from pathlib import Path
 
 from app.model_cache import (
     CATALOG,
     MIRROR,
     SOURCE_ERRORS,
+    CancelledError,
     CutShortError,
     ModelError,
     download_from,
@@ -37,6 +39,10 @@ RELEASE = MIRROR.rstrip("/").rsplit("/", 1)[1]
 # longer than a read timeout now and then on the far side of the world.
 ATTEMPTS = 3
 PAUSE = 30
+# The longest one source may take for one file. The largest model, 388 MB, comes from
+# ModelScope to the runners in about 4 minutes; a source sending a trickle must not
+# hold the run until the job's time limit cuts it off before its summary.
+SLOWEST = 20 * 60
 
 
 def _lasting(error: Exception) -> bool:
@@ -47,6 +53,10 @@ def _lasting(error: Exception) -> bool:
     return isinstance(error, ModelError) and not isinstance(error, CutShortError)
 
 
+def _past(deadline: float) -> Callable[[], bool]:
+    return lambda: time.monotonic() > deadline
+
+
 def _fetch(key: str, url: str, path: Path) -> Exception | None:
     """One source, again after a failure that may pass: a connection dropped in a
     weekly run must not read as a lost model."""
@@ -54,9 +64,12 @@ def _fetch(key: str, url: str, path: Path) -> Exception | None:
     for attempt in range(ATTEMPTS):
         if attempt:
             time.sleep(PAUSE)
+        too_slow = _past(time.monotonic() + SLOWEST)
         try:
-            download_from(key, url, path, lambda *a: None, lambda: False)
+            download_from(key, url, path, lambda *a: None, too_slow)
             return None
+        except CancelledError:  # too slow; another try would take as long
+            return TimeoutError(f"slower than {SLOWEST // 60} minutes for one file")
         except SOURCE_ERRORS as exc:  # a disk error stops the check, as it does the app
             error = exc
             if _lasting(exc):

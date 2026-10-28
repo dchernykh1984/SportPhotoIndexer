@@ -228,3 +228,23 @@ def test_a_lost_model_with_no_verified_copy_here_gets_no_upload_command(
     assert "gh release upload" not in out
     assert "no verified copy of a.onnx here" in out
     assert "the model is lost" in out
+
+
+def test_a_source_slower_than_the_limit_is_cut_off_and_not_tried_again(
+    tmp_path, monkeypatch, capsys
+):
+    catalog = {"a": {"path": "dir/a.onnx", "urls": [ONE]}}
+    monkeypatch.setattr(model_cache, "CATALOG", catalog)
+    monkeypatch.setattr(models, "CATALOG", catalog)
+    monkeypatch.setattr(models, "SLOWEST", -1)  # every download is past its time
+    calls = []
+
+    def download(key, url, path, progress, cancel):
+        calls.append(url)
+        if cancel():
+            raise model_cache.CancelledError
+
+    monkeypatch.setattr(models, "download_from", download)
+    assert models.main(tmp_path) == 1
+    assert calls.count(ONE) == 1
+    assert f"FAILED {ONE}: slower than" in capsys.readouterr().out
