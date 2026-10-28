@@ -379,3 +379,19 @@ def test_finer_windows_skip_digits_too_small_for_a_bib_on_the_rider():
     engine.florence = FakeFlorence({})
     found = engine.ocr(Image.new("RGB", (1000, 800), "white"))
     assert {r.value for r in found} == {"4"}
+
+
+def test_finer_windows_drop_a_fragment_of_a_bib_they_read_whole():
+    engine = CpuVision.__new__(CpuVision)
+    engine._people = lambda image: [(0.4, 0.25, 0.1, 0.5)]
+    engine._read_crop = lambda tile: (
+        [
+            Reading("16", 0.9, (0.3, 0.3, 0.4, 0.2)),  # unsure, Florence-2 silent
+            Reading("6", 0.995, (0.5, 0.3, 0.2, 0.2)),  # sure, but part of the 16
+        ]
+        if tile.size == (100, 100)
+        else []
+    )
+    engine.florence = FakeFlorence({})
+    found = engine.ocr(Image.new("RGB", (1000, 800), "white"))
+    assert "6" not in {r.value for r in found}
