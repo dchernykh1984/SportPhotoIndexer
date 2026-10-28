@@ -137,6 +137,7 @@ def _download(key, path, progress, cancel) -> None:
     # or has lost the file costs one request instead of the model.
     failed = []
     for url in sources(key):
+        check_cancel(cancel)  # Stop pressed while a source failed opens no other one
         try:
             download(key, url, path, progress, cancel)
             return

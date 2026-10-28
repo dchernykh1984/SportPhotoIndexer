@@ -94,6 +94,21 @@ def test_offline_failure_names_every_source_and_cleans_up(
     assert list(tmp_path.iterdir()) == []
 
 
+def test_stop_pressed_while_a_source_fails_opens_no_other_source(
+    tmp_path, monkeypatch, catalog
+):
+    calls = []
+
+    def stalled(url, **kwargs):
+        calls.append(url)  # the user presses Stop while this source hangs
+        raise urllib.error.URLError(TimeoutError("timed out"))
+
+    monkeypatch.setattr(cache.urllib.request, "urlopen", stalled)
+    with pytest.raises(cache.CancelledError):
+        cache.ensure_models(False, lambda *a: None, lambda: bool(calls), tmp_path)
+    assert len(calls) == 1
+
+
 def test_a_full_disk_stops_the_download_instead_of_trying_every_source(
     tmp_path, monkeypatch, catalog
 ):
