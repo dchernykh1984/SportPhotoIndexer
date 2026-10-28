@@ -27,6 +27,7 @@ from PySide6.QtWidgets import (
     QMessageBox,
     QProgressBar,
     QPushButton,
+    QSizePolicy,
     QSplitter,
     QVBoxLayout,
     QWidget,
@@ -74,6 +75,39 @@ class _ScanWorker(QThread):
         if self.isInterruptionRequested():
             raise _ScanStoppedError
         self.progress.emit(done, total)
+
+
+class _Photo(QLabel):
+    """The photo, scaled to all the room the window gives it, sharp on Retina."""
+
+    def __init__(self) -> None:
+        super().__init__()
+        self._original = QPixmap()
+        self.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.setMinimumSize(320, 240)
+        # Sized by the layout, not by the pixmap, so the window can shrink again.
+        self.setSizePolicy(QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Ignored)
+
+    def show_photo(self, pixmap: QPixmap) -> None:
+        self._original = pixmap
+        self._fit()
+
+    def resizeEvent(self, event) -> None:  # noqa: N802 -- Qt virtual method
+        super().resizeEvent(event)
+        self._fit()
+
+    def _fit(self) -> None:
+        if self._original.isNull():
+            self.clear()
+            return
+        ratio = self.devicePixelRatioF()
+        scaled = self._original.scaled(
+            self.size() * ratio,
+            Qt.AspectRatioMode.KeepAspectRatio,
+            Qt.TransformationMode.SmoothTransformation,
+        )
+        scaled.setDevicePixelRatio(ratio)
+        self.setPixmap(scaled)
 
 
 class MainWindow(QMainWindow):
@@ -189,9 +223,7 @@ class MainWindow(QMainWindow):
         split.addWidget(self._list)
         right = QWidget()
         side = QVBoxLayout(right)
-        self._image = QLabel()
-        self._image.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self._image.setMinimumSize(320, 240)
+        self._image = _Photo()
         side.addWidget(self._image, 1)
         side.addWidget(QLabel("Bibs on this photo (separated by spaces):"))
         entry = QHBoxLayout()
@@ -204,6 +236,8 @@ class MainWindow(QMainWindow):
         side.addLayout(entry)
         split.addWidget(right)
         split.setSizes([300, 800])
+        split.setStretchFactor(0, 0)  # a larger window is for a larger photo
+        split.setStretchFactor(1, 1)
         root.addWidget(split, 1)
 
         self._lbl_status = QLabel()
@@ -440,19 +474,13 @@ class MainWindow(QMainWindow):
     def _show_photo(self, row: int) -> None:
         photo = self._photo(row)
         if photo is None or self._folder is None:
-            self._image.clear()
+            self._image.show_photo(QPixmap())
             return
         asset = photo.get("preview", photo["original"])
         pixmap = QPixmap(str(self._folder / asset["path"]))
         if pixmap.isNull() and asset is not photo["original"]:
             pixmap = QPixmap(str(self._folder / photo["original"]["path"]))
-        self._image.setPixmap(
-            pixmap.scaled(
-                self._image.size(),
-                Qt.AspectRatioMode.KeepAspectRatio,
-                Qt.TransformationMode.SmoothTransformation,
-            )
-        )
+        self._image.show_photo(pixmap)
         self._edit_bibs.setText(" ".join(indexer.bibs_of(photo)))
         self._edit_bibs.selectAll()
         self._edit_bibs.setFocus()
