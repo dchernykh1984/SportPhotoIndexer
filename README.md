@@ -77,8 +77,11 @@ needs about 1 GB of RAM plus the models, so larger sizes run fewer photos at onc
 A start protocol is optional: *Start protocol* in the folder bar takes the race's
 `start.txt` from StartProtocolMaker (`12#Name#Category#...`) or any table with the bib
 in the first column, and is remembered for that album only; *Clear* goes back to any
-bib. Read numbers that are not in it are kept as rejected, so banners, car plates and
-displays are no longer suggested and do not seed appearance. Clearing or changing the
+bib. The status line shows the bibs it found, so a wrong column stands out. Read
+numbers that are not in it are kept as rejected, so banners, car plates and displays
+are no longer suggested and do not seed appearance; a read that differs only in
+leading zeroes or case ("012" for "12") is saved as the protocol spells it, because the
+site matches bibs exactly. Clearing or changing the
 protocol brings them back on the next run without reading the photos again, on photos
 nobody has checked yet: a checked photo keeps what the person typed. It cannot
 tell a starter's number on a sticker or a bottle from a bib, and it rejects the bib of
