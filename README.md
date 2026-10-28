@@ -73,6 +73,18 @@ visible handlebar plates instead of 73% and 62% of the seat-post plates instead 
 for 500 photos on a ten-core Mac); Medium sits between them at about three times.
 Florence-2 large (3.3 GB) found about as many as Large and is not offered. Each photo worker
 needs about 1 GB of RAM plus the models, so larger sizes run fewer photos at once.
+
+A start protocol is optional: *Start protocol* in the folder bar takes the race's
+`start.txt` from StartProtocolMaker (`12#Name#Category#...`) or any table with the bib
+in the first column, and is remembered for that album only; *Clear* goes back to any
+bib. Read numbers that are not in it are kept as rejected, so banners, car plates and
+displays are no longer suggested and do not seed appearance. Clearing or changing the
+protocol brings them back on the next run without reading the photos again. It cannot
+tell a starter's number on a sticker or a bottle from a bib, and it rejects the bib of
+a rider who is missing from the file, so use the final protocol. On the labelled races
+it found as many bibs and cut the wrong values from 36 to 14 (seat-post plates, Large)
+and from 70 to 61 (handlebar plates).
+
 The appearance phase uses whole-person crops (kit, helmet and build, plus bike pixels
 inside the crop). It searches **only this album**: put one
 event in a folder. It needs unambiguous accepted bib references; overlapping riders
@@ -207,7 +219,8 @@ The program reads and writes its files (`data/spi_settings.json`) **next to itse
 it a folder of its own rather than a shared downloads directory. On macOS the
 files land next to the `.app` bundle, in the folder that contains it.
 
-It only remembers the last album folder you opened.
+It remembers the last album folder you opened, the model size and each album's start
+protocol.
 
 
 ## Setup
