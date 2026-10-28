@@ -29,7 +29,8 @@ def any_file_is_verified(monkeypatch):
     ("gone", "mirror", "upload"),
     [
         (set(), "empty", False),
-        ({TWO}, "empty", True),
+        ({TWO}, "empty", False),  # ONE still gives it: not lost, nothing to upload
+        ({ONE, TWO}, "empty", True),
         ({ONE, TWO}, "ok", False),
         (set(), "wrong", False),
         ({ONE, TWO}, "down", False),
@@ -56,6 +57,7 @@ def test_the_check_asks_for_an_upload_only_when_the_mirror_lacks_a_lost_model(
         path.write_bytes(b"model")
 
     monkeypatch.setattr(models, "download_from", download)
+    (tmp_path / "a.onnx").write_bytes(b"model")  # a verified copy from before
     # A dead source fails the check even when the mirror holds its model.
     assert models.main(tmp_path) == int(upload or bool(gone) or mirror == "wrong")
     out = capsys.readouterr().out
