@@ -71,6 +71,11 @@ class ModelError(ValueError):
     pass
 
 
+class CutShortError(ModelError):
+    """The connection closed before the whole file arrived; urllib hands over the
+    shorter body without an error."""
+
+
 # How a source fails (_read reports the network failing mid-file the same way). A full
 # or read-only disk fails every source alike, so it stops the download at once and is
 # reported as itself.
@@ -207,7 +212,9 @@ def download_from(
                         raise ModelError("download exceeds the expected size")
                     stream.write(chunk)
                     progress(f"Downloading {key}", size, model["bytes"])
-        if size != model["bytes"] or _digest(tmp, cancel) != model["sha256"]:
+        if size < model["bytes"]:
+            raise CutShortError("download ended early")
+        if _digest(tmp, cancel) != model["sha256"]:
             raise ModelError("download checksum does not match")
         tmp.replace(path)
     finally:

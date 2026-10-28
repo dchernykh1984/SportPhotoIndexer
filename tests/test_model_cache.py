@@ -63,6 +63,23 @@ def test_bad_downloads_never_replace_the_cached_model(
     assert list(tmp_path.iterdir()) == [old]
 
 
+def test_a_download_cut_short_is_told_apart_from_a_wrong_file(
+    tmp_path, monkeypatch, catalog
+):
+    monkeypatch.setattr(cache, "_open", lambda url: io.BytesIO(catalog[:-3]))
+    with pytest.raises(cache.CutShortError):
+        cache.download_from(
+            "text_reader", "https://x.test", tmp_path / "m", print, bool
+        )
+    wrong = bytes(reversed(catalog))
+    monkeypatch.setattr(cache, "_open", lambda url: io.BytesIO(wrong))
+    with pytest.raises(cache.ModelError) as failure:
+        cache.download_from(
+            "text_reader", "https://x.test", tmp_path / "m", print, bool
+        )
+    assert not isinstance(failure.value, cache.CutShortError)
+
+
 def test_cancel_interrupts_download_and_cleans_up(tmp_path, monkeypatch, catalog):
     monkeypatch.setattr(cache, "_open", lambda *a, **k: io.BytesIO(catalog))
     stopped = False

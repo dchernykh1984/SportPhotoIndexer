@@ -23,6 +23,7 @@ from app.model_cache import (
     CATALOG,
     MIRROR,
     SOURCE_ERRORS,
+    CutShortError,
     ModelError,
     download_from,
     file_name,
@@ -38,10 +39,10 @@ PAUSE = 30
 
 def _lasting(error: Exception) -> bool:
     """A failure another try would repeat: the source sent other bytes, or answered
-    that it does not have the file."""
+    that it does not have the file. A download cut short may pass."""
     if isinstance(error, urllib.error.HTTPError):
         return error.code in (404, 410)  # a 429 or 408 from a busy host may pass
-    return isinstance(error, ModelError)
+    return isinstance(error, ModelError) and not isinstance(error, CutShortError)
 
 
 def _fetch(key: str, url: str, path: Path) -> Exception | None:
