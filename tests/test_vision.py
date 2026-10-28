@@ -199,7 +199,41 @@ def test_a_small_bib_beside_a_person_is_read_enlarged_and_mapped_back(monkeypatc
     )
 
 
+def test_with_florence_finer_windows_read_a_plate_too_small_for_the_body_windows(
+    monkeypatch,
+):
+    from PIL import ImageDraw
+
+    from app import vision
+
+    engine = CpuVision.__new__(CpuVision)
+    engine.characters = [*string.digits, *string.ascii_letters, " "]
+
+    def infer(key, tensor):
+        if key == "people_detector":
+            return []
+        if key == "text_reader":
+            return [_probabilities(logits_for([2, 0, 1]))]
+        # Seen only once the plate fills more of the detector's input than a window of
+        # 0.4 of this rider's height gives it; a window of 0.25 does.
+        green = (tensor[0, 1] > 0.5) & (tensor[0, 0] < 0) & (tensor[0, 2] < 0)
+        probability = np.zeros((736, 736), dtype=np.float32)
+        if green.sum() >= 1000:
+            probability[green] = 0.99
+        return [probability]
+
+    engine._run = infer
+    monkeypatch.setattr(vision, "person_boxes", lambda output: [(0.4, 0.3, 0.1, 0.5)])
+    image = Image.new("RGB", (2400, 1800), "white")
+    ImageDraw.Draw(image).rectangle((1100, 1200, 1120, 1210), fill=(0, 255, 0))
+    assert engine.ocr(image) == []  # the small models alone keep to the 0.4 windows
+    engine.florence = FakeFlorence({})
+    assert {r.value for r in engine.ocr(image)} == {"10"}
+
+
 def test_person_windows_cover_the_body_and_the_bike_beside_it_at_a_fixed_scale():
+    finer = list(_person_windows((0.4, 0.2, 0.1, 0.5), (2000, 1000), 0.25))
+    assert {(r - x, b - y) for x, y, r, b in finer} == {(125, 125)}
     windows = list(_person_windows((0.4, 0.2, 0.1, 0.5), (2000, 1000)))
     sides = {(r - x, b - y) for x, y, r, b in windows}
     assert sides == {(200, 200)}  # 0.4 of a 500-pixel person, square
