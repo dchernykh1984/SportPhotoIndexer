@@ -11,6 +11,13 @@ from tools import models
 ONE, TWO = "https://one.test/a.onnx", "https://two.test/a.onnx"
 
 
+@pytest.fixture(autouse=True)
+def pauses(monkeypatch):
+    slept = []
+    monkeypatch.setattr(models.time, "sleep", slept.append)
+    return slept
+
+
 @pytest.mark.parametrize(
     ("gone", "mirror", "code"),
     [
@@ -43,8 +50,8 @@ def test_the_check_asks_for_an_upload_only_when_the_mirror_lacks_a_lost_model(
     assert out.count("FAILED") == len(gone) + (mirror == "wrong")
 
 
-def test_a_source_that_fails_once_is_tried_again_before_it_counts_as_lost(
-    tmp_path, monkeypatch, capsys
+def test_a_source_that_fails_twice_is_tried_again_before_it_counts_as_lost(
+    tmp_path, monkeypatch, capsys, pauses
 ):
     catalog = {"a": {"path": "dir/a.onnx", "urls": [ONE]}}
     monkeypatch.setattr(model_cache, "CATALOG", catalog)
@@ -53,13 +60,14 @@ def test_a_source_that_fails_once_is_tried_again_before_it_counts_as_lost(
 
     def download(key, url, path, progress, cancel):
         calls.append(url)
-        if calls.count(url) == 1:
+        if calls.count(url) < 3:
             raise TimeoutError("timed out")
 
     monkeypatch.setattr(models, "download", download)
     assert models.main(tmp_path) == 0
     assert "FAILED" not in capsys.readouterr().out
-    assert calls.count(ONE) == 2
+    assert calls.count(ONE) == 3
+    assert pauses[:2] == [30, 30]
 
 
 @pytest.mark.parametrize(
@@ -76,9 +84,9 @@ def test_a_source_that_fails_once_is_tried_again_before_it_counts_as_lost(
             urllib.error.HTTPError(
                 ONE, 503, "Unavailable", email.message.Message(), None
             ),
-            2,
+            3,
         ),
-        (urllib.error.URLError(TimeoutError("The read operation timed out")), 2),
+        (urllib.error.URLError(TimeoutError("The read operation timed out")), 3),
     ],
 )
 def test_only_a_failure_that_may_pass_is_tried_again(

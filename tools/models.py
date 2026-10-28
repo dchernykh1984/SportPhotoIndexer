@@ -13,12 +13,17 @@ does not hold that model yet, and prints the commands that upload it there.
 from __future__ import annotations
 
 import sys
+import time
 import urllib.error
 from pathlib import Path
 
 from app.model_cache import CATALOG, MIRROR, ModelError, download, file_name, sources
 
 RELEASE = MIRROR.rstrip("/").rsplit("/", 1)[1]
+# Tries of a source whose failure may pass, half a minute apart: ModelScope stalls for
+# longer than a read timeout now and then on the far side of the world.
+ATTEMPTS = 3
+PAUSE = 30
 
 
 def _lasting(error: Exception) -> bool:
@@ -30,10 +35,12 @@ def _lasting(error: Exception) -> bool:
 
 
 def _fetch(key: str, url: str, path: Path) -> Exception | None:
-    """One source, once more after a failure that may pass: a connection dropped in a
+    """One source, again after a failure that may pass: a connection dropped in a
     weekly run must not read as a lost model."""
     error: Exception | None = None
-    for _ in range(2):
+    for attempt in range(ATTEMPTS):
+        if attempt:
+            time.sleep(PAUSE)
         try:
             download(key, url, path, lambda *a: None, lambda: False)
             return None
