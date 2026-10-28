@@ -603,3 +603,35 @@ def test_a_huge_photo_is_kept_at_screen_size_so_resizing_stays_quick(win):
     screen *= win._image.devicePixelRatioF()
     kept = win._image._original
     assert kept.width() <= screen.width() and kept.height() <= screen.height()
+
+
+def test_the_window_is_destroyed_before_python_exits(monkeypatch):
+    # Left to interpreter exit, PySide frees signal receivers before the widgets and
+    # a widget's destructor can touch a freed one: 0.5.0 crashed on close that way.
+    import PySide6.QtWidgets
+    import shiboken6
+
+    from app import main as entry
+
+    class App:  # the test's QApplication stands in; exec returns as if closed
+        def __init__(self, argv):
+            pass
+
+        def __getattr__(self, name):
+            return lambda *args: 0
+
+    windows = []
+
+    class Window(mw.MainWindow):
+        def __init__(self):
+            super().__init__()
+            windows.append(self)
+
+    monkeypatch.setattr(settings, "load", lambda: {})
+    monkeypatch.setattr(settings, "save", lambda values: None)
+    monkeypatch.setattr(PySide6.QtWidgets, "QApplication", App)
+    monkeypatch.setattr(mw, "MainWindow", Window)
+    monkeypatch.setattr(entry.sys, "argv", ["SportPhotoIndexer"])
+    with pytest.raises(SystemExit):
+        entry.main()
+    assert len(windows) == 1 and not shiboken6.isValid(windows[0])
