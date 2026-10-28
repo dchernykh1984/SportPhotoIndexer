@@ -1,5 +1,25 @@
 # Changelog
 
+## [0.8.0](https://github.com/dchernykh1984/SportPhotoIndexer/compare/sport-photo-indexer-v0.7.1...sport-photo-indexer-v0.8.0) (2026-10-28)
+
+
+### Features
+
+* download a model from its byte-identical copy when its first source fails ([240550b](https://github.com/dchernykh1984/SportPhotoIndexer/commit/240550b68a8f9cafaf89cfd4ffa08b8c15da9571))
+* look for a model in this repository's models-v1 release when its sources fail ([4c03d25](https://github.com/dchernykh1984/SportPhotoIndexer/commit/4c03d2580f42810ce87be0c772f433d480c90c43))
+
+
+### Bug Fixes
+
+* stop trying a model's other sources when the disk, not the source, fails ([8858338](https://github.com/dchernykh1984/SportPhotoIndexer/commit/8858338d023f8790127d0431bfedd446f4e22bdb))
+* wait a minute for a stalled model download before trying the next source ([1fcef2b](https://github.com/dchernykh1984/SportPhotoIndexer/commit/1fcef2b9f0fec6d6a0ab073b801414f4623d4bab))
+
+
+### Documentation
+
+* say that the bib reader's only fallback is the repository's release ([ce4d0ae](https://github.com/dchernykh1984/SportPhotoIndexer/commit/ce4d0ae5dd91a991e1dfdcd15300aacbe1eae961))
+* say where a model comes from when its first source fails and how the mirror is filled ([05f74c6](https://github.com/dchernykh1984/SportPhotoIndexer/commit/05f74c6b0e73aaffd4c24c64be32e1ee7f1097ea))
+
 ## [0.7.1](https://github.com/dchernykh1984/SportPhotoIndexer/compare/sport-photo-indexer-v0.7.0...sport-photo-indexer-v0.7.1) (2026-10-28)
 
 
