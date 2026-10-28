@@ -21,6 +21,19 @@ from app.model_cache import CATALOG, MIRROR, download, sources
 RELEASE = MIRROR.rstrip("/").rsplit("/", 1)[1]
 
 
+def _fetch(key: str, url: str, path: Path) -> Exception | None:
+    """One source, once more after a failure: a connection dropped in a weekly run
+    must not read as a lost model."""
+    error: Exception | None = None
+    for _ in range(2):
+        try:
+            download(key, url, path, lambda *a: None, lambda: False)
+            return None
+        except Exception as exc:  # every source is reported, whatever went wrong
+            error = exc
+    return error
+
+
 def check(folder: Path) -> list[str]:
     """Report every source; the file names of the models the mirror must get."""
     folder.mkdir(parents=True, exist_ok=True)
@@ -30,15 +43,14 @@ def check(folder: Path) -> list[str]:
         failed = mirrored = False
         for url in sources(key):
             ours = url.startswith(MIRROR)
-            try:
-                download(key, url, folder / name, lambda *a: None, lambda: False)
-            except Exception as exc:  # every source is reported, whatever went wrong
-                empty = isinstance(exc, urllib.error.HTTPError) and exc.code == 404
-                print(f"{'empty ' if ours and empty else 'FAILED'} {url}: {exc}")
-                failed |= not (ours and empty)
-            else:
+            error = _fetch(key, url, folder / name)
+            if error is None:
                 print(f"ok     {url}")
                 mirrored |= ours
+                continue
+            empty = isinstance(error, urllib.error.HTTPError) and error.code == 404
+            print(f"{'empty ' if ours and empty else 'FAILED'} {url}: {error}")
+            failed |= not (ours and empty)
         if failed and not mirrored:
             missing.append(name)
     return missing
