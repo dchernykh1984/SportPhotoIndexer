@@ -262,6 +262,12 @@ def _bib_sized(reading, people):
     return False
 
 
+def _vetted(small, florence):
+    """Florence-2 misreads far less: an unsure small read stays only when it agrees."""
+    seen = {r.value for r in florence}
+    return [r for r in small if _sure(r) or r.value in seen]
+
+
 def _bib_like(text):
     return bool(re.fullmatch(r"[A-Za-z0-9-]{1,32}", text)) and any(
         c.isdigit() for c in text
@@ -440,11 +446,11 @@ class CpuVision:
         read = _read_florence(self.florence, image, people)
         # The finer windows see the same pixels many times over: one vote per spot,
         # only for digits a bib's size, and only for bibs that neither cut nor extend
-        # a read already made, so they add bibs without taking any away.
+        # a read that is kept, so they add bibs without taking any away.
         finer = [
             b for p in people for b in _person_windows(p, image.size, FINER_WINDOWS)
         ]
-        settled = [*small, *read]
+        settled = [*_vetted(small, read), *read]
         extra = [
             best
             for best, *_ in _clusters(self._read_windows(image, finer))
@@ -452,10 +458,7 @@ class CpuVision:
             and not any(_related(best, other) for other in settled)
         ]
         small = _combined(_whole_bibs([*small, *extra]))
-        # Florence-2 misreads far less: an unsure small read stays only when it agrees.
-        seen = {r.value for r in read}
-        kept = [r for r in small if _sure(r) or r.value in seen]
-        return _combined(_whole_bibs([*kept, *read]))
+        return _combined(_whole_bibs([*_vetted(small, read), *read]))
 
     def _read_windows(self, image: Image.Image, boxes) -> list[Reading]:
         found = []

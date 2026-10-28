@@ -395,3 +395,22 @@ def test_finer_windows_drop_a_fragment_of_a_bib_they_read_whole():
     engine.florence = FakeFlorence({})
     found = engine.ocr(Image.new("RGB", (1000, 800), "white"))
     assert "6" not in {r.value for r in found}
+
+
+def test_finer_windows_read_a_bib_where_only_a_discarded_guess_was():
+    engine = CpuVision.__new__(CpuVision)
+    engine._people = lambda image: [(0.4, 0.25, 0.1, 0.5)]
+    guess = Reading("1", 0.85, (0.45, 0.5375, 0.01, 0.0125))  # unsure lone digit
+
+    def read(tile):
+        if tile.size == (1000, 800):
+            return [guess]
+        if tile.size == (100, 100):
+            return [Reading("16", 0.97, (0.8, 0.5, 0.1, 0.2))]
+        return []
+
+    engine._read_crop = read
+    engine.florence = FakeFlorence({})
+    found = engine.ocr(Image.new("RGB", (1000, 800), "white"))
+    assert "1" not in {r.value for r in found}
+    assert any(r.value == "16" and _overlap(r.region, guess.region) for r in found)
