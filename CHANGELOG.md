@@ -1,5 +1,25 @@
 # Changelog
 
+## [0.8.1](https://github.com/dchernykh1984/SportPhotoIndexer/compare/sport-photo-indexer-v0.8.0...sport-photo-indexer-v0.8.1) (2026-10-28)
+
+
+### Bug Fixes
+
+* build no unused TLS context for each model source ([b966df7](https://github.com/dchernykh1984/SportPhotoIndexer/commit/b966df796a8c007efd561833bbbe633a265111df))
+* close a model source's error response before trying the next source ([c8c8d62](https://github.com/dchernykh1984/SportPhotoIndexer/commit/c8c8d621c88f45fc323b8740111db0ff8f7df636))
+* end a model download as a Stop when Stop shuts its socket between two ssl checks ([b9651cf](https://github.com/dchernykh1984/SportPhotoIndexer/commit/b9651cff8c111a0ed2ed1f330bdcba7fe788dff1))
+* end a model download at once when Stop is pressed while its source sends nothing ([057a39b](https://github.com/dchernykh1984/SportPhotoIndexer/commit/057a39b92b012333983a030a53924b9eaf10bbbc))
+* give a model's host 15 seconds to answer and a minute between data ([5049856](https://github.com/dchernykh1984/SportPhotoIndexer/commit/504985681c0c0457e147182d722fd6fa1b00c15a))
+* move on to a model's next source when a host fails before sending its headers ([2d0f142](https://github.com/dchernykh1984/SportPhotoIndexer/commit/2d0f1422abc20dab459d2e5c8a55239a42cb4c80))
+* move on to a model's next source when the network fails in the middle of a file ([f5c397e](https://github.com/dchernykh1984/SportPhotoIndexer/commit/f5c397ee11955d7c0388314dd842142d9b31660c))
+* open no other source of a model once Stop is pressed while one fails ([ac22f1f](https://github.com/dchernykh1984/SportPhotoIndexer/commit/ac22f1f97d294b1f8c0fbc2d10f6e98a067b1b33))
+
+
+### Documentation
+
+* make a review cycle fix every valid finding and green the pipeline before it asks anything ([e5c6433](https://github.com/dchernykh1984/SportPhotoIndexer/commit/e5c643395f3db4d82af5589055676a82a7c427be))
+* say when the model check fails and what it asks for ([a5d716c](https://github.com/dchernykh1984/SportPhotoIndexer/commit/a5d716c2efca09395f5a563dca49a6e2c527237d))
+
 ## [0.8.0](https://github.com/dchernykh1984/SportPhotoIndexer/compare/sport-photo-indexer-v0.7.1...sport-photo-indexer-v0.8.0) (2026-10-28)
 
 
