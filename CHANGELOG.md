@@ -1,5 +1,27 @@
 # Changelog
 
+## [0.7.0](https://github.com/dchernykh1984/SportPhotoIndexer/compare/sport-photo-indexer-v0.6.0...sport-photo-indexer-v0.7.0) (2026-10-28)
+
+
+### Features
+
+* read plates too small for the person windows in finer ones with the Florence-2 model sizes ([cc0be01](https://github.com/dchernykh1984/SportPhotoIndexer/commit/cc0be01a25c0635d138697152ce1e99b4c2553bd))
+
+
+### Bug Fixes
+
+* drop a lone digit the finer windows read inside a longer bib they also read ([7ca15d1](https://github.com/dchernykh1984/SportPhotoIndexer/commit/7ca15d14bcd8bfe07f684df3fca35a78efd302d7))
+* judge a finer read's size by the tallest rider whose zone holds it ([7dd9239](https://github.com/dchernykh1984/SportPhotoIndexer/commit/7dd9239e79d2d3f90081473290dbeba46951cd28))
+* let the finer windows add one vote per spot and never displace a bib read before ([8e67b8f](https://github.com/dchernykh1984/SportPhotoIndexer/commit/8e67b8f9507bef10e1500753eea09469a2c5bcfd))
+* let the finer windows read a bib where only a discarded guess was read before ([0ad65c3](https://github.com/dchernykh1984/SportPhotoIndexer/commit/0ad65c3cad6fb424beea0533d1215002e55c2bb5))
+* skip digits too small for a bib on the rider in the finer windows ([3aea75e](https://github.com/dchernykh1984/SportPhotoIndexer/commit/3aea75e5e850f5156e287893252a8209336a87e2))
+
+
+### Documentation
+
+* give the finer windows' gains, wrong values and time on the labelled races ([fb8a0ab](https://github.com/dchernykh1984/SportPhotoIndexer/commit/fb8a0ab7c8553bc80fe960cfbd038cd5b7d497ba))
+* say which way of indexing an album fits which need, the album skills included ([e791d2e](https://github.com/dchernykh1984/SportPhotoIndexer/commit/e791d2e2febff5c220d7286520ff404bcaa66957))
+
 ## [0.6.0](https://github.com/dchernykh1984/SportPhotoIndexer/compare/sport-photo-indexer-v0.5.0...sport-photo-indexer-v0.6.0) (2026-10-28)
 
 
