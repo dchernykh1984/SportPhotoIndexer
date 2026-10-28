@@ -41,12 +41,13 @@ jobs:
         # the upload commands printed on a failure name the right files. --frozen: a
         # lock that a release left behind its version must not stop the check.
         run: uv run --frozen python -u -m tools.models
-      - name: Keep the verified copies of a failed run
-        # Unpacked into data/models, the copies some source still gave can be
-        # uploaded to the mirror with the printed commands, without a local copy.
+      - name: Keep the models a failed run asks to upload
+        # Only those, linked into data/models/upload by the check. Unpacked into
+        # data/models, they go to the mirror with the printed commands.
         if: failure()
         uses: actions/upload-artifact@v7
         with:
           name: models
-          path: data/models
+          path: data/models/upload
+          if-no-files-found: ignore
           retention-days: 90
