@@ -63,6 +63,7 @@ def test_the_check_asks_for_an_upload_only_when_the_mirror_lacks_a_lost_model(
     out = capsys.readouterr().out
     command = f"gh release upload models-v1 {tmp_path / 'a.onnx'}"
     assert (command in out) == upload
+    assert (tmp_path / "upload" / "a.onnx").exists() == upload  # for the artifact
     assert out.count("FAILED") == len(gone) + (mirror in ("wrong", "down"))
     assert all(f"\n  {url}\n" in out for url in gone)
     # A mirror that cannot be read may hold the model: no upload, but a look.

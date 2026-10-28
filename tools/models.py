@@ -14,7 +14,9 @@ upload the models the mirror lacks, and the dead sources to remove from the cata
 from __future__ import annotations
 
 import dataclasses
+import os
 import shlex
+import shutil
 import sys
 import time
 import urllib.error
@@ -107,6 +109,9 @@ class Report:
 def check(folder: Path) -> Report:
     """Report every source, and what to do about the models whose sources failed."""
     folder.mkdir(parents=True, exist_ok=True)
+    # The models to upload, linked apart: all a failed run's artifact has to keep.
+    outbox = folder / "upload"
+    shutil.rmtree(outbox, ignore_errors=True)
     report = Report()
     end = time.monotonic() + BUDGET
     for key in CATALOG:
@@ -145,6 +150,8 @@ def check(folder: Path) -> Report:
         if not served and not mirrored and not unknown:
             if verified(key, folder / name):
                 report.upload.append(folder / name)
+                outbox.mkdir(exist_ok=True)
+                os.link(folder / name, outbox / name)
                 print(f"-> upload: {_upload(folder / name)}")
             else:
                 report.lost.append(name)
