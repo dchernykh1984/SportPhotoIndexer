@@ -139,7 +139,8 @@ def _read(response: http.client.HTTPResponse) -> bytes:
     reported the way urllib reports it failing before the first byte."""
     try:
         return response.read(64 * 1024)
-    except OSError as exc:
+    # A socket that Stop shut between two of ssl's own checks raises a ValueError.
+    except (OSError, ValueError) as exc:
         raise urllib.error.URLError(exc) from exc
 
 

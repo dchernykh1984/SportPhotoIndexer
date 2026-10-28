@@ -98,6 +98,19 @@ class _Waiting(io.BytesIO):
         return b""
 
 
+@pytest.mark.parametrize("stopped", [True, False])
+def test_a_read_on_a_socket_shut_by_stop_ends_as_stop_or_a_failed_source(
+    tmp_path, monkeypatch, catalog, stopped
+):
+    unwrapped = _Failing(ValueError("Read on closed or unwrapped SSL socket."))
+    monkeypatch.setattr(cache, "_open", lambda url: unwrapped)
+    expected = cache.CancelledError if stopped else urllib.error.URLError
+    with pytest.raises(expected):
+        cache.download_from(
+            "text_reader", "https://x.test", tmp_path / "m", print, lambda: stopped
+        )
+
+
 def test_stop_ends_a_read_that_waits_for_data_at_once(tmp_path, monkeypatch, catalog):
     monkeypatch.setattr(cache, "_open", lambda url: _Waiting())
     pressed = time.monotonic() + 0.3
