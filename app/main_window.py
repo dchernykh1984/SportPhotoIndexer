@@ -136,8 +136,9 @@ class MainWindow(QMainWindow):
         self._protocol: Path | None = None
         self._closing = False
         self._setup_ui()
-        # After the window is shown, so a large album scans in view.
-        QTimer.singleShot(0, self._reopen_last)
+        # After the window is shown, so a large album scans in view. The window is the
+        # timer's context: deleted first, it cancels the call instead of receiving it.
+        QTimer.singleShot(0, self, self._reopen_last)
 
     def _reopen_last(self) -> None:
         last = settings.load().get("folder")
@@ -376,7 +377,7 @@ class MainWindow(QMainWindow):
         finally:
             # A close asked for during the scan, once its outcome has been shown.
             if self._closing:
-                QTimer.singleShot(0, self.close)
+                QTimer.singleShot(0, self, self.close)
 
     def _rescan(self) -> bool:
         if self._folder is None:

@@ -25,6 +25,7 @@ def win(monkeypatch, tmp_path):
     monkeypatch.setattr(mw.QMessageBox, "information", lambda *a, **k: None)
     monkeypatch.setattr(mw.QMessageBox, "warning", lambda *a, **k: None)
     w = mw.MainWindow()
+    _app.processEvents()  # its reopen of the last album runs here, not in a later test
     yield w
     w.deleteLater()
 
@@ -219,6 +220,7 @@ def test_the_chosen_model_size_is_downloaded_used_and_remembered(
     stamp = indexer.load(album)["photos"][0]["recognition"]["ocr"]["engine"]
     assert stamp == recognition.engine_id("small")
     again = mw.MainWindow()
+    _app.processEvents()
     assert again._size.currentData() == "small"
     again.deleteLater()
 
@@ -635,3 +637,16 @@ def test_the_window_is_destroyed_before_python_exits(monkeypatch):
     with pytest.raises(SystemExit):
         entry.main()
     assert len(windows) == 1 and not shiboken6.isValid(windows[0])
+
+
+def test_a_deleted_window_never_runs_its_pending_reopen(monkeypatch):
+    import shiboken6
+
+    asked = []
+    monkeypatch.setattr(settings, "load", lambda: asked.append(1) or {})
+    monkeypatch.setattr(settings, "save", lambda values: None)
+    w = mw.MainWindow()
+    before = len(asked)
+    shiboken6.delete(w)
+    _app.processEvents()
+    assert len(asked) == before
