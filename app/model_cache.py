@@ -20,6 +20,12 @@ from app.paths import app_path
 CATALOG = json.loads(
     Path(__file__).with_name("model_catalog.json").read_text(encoding="utf-8")
 )
+# The last source of every model: a release of this repository that holds a model only
+# once its own sources have lost it (tools/models.py), so even a copy of the app that
+# is already installed finds it there.
+MIRROR = (
+    "https://github.com/dchernykh1984/SportPhotoIndexer/releases/download/models-v1/"
+)
 # OCR reads bibs around the people it finds, so the person detector belongs to it.
 OCR_MODELS = ("text_detector", "text_reader", "people_detector")
 ALL_MODELS = (*OCR_MODELS, "appearance")
@@ -103,11 +109,17 @@ def ensure_models(
     return result
 
 
+def sources(key: str) -> tuple[str, ...]:
+    """The catalog's sources of the model, then this repository's mirror."""
+    model = CATALOG[key]
+    return (*model["urls"], MIRROR + Path(model["path"]).name)
+
+
 def _download(key, path, progress, cancel) -> None:
     # The sources after the first are byte-identical copies, so a source that is down
     # or has lost the file costs one request instead of the model.
     failed = []
-    for url in CATALOG[key]["urls"]:
+    for url in sources(key):
         try:
             download(key, url, path, progress, cancel)
             return

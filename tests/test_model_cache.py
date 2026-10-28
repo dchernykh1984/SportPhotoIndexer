@@ -4,6 +4,7 @@ import email.message
 import hashlib
 import http.client
 import io
+import re
 import urllib.error
 
 import pytest
@@ -86,9 +87,24 @@ def test_offline_failure_names_every_source_and_cleans_up(
     monkeypatch.setattr(cache.urllib.request, "urlopen", offline)
     with pytest.raises(cache.ModelError) as failure:
         cache.ensure_models(False, lambda *a: None, lambda: False, tmp_path)
-    assert "example.test: offline" in str(failure.value)
-    assert "copy.test: offline" in str(failure.value)
+    for host in ("example.test", "copy.test", "github.com"):
+        assert f"{host}: offline" in str(failure.value)
     assert list(tmp_path.iterdir()) == []
+
+
+def test_the_repository_mirror_is_the_last_source(tmp_path, monkeypatch, catalog):
+    calls = []
+
+    def open_url(url, **kwargs):
+        calls.append(url)
+        if not url.startswith(cache.MIRROR):
+            raise urllib.error.URLError("gone")
+        return io.BytesIO(catalog)
+
+    monkeypatch.setattr(cache.urllib.request, "urlopen", open_url)
+    files = cache.ensure_models(False, lambda *a: None, lambda: False, tmp_path)
+    assert calls[-1] == cache.MIRROR + "test.onnx" and len(calls) == 3
+    assert files["text_reader"].read_bytes() == catalog
 
 
 class _Dropped(io.BytesIO):
@@ -156,11 +172,13 @@ def test_every_size_downloads_more_and_keeps_its_files_apart():
     sizes = [cache.download_megabytes(False, size) for size in cache.SIZES]
     assert sizes == sorted(sizes) and len(set(sizes)) == len(sizes)
     assert cache.download_megabytes(True, faces=True) > cache.download_megabytes(True)
-    # Two models under one file name would replace each other on every switch.
+    # Two models under one file name would replace each other on every switch, and
+    # in the mirror; GitHub renames a release file with other characters in its name.
     names = {}
     for model in real.values():
         name = model["path"].rsplit("/", 1)[-1]
         assert names.setdefault(name, model["sha256"]) == model["sha256"]
+        assert re.fullmatch(r"[A-Za-z0-9._-]+", name)
     for key in (k for size in cache.SIZES.values() for k in size):
         assert real[key]["urls"][0].startswith("https://huggingface.co/")
     # HTTPS only; a copy is trusted for its hash, not for its host.
