@@ -1,5 +1,31 @@
 # Changelog
 
+## [0.5.0](https://github.com/dchernykh1984/SportPhotoIndexer/compare/sport-photo-indexer-v0.4.0...sport-photo-indexer-v0.5.0) (2026-10-28)
+
+
+### Features
+
+* reject read bibs that are not in an optional start protocol chosen per album ([d3c018e](https://github.com/dchernykh1984/SportPhotoIndexer/commit/d3c018ed9bceda63370e0c6ecda464eab64e2551))
+
+
+### Bug Fixes
+
+* drop older appearance suggestions outside the start protocol on a numbers-only run ([b7ed4ae](https://github.com/dchernykh1984/SportPhotoIndexer/commit/b7ed4aef03e87081743e92a68a1d94dbd381a53b))
+* keep a bib the start protocol hid out of the rejections of the person who checks the photo ([4f1aecc](https://github.com/dchernykh1984/SportPhotoIndexer/commit/4f1aecc2556e1dd735a52319bbdb2acb103a0ca1))
+* keep suggestions of a bib a person typed on a numbers-only run with a start protocol ([24fc66b](https://github.com/dchernykh1984/SportPhotoIndexer/commit/24fc66bd752647a016fd6629f31c613e98032531))
+* let the search mode and model size be chosen before an album is open ([df9fd5b](https://github.com/dchernykh1984/SportPhotoIndexer/commit/df9fd5b667dca556b5c85212f2cdc74ae8e9fc9b))
+* match the start protocol's bibs whatever their leading zeroes and case ([c24ec0e](https://github.com/dchernykh1984/SportPhotoIndexer/commit/c24ec0e8a0b1a267276cf210fe6c316eee3de3ee))
+* read quoted spreadsheet protocols and refuse a protocol whose first column holds no bibs ([ded4049](https://github.com/dchernykh1984/SportPhotoIndexer/commit/ded40497364e5af65248077b7d5efb5098709939))
+* save a bib matched to the start protocol as the protocol spells it so the site finds the rider ([3246da3](https://github.com/dchernykh1984/SportPhotoIndexer/commit/3246da37ac1eccee0e5c544a51efdf11e438f9ae))
+* show which bibs a start protocol gave and say when it is cleared ([82df75d](https://github.com/dchernykh1984/SportPhotoIndexer/commit/82df75d4a51c48650b07675f35e788d778be68c0))
+* stop recognition when the album's start protocol file is missing instead of running without it ([2bcdb05](https://github.com/dchernykh1984/SportPhotoIndexer/commit/2bcdb0527d6c261906921a1f1a58c153ebf7aae8))
+
+
+### Documentation
+
+* record what a start protocol removes and what it cannot on the labelled races ([9e7fbc3](https://github.com/dchernykh1984/SportPhotoIndexer/commit/9e7fbc3ca7d014a32783fad6be30b52048452d2e))
+* say how the start protocol shows its bibs and spells the bibs it matches ([d36c67d](https://github.com/dchernykh1984/SportPhotoIndexer/commit/d36c67d0df451e304cff895300e98031cfe1e099))
+
 ## [0.4.0](https://github.com/dchernykh1984/SportPhotoIndexer/compare/sport-photo-indexer-v0.3.0...sport-photo-indexer-v0.4.0) (2026-10-28)
 
 
