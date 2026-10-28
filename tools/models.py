@@ -97,19 +97,19 @@ def check(folder: Path) -> Report:
     report = Report()
     for key in CATALOG:
         name = file_name(key)
-        failed = mirrored = unknown = False
+        served = mirrored = unknown = False
         for url in sources(key):
             ours = url.startswith(MIRROR)
             error = _fetch(key, url, folder / name)
             if error is None:
                 print(f"ok     {url}")
                 mirrored |= ours
+                served |= not ours
                 continue
             empty = isinstance(error, urllib.error.HTTPError) and error.code == 404
             print(f"{'empty ' if ours and empty else 'FAILED'} {url}: {error}")
             # What to do is said at once, so a run cut off by its time limit says it.
             if not ours:
-                failed = True
                 report.dead.append(url)
                 print(
                     f"-> remove from app/model_catalog.json once it stays down: {url}"
@@ -123,7 +123,8 @@ def check(folder: Path) -> Report:
                 # Neither empty nor other bytes: whether it holds the model is unknown.
                 report.unread.append(url)
                 unknown = True
-        if failed and not mirrored and not unknown:
+        # The mirror receives a model only once every source of its own has lost it.
+        if not served and not mirrored and not unknown:
             if verified(key, folder / name):
                 report.upload.append(folder / name)
                 print(f"-> upload: {_upload(folder / name)}")
