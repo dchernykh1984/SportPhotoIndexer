@@ -38,7 +38,7 @@ def _lasting(error: Exception) -> bool:
     """A failure another try would repeat: the source sent other bytes, or answered
     that it does not have the file."""
     if isinstance(error, urllib.error.HTTPError):
-        return error.code < 500
+        return error.code in (404, 410)  # a 429 or 408 from a busy host may pass
     return isinstance(error, ModelError)
 
 
