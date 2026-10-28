@@ -40,3 +40,12 @@ jobs:
         # The default folder, data/models, is where a checkout keeps the local copy, so
         # the upload commands printed on a failure name the right files.
         run: uv run --locked python -u -m tools.models
+      - name: Keep the verified copies of a failed run
+        # Unpacked into data/models, the copies some source still gave can be
+        # uploaded to the mirror with the printed commands, without a local copy.
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: models
+          path: data/models
+          retention-days: 90
