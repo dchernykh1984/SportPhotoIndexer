@@ -12,6 +12,7 @@ from app.vision import (
     CpuVision,
     Reading,
     _combined,
+    _overlap,
     _person_windows,
     _whole_bibs,
     contains,
@@ -330,3 +331,32 @@ def test_florence_reads_the_frame_and_each_zone_and_vets_the_small_readers_guess
     assert found["12"].confidence == pytest.approx(1 - 0.1 * 0.04)
     assert found["33"].confidence == pytest.approx(0.95)
     assert found["33"].region == pytest.approx((0.45, 0.5375, 0.032, 0.0625))
+
+
+def test_finer_windows_give_one_vote_per_spot_and_never_displace_a_read():
+    engine = CpuVision.__new__(CpuVision)
+    person = (0.4, 0.25, 0.1, 0.5)  # finer windows of 100 px: x 370-470 and 430-530
+    engine._people = lambda image: [person]
+    whole = [Reading("16", 0.97, (0.45, 0.5375, 0.01, 0.0125))]
+
+    def read(tile):
+        if tile.size == (1000, 800):
+            return whole
+        if tile.size == (100, 100):
+            return [
+                # The same spot in two overlapping windows: one view, not two.
+                Reading("44", 0.9, (0.2, 0.2, 0.1, 0.1)),
+                Reading("44", 0.9, (0.8, 0.2, 0.1, 0.1)),
+                # Longer than the 16 read before, on the same plate.
+                Reading("160", 0.99, (0.8, 0.5, 0.1, 0.1)),
+            ]
+        return []
+
+    engine._read_crop = read
+    engine.florence = FakeFlorence({})
+    found = engine.ocr(Image.new("RGB", (1000, 800), "white"))
+    assert "16" in {r.value for r in found} and "44" not in {r.value for r in found}
+    # Elsewhere a 160 is a new bib; on the plate read as 16 it would replace it.
+    assert not any(
+        r.value == "160" and _overlap(r.region, whole[0].region) for r in found
+    )
