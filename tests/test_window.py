@@ -484,6 +484,7 @@ def test_closing_the_window_stops_a_scan_and_keeps_the_open_album(
 
     def close():
         win.close()
+        win._show_progress("Checking photos", 1, 2)  # a count already queued
         said.append(win._lbl_status.text())
 
     QTimer.singleShot(50, close)

@@ -606,6 +606,9 @@ class MainWindow(QMainWindow):
             self._lbl_status.setText("Stopping after the current operation...")
 
     def _show_progress(self, phase: str, done: int, total: int) -> None:
+        working = (w for w in (self._worker, self._scanner) if w is not None)
+        if any(w.isInterruptionRequested() for w in working):
+            return  # the "Stopping..." line stays until the work has ended
         self._progress.setRange(0, max(1, total))
         self._progress.setValue(done)
         self._lbl_status.setText(f"{phase}: {done} / {total}")
