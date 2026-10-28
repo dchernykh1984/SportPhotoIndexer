@@ -417,9 +417,14 @@ class MainWindow(QMainWindow):
         self._scanner = None
         self._central.setEnabled(True)
         worker.deleteLater()
+        if worker.error is not None:  # no count of a check that did not finish
+            self._progress.setRange(0, 1)
+            self._progress.setValue(0)
         if isinstance(worker.error, CancelledError):
+            self._lbl_status.setText("Folder check stopped")
             return None
         if worker.error is not None:
+            self._lbl_status.setText(f"Folder check failed: {worker.error}")
             raise worker.error
         return worker.result
 
@@ -602,6 +607,7 @@ class MainWindow(QMainWindow):
         if self._scanner is not None:
             self._closing = True
             self._scanner.requestInterruption()
+            self._lbl_status.setText("Stopping the folder check...")
             event.ignore()
         elif self._worker is not None and self._worker.isRunning():
             self._closing = True

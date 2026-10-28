@@ -478,9 +478,18 @@ def test_closing_the_window_stops_a_scan_and_keeps_the_open_album(
     other = tmp_path / "other"
     other.mkdir()
     make_photo(other, "IMG_0001.jpg")
-    QTimer.singleShot(50, win.close)
+    said = []
+
+    def close():
+        win.close()
+        said.append(win._lbl_status.text())
+
+    QTimer.singleShot(50, close)
     win.open_folder(other)
     assert win._folder == album and win._closing
+    assert said == ["Stopping the folder check..."]
+    assert win._lbl_status.text() == "Folder check stopped"
+    assert win._progress.value() == 0
 
 
 def test_a_larger_window_shows_a_larger_photo_and_keeps_the_list_width(win, album):
@@ -579,5 +588,6 @@ def test_a_close_during_a_failing_scan_waits_for_its_warning(
     QTimer.singleShot(50, win.close)
     win.open_folder(other)
     assert shown_under_warning == [True]
+    assert win._lbl_status.text() == "Folder check failed: the drive went away"
     _app.processEvents()
     assert not win.isVisible()  # closed once the warning was dealt with
