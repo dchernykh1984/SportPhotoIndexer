@@ -544,3 +544,40 @@ def test_a_scan_wait_cut_short_stops_the_scan_instead_of_freezing(
     started = time.monotonic()
     win.open_folder(other)
     assert time.monotonic() - started < 2 and win._folder == album
+
+
+def test_a_close_during_a_failing_scan_waits_for_its_warning(
+    win, album, tmp_path, monkeypatch
+):
+    import time
+
+    from PySide6.QtCore import QTimer
+
+    from tests.conftest import make_photo
+
+    win.open_folder(album)
+    win.show()
+
+    def failing(folder, index=None, *, previews=False, progress=None, cancel=None):
+        for _ in range(500):
+            if cancel():
+                break
+            time.sleep(0.01)
+        raise OSError("the drive went away")  # fails rather than stopping
+
+    shown_under_warning = []
+
+    def warning(*args):
+        _app.processEvents()  # what the dialog's own event loop would run
+        shown_under_warning.append(win.isVisible())
+
+    monkeypatch.setattr(indexer, "scan", failing)
+    monkeypatch.setattr(mw.QMessageBox, "warning", warning)
+    other = tmp_path / "other"
+    other.mkdir()
+    make_photo(other, "IMG_0001.jpg")
+    QTimer.singleShot(50, win.close)
+    win.open_folder(other)
+    assert shown_under_warning == [True]
+    _app.processEvents()
+    assert not win.isVisible()  # closed once the warning was dealt with
