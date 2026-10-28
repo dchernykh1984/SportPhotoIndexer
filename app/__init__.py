@@ -2,7 +2,7 @@
 
 # Bumped by release-please (release-please-config.json, extra-files), so a frozen build,
 # which carries no package metadata, still names its version in the index it writes.
-__version__ = "0.7.0"  # x-release-please-version
+__version__ = "0.7.1"  # x-release-please-version
 
 
 def version() -> str:
