@@ -95,6 +95,10 @@ if __name__ == "__main__":
     models = Path(sys.argv[4]) if len(sys.argv) > 4 else Path("data/models")
     size = sys.argv[5] if len(sys.argv) > 5 else "small"
     rest = sys.argv[6:]
-    protocols = [indexer.read_starters(Path(a)) for a in rest if a != "faces"]
-    starters = protocols[0] if protocols else frozenset()
+    protocols = [Path(a) for a in rest if a != "faces"]
+    if len(protocols) > 1:
+        sys.exit(f"one PROTOCOL at most, not {[str(p) for p in protocols]}")
+    starters = indexer.read_starters(protocols[0]) if protocols else frozenset()
+    if protocols and not starters:
+        sys.exit(f"{protocols[0]} has no bibs: it would be measured as no protocol")
     score(work, run(album, copy, models, size, "faces" in rest, starters))
