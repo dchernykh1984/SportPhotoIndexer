@@ -494,3 +494,18 @@ def test_a_larger_window_shows_a_larger_photo_and_keeps_the_list_width(win, albu
     win.resize(900, 700)  # and back: the photo must not hold the window wide
     _app.processEvents()
     assert win._image.pixmap().width() == photo
+
+
+def test_a_photo_stored_sideways_is_shown_upright(win, album):
+    from PIL import Image
+
+    exif = Image.Exif()
+    exif[0x0112] = 8  # a portrait shot, stored sideways as cameras do
+    Image.new("RGB", (64, 48), "orange").save(album / "IMG_0001.jpg", exif=exif)
+    win.open_folder(album)
+    win.resize(900, 700)
+    win.show()
+    _app.processEvents()
+    assert win._list.currentRow() == 0
+    pixmap = win._image.pixmap()
+    assert pixmap.height() > pixmap.width()

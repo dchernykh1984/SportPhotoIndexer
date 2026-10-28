@@ -13,7 +13,7 @@ from pathlib import Path
 
 from PIL import Image
 from PySide6.QtCore import QEventLoop, Qt, QThread, QTimer, Signal
-from PySide6.QtGui import QPixmap
+from PySide6.QtGui import QImageReader, QPixmap
 from PySide6.QtWidgets import (
     QCheckBox,
     QComboBox,
@@ -75,6 +75,14 @@ class _ScanWorker(QThread):
         if self.isInterruptionRequested():
             raise _ScanStoppedError
         self.progress.emit(done, total)
+
+
+def _upright(path: Path) -> QPixmap:
+    """The photo as it was taken: cameras store a portrait shot sideways and say so
+    in EXIF, which a plain QPixmap ignores. Previews are already upright."""
+    reader = QImageReader(str(path))
+    reader.setAutoTransform(True)
+    return QPixmap.fromImage(reader.read())
 
 
 class _Photo(QLabel):
@@ -477,9 +485,9 @@ class MainWindow(QMainWindow):
             self._image.show_photo(QPixmap())
             return
         asset = photo.get("preview", photo["original"])
-        pixmap = QPixmap(str(self._folder / asset["path"]))
+        pixmap = _upright(self._folder / asset["path"])
         if pixmap.isNull() and asset is not photo["original"]:
-            pixmap = QPixmap(str(self._folder / photo["original"]["path"]))
+            pixmap = _upright(self._folder / photo["original"]["path"])
         self._image.show_photo(pixmap)
         self._edit_bibs.setText(" ".join(indexer.bibs_of(photo)))
         self._edit_bibs.selectAll()
