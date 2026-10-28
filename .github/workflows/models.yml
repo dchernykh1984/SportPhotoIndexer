@@ -33,5 +33,6 @@ jobs:
           enable-cache: true
           python-version: "3.14"
       - name: Download every model from each source
-        # Into data/models, the folder the printed upload commands name on a checkout.
+        # The default folder, data/models, is where a checkout keeps the local copy, so
+        # the upload commands printed on a failure name the right files.
         run: uv run --locked python -u -m tools.models
