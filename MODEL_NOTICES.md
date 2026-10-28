@@ -13,9 +13,10 @@ exports, and last this repository's `models-v1` release, which receives a model 
 once its other sources have lost it. The PP-OCRv5 reader has no second public source,
 so the release is its only fallback. Every copy must match the same size and SHA-256,
 so a copy is never trusted for its host. The weekly `models` workflow runs
-`tools/models.py`, which downloads every model from each source; when a model has lost
-a source and the release does not hold it yet, the run fails and prints the commands
-that upload it from a verified local copy in `data/models`.
+`tools/models.py`, which downloads every model from each source. The run fails when a
+source fails on every try or the release cannot be read, and says what to do: the
+commands that upload a model the release lacks from a verified local copy in
+`data/models`, and the dead sources to remove from the catalog once they stay down.
 
 | Stage | Model | Download |
 | --- | --- | --- |
