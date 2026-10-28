@@ -1,6 +1,7 @@
 """The model check fails exactly when a model would be lost without the mirror."""
 
 import email.message
+import errno
 import urllib.error
 
 import pytest
@@ -70,7 +71,7 @@ def test_a_source_that_fails_twice_is_tried_again_before_it_counts_as_lost(
     def download(key, url, path, progress, cancel):
         calls.append(url)
         if calls.count(url) < 3:
-            raise TimeoutError("timed out")
+            raise urllib.error.URLError(TimeoutError("timed out"))
 
     monkeypatch.setattr(models, "download_from", download)
     assert models.main(tmp_path) == 0
@@ -119,3 +120,21 @@ def test_only_a_failure_that_may_pass_is_tried_again(
     monkeypatch.setattr(models, "download_from", download)
     models.main(tmp_path)
     assert calls.count(ONE) == tries
+
+
+def test_a_full_disk_stops_the_check_instead_of_failing_every_source(
+    tmp_path, monkeypatch
+):
+    catalog = {"a": {"path": "dir/a.onnx", "urls": [ONE, TWO]}}
+    monkeypatch.setattr(model_cache, "CATALOG", catalog)
+    monkeypatch.setattr(models, "CATALOG", catalog)
+    calls = []
+
+    def download(key, url, path, progress, cancel):
+        calls.append(url)
+        raise OSError(errno.ENOSPC, "No space left on device")
+
+    monkeypatch.setattr(models, "download_from", download)
+    with pytest.raises(OSError, match="No space left"):
+        models.main(tmp_path)
+    assert calls == [ONE]

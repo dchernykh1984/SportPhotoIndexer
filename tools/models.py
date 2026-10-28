@@ -21,6 +21,7 @@ from pathlib import Path
 from app.model_cache import (
     CATALOG,
     MIRROR,
+    SOURCE_ERRORS,
     ModelError,
     download_from,
     file_name,
@@ -52,7 +53,7 @@ def _fetch(key: str, url: str, path: Path) -> Exception | None:
         try:
             download_from(key, url, path, lambda *a: None, lambda: False)
             return None
-        except Exception as exc:  # every source is reported, whatever went wrong
+        except SOURCE_ERRORS as exc:  # a disk error stops the check, as it does the app
             error = exc
             if _lasting(exc):
                 break
