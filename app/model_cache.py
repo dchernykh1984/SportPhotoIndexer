@@ -179,6 +179,8 @@ def _download(key, path, progress, cancel) -> None:
             download(key, url, path, progress, cancel)
             return
         except _SOURCE_ERRORS as exc:
+            if isinstance(exc, urllib.error.HTTPError):
+                exc.close()  # its response would hold the connection until collected
             failed.append(f"{urllib.parse.urlsplit(url).netloc}: {exc}")
     raise ModelError("\n".join([f"{key}: every source failed; retry", *failed]))
 

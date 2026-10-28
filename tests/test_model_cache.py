@@ -142,6 +142,26 @@ def test_an_http_error_reaches_the_caller_as_itself(monkeypatch):
     assert failure.value is missing
 
 
+def test_a_source_answering_with_an_error_has_its_response_closed(
+    tmp_path, monkeypatch, catalog
+):
+    body = io.BytesIO(b"<html>Not Found</html>")
+    missing = urllib.error.HTTPError(
+        "https://example.test", 404, "Not Found", email.message.Message(), body
+    )
+    answers = iter([missing])
+
+    def open_url(url):
+        error = next(answers, None)
+        if error:
+            raise error
+        return io.BytesIO(catalog)
+
+    monkeypatch.setattr(cache, "_open", open_url)
+    cache.ensure_models(False, lambda *a: None, lambda: False, tmp_path)
+    assert body.closed
+
+
 def test_offline_failure_names_every_source_and_cleans_up(
     tmp_path, monkeypatch, catalog
 ):
