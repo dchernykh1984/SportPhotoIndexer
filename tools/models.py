@@ -51,10 +51,12 @@ def _fetch(key: str, url: str, path: Path) -> Exception | None:
     return error
 
 
-def check(folder: Path) -> list[str]:
-    """Report every source; the file names of the models the mirror must get."""
+def check(folder: Path) -> tuple[list[str], list[str]]:
+    """Report every source; the file names of the models the mirror must get, and
+    the catalog's sources that failed."""
     folder.mkdir(parents=True, exist_ok=True)
-    missing = []
+    missing: list[str] = []
+    dead: list[str] = []
     for key in CATALOG:
         name = file_name(key)
         failed = mirrored = False
@@ -68,25 +70,34 @@ def check(folder: Path) -> list[str]:
             empty = isinstance(error, urllib.error.HTTPError) and error.code == 404
             print(f"{'empty ' if ours and empty else 'FAILED'} {url}: {error}")
             failed |= not (ours and empty)
+            if not ours:
+                dead.append(url)
         if failed and not mirrored:
             missing.append(name)
-    return missing
+    return missing, dead
 
 
 def main(folder: Path) -> int:
-    missing = check(folder)
-    if not missing:
-        return 0
-    print(
-        "\nA source has lost these models and the mirror does not hold them yet."
-        "\nUpload them from a folder where this check passed before:"
-        f"\n  gh release view {RELEASE} >/dev/null || gh release create {RELEASE}"
-        " --latest=false --title 'Recognition models'"
-        " --notes 'Copies of models whose sources failed; see MODEL_NOTICES.md.'"
-    )
-    for name in missing:
-        print(f"  gh release upload {RELEASE} --clobber {folder / name}")
-    return 1
+    missing, dead = check(folder)
+    if missing:
+        print(
+            "\nA source has lost these models and the mirror does not hold them yet."
+            "\nUpload them from a folder where this check passed before:"
+            f"\n  gh release view {RELEASE} >/dev/null || gh release create {RELEASE}"
+            " --latest=false --title 'Recognition models'"
+            " --notes 'Copies of models whose sources failed; see MODEL_NOTICES.md.'"
+        )
+        for name in missing:
+            print(f"  gh release upload {RELEASE} --clobber {folder / name}")
+    if dead:
+        # The app tries a dead source before the mirror on every fresh download.
+        print(
+            "\nThese sources failed on every try. Once one stays down, remove it from"
+            " app/model_catalog.json, or the app keeps trying it first:"
+        )
+        for url in dead:
+            print(f"  {url}")
+    return 1 if missing or dead else 0
 
 
 if __name__ == "__main__":
