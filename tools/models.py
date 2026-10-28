@@ -6,8 +6,9 @@ Downloads each model from every source the app knows (app.model_cache.sources: t
 catalog's sources, then this repository's mirror release) into DIR, data/models by
 default, which git ignores. Run there, it keeps the verified copy the mirror is filled
 from; the weekly `models` workflow runs it to learn that a source has lost a model
-before the app's users do. Exits 1 when a model has a failing source and the mirror
-does not hold that model yet, and prints the commands that upload it there.
+before the app's users do. Exits 1 when a source fails on every try or the mirror
+cannot be read, and prints what to do: the commands that upload the models the mirror
+lacks, and the dead sources to remove from the catalog.
 """
 
 from __future__ import annotations
