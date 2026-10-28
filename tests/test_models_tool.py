@@ -41,3 +41,22 @@ def test_the_check_asks_for_an_upload_only_when_the_mirror_lacks_a_lost_model(
     upload = "gh release upload models-v1 --clobber data/models/a.onnx"
     assert (upload in out) == bool(code)
     assert out.count("FAILED") == len(gone) + (mirror == "wrong")
+
+
+def test_a_source_that_fails_once_is_tried_again_before_it_counts_as_lost(
+    tmp_path, monkeypatch, capsys
+):
+    catalog = {"a": {"path": "dir/a.onnx", "urls": [ONE]}}
+    monkeypatch.setattr(model_cache, "CATALOG", catalog)
+    monkeypatch.setattr(models, "CATALOG", catalog)
+    calls = []
+
+    def download(key, url, path, progress, cancel):
+        calls.append(url)
+        if calls.count(url) == 1:
+            raise TimeoutError("timed out")
+
+    monkeypatch.setattr(models, "download", download)
+    assert models.main(tmp_path) == 0
+    assert "FAILED" not in capsys.readouterr().out
+    assert calls.count(ONE) == 2
