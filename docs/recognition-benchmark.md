@@ -84,6 +84,43 @@ bibs too. Keeping weaker reads of starters' bibs (small reader from 0.5, Florenc
 from 0.02) was scored offline and not kept: one to six more pairs for up to thirty
 more wrong ones, all of them starters' bibs.
 
+## Finer windows
+
+With Florence-2 (Medium and Large) every person's zone is also read in windows of 0.25
+of their height, for digits too small for the 0.4 windows: a rider near the camera or a
+small plate. Bib 6 on one Alatau photo is read at 0.995 there and not at all in the 0.4
+windows. Three rules keep them from adding stickers or taking anything away: a spot seen
+in several of these windows counts once; a read counts only if its digits are at least
+2.5% of the height of the tallest person whose zone holds it; and it is not added where
+it would cut or extend a read that is kept. The same runs with the start protocol,
+appearance included, before and after (every wrong value here is a starter's bib):
+
+| Album | Size | Windows | Time | Accepted: found | Accepted: wrong | All: found | All: wrong |
+| --- | --- | --- | ---: | ---: | ---: | ---: | ---: |
+| Alatau XCO | Large | 0.4 | 1636 s | 68.5% | 25 of 327 | 76.2% | 64 of 419 |
+| Alatau XCO | Large | 0.4 and 0.25 | 2650 s | **75.2%** | 33 of 364 | **81.7%** | 75 of 456 |
+| Alatau XCO | Medium | 0.4 | 907 s | 65.7% | 24 of 314 | 72.9% | 57 of 396 |
+| Alatau XCO | Medium | 0.4 and 0.25 | 1708 s | **73.1%** | 32 of 354 | **80.3%** | 69 of 442 |
+| UBT TT | Large | 0.4 | 929 s | 57.8% | 9 of 35 | 62.2% | 14 of 43 |
+| UBT TT | Large | 0.4 and 0.25 | 1208 s | **68.9%** | 12 of 43 | **71.1%** | 19 of 52 |
+| UBT TT | Medium | 0.4 | 435 s | 55.6% | 9 of 34 | 62.2% | 12 of 41 |
+| UBT TT | Medium | 0.4 and 0.25 | 955 s | **71.1%** | 12 of 44 | **71.1%** | 17 of 50 |
+
+Per photo-bib pair against the 0.4 windows alone, no accepted pair was lost with either
+size on either album. Large gained 29 accepted pairs on Alatau XCO for 8 new wrong
+values, and 5 on UBT TT for 3; Medium gained 32 and 7 for 8 and 3. Before the size rule
+the same windows added 28 and 5 pairs for 18 and 6 wrong values: lone digits on stickers
+and frames, as tall in the photo as a bib's but far smaller than one on their rider. The 0.4-window
+times are from the model-size runs; the Large Alatau time is from a run of the same
+windows before the size rule, which adds no work (a later run beside another job took
+3433 s).
+
+Tried and not kept: windows of 0.3 add fewer wrong values but miss the bib 6; 0.2 add as
+many bibs as 0.25 and more wrong values; with the small models alone the finer windows
+added more wrong values than bibs, so *Small* reads as before and keeps its saved reads.
+Not letting a finer window add a vote to a read of the same value already made cut 6
+of the 29 Large pairs on Alatau XCO for 2 fewer wrong values (scored offline).
+
 ## Faces
 
 The mode *Bib numbers, then rider appearance and faces* with the small models, against
@@ -124,4 +161,5 @@ wrong values than bibs.
 - Wrong: lone digits in logos and word fragments (they now need a sure read or two
   agreeing windows), part of a plate split by a brake cable ("3" of "30"), numbers and
   codes that really are on a person or near one (helmet sticker, bottle, tyre size,
-  a car plate).
+  a car plate). Lone digits on stickers that are as tall as a bib's on their rider,
+  which the finer windows read as well.

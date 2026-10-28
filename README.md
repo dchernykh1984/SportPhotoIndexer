@@ -23,7 +23,7 @@ their photos by bib, and in their own race album.
 3. **Recognize automatically**: by default with the *Large* models and the mode that
    reads bibs first, then uses riders with accepted bibs as appearance and face
    references for other photos of this album; its first run downloads 1249 MB. Choose
-   *Small models* for a run about six times quicker (160 MB to download in this mode,
+   *Small models* for a run about nine times quicker (160 MB to download in this mode,
    15 MB with *Bib numbers only*), and *Bib numbers only* to skip the second phase.
    Inspect the list's `check:` suggestions.
    Type the accepted bibs and press **Enter** to confirm/correct a photo and move on;
@@ -43,8 +43,8 @@ file is replaced, old observations no longer apply: manual decisions are archive
 
 - **Small models**: a quick first index on any computer (about five minutes for 500
   photos on a ten-core Mac), good enough to publish the album at once.
-- **Large models**: the normal way. Several times longer, and it finds the most of
-  the three automatic sizes.
+- **Large models**: the normal way. About nine times longer (some 45 minutes for 500
+  photos), and it finds the most of the three automatic sizes.
 - **By eye, or with a coding agent that can look at photos** (Claude Code, Codex):
   the most complete. The `index-an-album` skill in `.claude/skills/` (the same in
   `.agents/skills/`) reads every bib, takes the start protocol, recognises starters
@@ -82,13 +82,15 @@ Other bib scripts can be typed or imported from CSV.
 The scores are not calibrated race accuracy.
 The model size next to the mode is remembered. *Small models* read with PaddleOCR
 alone. *Medium* and *Large* read every person's zone and the whole frame again with
-Florence-2 base (8-bit or full precision), and keep a small-model read only when it is
-sure or Florence-2 read the same value. On the labelled races, Large found 76% of the
-visible handlebar plates instead of 73% and 62% of the seat-post plates instead of
-58%, with about half as many wrong suggestions, but took 5.6 times as long (27 minutes
-for 500 photos on a ten-core Mac); Medium sits between them at about three times.
-Florence-2 large (3.3 GB) found about as many as Large and is not offered. Each photo worker
-needs about 1 GB of RAM plus the models, so larger sizes run fewer photos at once.
+Florence-2 base (8-bit or full precision), keep a small-model read only when it is
+sure or Florence-2 read the same value, and read each person in finer windows as well,
+for plates too small for the usual ones. On the labelled races with their start
+protocols, Large found 82% of the visible handlebar plates instead of 73% and 71% of the
+seat-post plates instead of 58%, with a third fewer wrong suggestions, but took nine
+times as long (44 minutes for 500 photos on a ten-core Mac); Medium found 80% and 71%
+in 28 minutes. Florence-2 large (3.3 GB) found about as many as Large before the finer
+windows and is not offered. Each photo worker needs about 1 GB of RAM plus the models,
+so larger sizes run fewer photos at once.
 
 A start protocol is optional: *Start protocol* in the folder bar takes the race's
 `start.txt` from StartProtocolMaker (`12#Name#Category#...`) or any table with the bib
@@ -120,7 +122,8 @@ right, it added wrong suggestions (64 to 77). Face vectors, like body vectors, l
 run.
 Similar kit and riding poses can produce wrong suggestions. On two hand-labelled races
 ([recognition benchmark](docs/recognition-benchmark.md)) the small models found 62-73%
-of visible handlebar plates and about half of side-on seat-post plates. About one accepted value in
+of visible handlebar plates and about half of side-on seat-post plates, the Large ones
+75-82% and about 70%. About one accepted value in
 ten was wrong on the first race and half on the second, most of those there matching no
 starter (a car plate, a display), so review suggestions before relying on them. Cross-album appearance search is not implemented.
 
