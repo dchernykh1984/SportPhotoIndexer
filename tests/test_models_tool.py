@@ -19,6 +19,12 @@ def pauses(monkeypatch):
     return slept
 
 
+@pytest.fixture(autouse=True)
+def any_file_is_verified(monkeypatch):
+    # The fake downloads below write a file only where a source gave the model.
+    monkeypatch.setattr(models, "verified", lambda key, path: path.exists())
+
+
 @pytest.mark.parametrize(
     ("gone", "mirror", "upload"),
     [
@@ -47,6 +53,7 @@ def test_the_check_asks_for_an_upload_only_when_the_mirror_lacks_a_lost_model(
             )
         if url in gone or (url.startswith(models.MIRROR) and mirror == "wrong"):
             raise model_cache.ModelError("download checksum does not match")
+        path.write_bytes(b"model")
 
     monkeypatch.setattr(models, "download_from", download)
     # A dead source fails the check even when the mirror holds its model.
@@ -75,6 +82,7 @@ def test_a_source_that_fails_twice_is_tried_again_before_it_counts_as_lost(
         calls.append(url)
         if calls.count(url) < 3:
             raise urllib.error.URLError(TimeoutError("timed out"))
+        path.write_bytes(b"model")
 
     monkeypatch.setattr(models, "download_from", download)
     assert models.main(tmp_path) == 0
@@ -159,8 +167,10 @@ def test_the_upload_command_survives_a_folder_with_a_space(
         raise model_cache.ModelError("download checksum does not match")
 
     monkeypatch.setattr(models, "download_from", download)
-    models.main(tmp_path / "My Models")
     path = tmp_path / "My Models" / "a.onnx"
+    path.parent.mkdir()
+    path.write_bytes(b"model")  # a verified copy from an earlier run
+    models.main(tmp_path / "My Models")
     assert f"gh release upload models-v1 '{path}'" in capsys.readouterr().out
 
 
@@ -183,6 +193,7 @@ def test_what_to_do_about_a_model_is_said_before_the_next_model_is_checked(
             raise model_cache.ModelError("download checksum does not match")
 
     monkeypatch.setattr(models, "download_from", download)
+    (tmp_path / "a.onnx").write_bytes(b"model")  # a verified copy from before
     models.main(tmp_path)
     out = capsys.readouterr().out
     next_model = out.index("https://three.test/b.onnx")
@@ -195,3 +206,25 @@ def test_what_to_do_about_a_model_is_said_before_the_next_model_is_checked(
         < next_model
     )
     assert "failed on every try" not in out
+
+
+def test_a_lost_model_with_no_verified_copy_here_gets_no_upload_command(
+    tmp_path, monkeypatch, capsys
+):
+    catalog = {"a": {"path": "dir/a.onnx", "urls": [ONE]}}
+    monkeypatch.setattr(model_cache, "CATALOG", catalog)
+    monkeypatch.setattr(models, "CATALOG", catalog)
+
+    def download(key, url, path, progress, cancel):
+        if url.startswith(models.MIRROR):
+            raise urllib.error.HTTPError(
+                url, 404, "Not Found", email.message.Message(), None
+            )
+        raise model_cache.ModelError("download checksum does not match")
+
+    monkeypatch.setattr(models, "download_from", download)
+    assert models.main(tmp_path) == 1
+    out = capsys.readouterr().out
+    assert "gh release upload" not in out
+    assert "no verified copy of a.onnx here" in out
+    assert "the model is lost" in out
