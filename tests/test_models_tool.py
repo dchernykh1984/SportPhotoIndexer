@@ -90,6 +90,7 @@ def test_a_source_that_fails_twice_is_tried_again_before_it_counts_as_lost(
             1,
         ),
         (model_cache.ModelError("download checksum does not match"), 1),
+        (model_cache.CutShortError("download ended early"), 3),
         (
             urllib.error.HTTPError(
                 ONE, 503, "Unavailable", email.message.Message(), None
