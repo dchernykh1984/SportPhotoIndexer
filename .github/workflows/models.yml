@@ -27,8 +27,8 @@ jobs:
   sources:
     name: model sources
     runs-on: ubuntu-latest
-    # A run takes about 4 minutes; a source stalling on every file, tried three times
-    # half a minute apart, must still end with the summary of what to do.
+    # A run takes about 4 minutes. The check stops trying sources after 100 minutes
+    # (BUDGET in tools/models.py), so its summary and the artifact come before this.
     timeout-minutes: 120
     steps:
       - uses: actions/checkout@v7

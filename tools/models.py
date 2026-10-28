@@ -43,6 +43,9 @@ PAUSE = 30
 # ModelScope to the runners in about 4 minutes; a source sending a trickle must not
 # hold the run until the job's time limit cuts it off before its summary.
 SLOWEST = 20 * 60
+# The time the whole check gives itself. Past it, the models not yet checked are named
+# instead, so the summary and the artifact come before the job's 120-minute limit.
+BUDGET = 100 * 60
 
 
 def _lasting(error: Exception) -> bool:
@@ -57,14 +60,16 @@ def _past(deadline: float) -> Callable[[], bool]:
     return lambda: time.monotonic() > deadline
 
 
-def _fetch(key: str, url: str, path: Path) -> Exception | None:
+def _fetch(key: str, url: str, path: Path, end: float) -> Exception | None:
     """One source, again after a failure that may pass: a connection dropped in a
-    weekly run must not read as a lost model."""
+    weekly run must not read as a lost model. ``end`` is when the check's time is up."""
     error: Exception | None = None
     for attempt in range(ATTEMPTS):
         if attempt:
             time.sleep(PAUSE)
-        too_slow = _past(time.monotonic() + SLOWEST)
+        if time.monotonic() > end:
+            break
+        too_slow = _past(min(time.monotonic() + SLOWEST, end))
         try:
             download_from(key, url, path, lambda *a: None, too_slow)
             return None
@@ -72,6 +77,8 @@ def _fetch(key: str, url: str, path: Path) -> Exception | None:
             cause = stop.__context__
             if isinstance(cause, SOURCE_ERRORS) and _lasting(cause):
                 return cause  # an answer that came as the time ran out is the answer
+            if time.monotonic() > end:
+                return TimeoutError("the check ran out of time")
             # Too slow; another try would take as long.
             return TimeoutError(f"slower than {SLOWEST // 60} minutes for one file")
         except SOURCE_ERRORS as exc:  # a disk error stops the check, as it does the app
@@ -90,21 +97,28 @@ class Report:
     dead: list[str] = dataclasses.field(default_factory=list)  # catalog sources
     unread: list[str] = dataclasses.field(default_factory=list)  # mirror files
     clashes: list[str] = dataclasses.field(default_factory=list)  # mirror files
+    unchecked: list[str] = dataclasses.field(default_factory=list)  # out of time
 
     def __bool__(self) -> bool:
-        return any((self.upload, self.lost, self.dead, self.unread, self.clashes))
+        found = (self.upload, self.lost, self.dead, self.unread, self.clashes)
+        return any((*found, self.unchecked))
 
 
 def check(folder: Path) -> Report:
     """Report every source, and what to do about the models whose sources failed."""
     folder.mkdir(parents=True, exist_ok=True)
     report = Report()
+    end = time.monotonic() + BUDGET
     for key in CATALOG:
         name = file_name(key)
+        if time.monotonic() > end:
+            report.unchecked.append(name)
+            print(f"-> not checked, the check ran out of time: {name}")
+            continue
         served = mirrored = unknown = False
         for url in sources(key):
             ours = url.startswith(MIRROR)
-            error = _fetch(key, url, folder / name)
+            error = _fetch(key, url, folder / name, end)
             if error is None:
                 print(f"ok     {url}")
                 mirrored |= ours
@@ -171,6 +185,10 @@ def main(folder: Path) -> int:
         (
             "The mirror could not be read; look at it before uploading anything:",
             report.unread,
+        ),
+        (
+            "The check ran out of its time before these models; run it again:",
+            report.unchecked,
         ),
         (
             "The mirror holds other bytes under these names than the catalog pins. An"
