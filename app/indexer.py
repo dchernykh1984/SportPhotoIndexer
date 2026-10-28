@@ -301,8 +301,14 @@ def set_bibs(index: dict, photo_id: str, bibs: list[str]) -> None:
     sha = photo["original"]["sha256"]
     typed = set(bibs)
     # What the person typed is accepted; a bib found before that they left out is
-    # rejected by them, so a later automatic pass cannot bring it back.
-    dropped = {b["value"] for b in photo["bibs"] if b["value"] not in typed}
+    # rejected by them, so a later automatic pass cannot bring it back. A read the
+    # start protocol rejected was never shown to them, so they did not judge it.
+    dropped = {
+        b["value"]
+        for b in photo["bibs"]
+        if b["value"] not in typed
+        and not (b["method"] == "ocr" and b["state"] == "rejected")
+    }
     regions = {b["value"]: b["region"] for b in photo["bibs"] if "region" in b}
     previous = photo.get("manual_review")
     if previous and set(bibs_of(photo)) != typed:

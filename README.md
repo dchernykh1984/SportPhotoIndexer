@@ -79,7 +79,8 @@ A start protocol is optional: *Start protocol* in the folder bar takes the race'
 in the first column, and is remembered for that album only; *Clear* goes back to any
 bib. Read numbers that are not in it are kept as rejected, so banners, car plates and
 displays are no longer suggested and do not seed appearance. Clearing or changing the
-protocol brings them back on the next run without reading the photos again. It cannot
+protocol brings them back on the next run without reading the photos again, on photos
+nobody has checked yet: a checked photo keeps what the person typed. It cannot
 tell a starter's number on a sticker or a bottle from a bib, and it rejects the bib of
 a rider who is missing from the file, so use the final protocol. On the labelled races
 it found as many bibs and cut the wrong values from 36 to 14 (seat-post plates, Large)
