@@ -75,11 +75,19 @@ class _ScanWorker(QThread):
         self.progress.emit("Checking photos", done, total)
 
 
-def _upright(path: Path) -> QPixmap:
+def _upright(path: Path, longest: int) -> QPixmap:
     """The photo as it was taken: cameras store a portrait shot sideways and say so
-    in EXIF, which a plain QPixmap ignores. Previews are already upright."""
+    in EXIF, which a plain QPixmap ignores. Previews are already upright.
+
+    Decoded straight to at most ``longest`` pixels a side: 50 MP in full is 200 MB of
+    pixels, slow to decode, and above 64 MP over Qt's allocation limit."""
     reader = QImageReader(str(path))
     reader.setAutoTransform(True)
+    size = reader.size()
+    if size.isValid() and max(size.width(), size.height()) > longest:
+        reader.setScaledSize(
+            size.scaled(longest, longest, Qt.AspectRatioMode.KeepAspectRatio)
+        )
     return QPixmap.fromImage(reader.read())
 
 
@@ -94,13 +102,19 @@ class _Photo(QLabel):
         # Sized by the layout, not by the pixmap, so the window can shrink again.
         self.setSizePolicy(QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Ignored)
 
+    def longest(self) -> int:
+        """The longest side worth keeping of a photo: the screen's, in device pixels."""
+        screen = self.screen().availableGeometry().size() * self.devicePixelRatioF()
+        return max(screen.width(), screen.height())
+
     def show_photo(self, pixmap: QPixmap) -> None:
         # Never more than a screenful: a 50 MP original scaled again on every resize
         # makes dragging the window edge stutter.
-        screen = self.screen().availableGeometry().size() * self.devicePixelRatioF()
-        if pixmap.width() > screen.width() or pixmap.height() > screen.height():
+        longest = self.longest()
+        if max(pixmap.width(), pixmap.height()) > longest:
             pixmap = pixmap.scaled(
-                screen,
+                longest,
+                longest,
                 Qt.AspectRatioMode.KeepAspectRatio,
                 Qt.TransformationMode.SmoothTransformation,
             )
@@ -501,9 +515,10 @@ class MainWindow(QMainWindow):
             self._image.show_photo(QPixmap())
             return
         asset = photo.get("preview", photo["original"])
-        pixmap = _upright(self._folder / asset["path"])
+        longest = self._image.longest()
+        pixmap = _upright(self._folder / asset["path"], longest)
         if pixmap.isNull() and asset is not photo["original"]:
-            pixmap = _upright(self._folder / photo["original"]["path"])
+            pixmap = _upright(self._folder / photo["original"]["path"], longest)
         self._image.show_photo(pixmap)
         self._edit_bibs.setText(" ".join(indexer.bibs_of(photo)))
         self._edit_bibs.selectAll()

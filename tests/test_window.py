@@ -696,3 +696,14 @@ def test_a_running_worker_thread_is_stopped_before_the_window_is_destroyed(
     with pytest.raises(SystemExit):
         entry.main()
     assert not shiboken6.isValid(windows[0])
+
+
+def test_a_large_photo_is_decoded_straight_to_screen_size_and_upright(tmp_path):
+    from PIL import Image
+
+    exif = Image.Exif()
+    exif[0x0112] = 8
+    path = tmp_path / "large.jpg"
+    Image.new("RGB", (4000, 3000), "orange").save(path, exif=exif)
+    pixmap = mw._upright(path, 800)
+    assert (pixmap.width(), pixmap.height()) == (600, 800)
