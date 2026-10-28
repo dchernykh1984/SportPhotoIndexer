@@ -71,16 +71,10 @@ class ModelError(ValueError):
     pass
 
 
-# How a source fails. A full or read-only disk fails every source alike, so it stops
-# the download at once and is reported as itself.
-_SOURCE_ERRORS = (
-    urllib.error.URLError,
-    http.client.HTTPException,
-    ConnectionError,
-    TimeoutError,
-    ssl.SSLError,
-    ModelError,
-)
+# How a source fails (_read reports the network failing mid-file the same way). A full
+# or read-only disk fails every source alike, so it stops the download at once and is
+# reported as itself.
+_SOURCE_ERRORS = (urllib.error.URLError, http.client.HTTPException, ModelError)
 
 
 # A host gets 15 seconds to answer, a source a minute without data: ModelScope pauses
@@ -110,6 +104,15 @@ def _open(url: str) -> http.client.HTTPResponse:
     opener = urllib.request.build_opener(_Handler(context))
     # URLs are fixed HTTPS entries in the committed catalog.
     return opener.open(url, timeout=CONNECT_TIMEOUT)
+
+
+def _read(response: http.client.HTTPResponse) -> bytes:
+    """The next piece of a download; the network failing in the middle of the file is
+    reported the way urllib reports it failing before the first byte."""
+    try:
+        return response.read(64 * 1024)
+    except OSError as exc:
+        raise urllib.error.URLError(exc) from exc
 
 
 def check_cancel(cancel: Callable[[], bool]) -> None:
@@ -190,7 +193,7 @@ def download(
             tmp = Path(stream.name)
             with _open(url) as response:
                 size = 0
-                while chunk := response.read(64 * 1024):
+                while chunk := _read(response):
                     check_cancel(cancel)
                     size += len(chunk)
                     if size > model["bytes"]:

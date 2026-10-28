@@ -170,9 +170,15 @@ def test_the_repository_mirror_is_the_last_source(tmp_path, monkeypatch, catalog
     assert files["text_reader"].read_bytes() == catalog
 
 
-class _Dropped(io.BytesIO):
+class _Failing(io.BytesIO):
+    """A response that fails while the file is read."""
+
+    def __init__(self, error):
+        super().__init__()
+        self.error = error
+
     def read(self, *args):
-        raise http.client.IncompleteRead(b"")
+        raise self.error
 
 
 @pytest.mark.parametrize(
@@ -182,9 +188,10 @@ class _Dropped(io.BytesIO):
             "https://example.test", 404, "Not Found", email.message.Message(), None
         ),
         urllib.error.URLError("host not found"),
-        TimeoutError("timed out"),
         io.BytesIO(b"wrong model!!!"),
-        _Dropped(),
+        _Failing(http.client.IncompleteRead(b"")),
+        _Failing(TimeoutError("The read operation timed out")),
+        _Failing(OSError(errno.ENETUNREACH, "Network is unreachable")),
     ],
 )
 def test_a_failing_source_falls_back_to_the_next_copy(
