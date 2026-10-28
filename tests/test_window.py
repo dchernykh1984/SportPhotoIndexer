@@ -654,3 +654,45 @@ def test_a_deleted_window_never_runs_its_pending_reopen(monkeypatch):
     shiboken6.delete(w)
     _app.processEvents()
     assert len(asked) == before
+
+
+def test_a_running_worker_thread_is_stopped_before_the_window_is_destroyed(
+    monkeypatch,
+):
+    # Deleting a running QThread aborts the process, so an exit that skipped the
+    # window's close (a session logoff) must still end the work first.
+    import PySide6.QtWidgets
+    import shiboken6
+    from PySide6.QtCore import QThread
+
+    from app import main as entry
+
+    class App:
+        def __init__(self, argv):
+            pass
+
+        def __getattr__(self, name):
+            return lambda *args: 0
+
+    class Spin(QThread):
+        def run(self):
+            while not self.isInterruptionRequested():
+                self.msleep(5)
+
+    windows = []
+
+    class Window(mw.MainWindow):
+        def __init__(self):
+            super().__init__()
+            self.spin = Spin(self)
+            self.spin.start()
+            windows.append(self)
+
+    monkeypatch.setattr(settings, "load", lambda: {})
+    monkeypatch.setattr(settings, "save", lambda values: None)
+    monkeypatch.setattr(PySide6.QtWidgets, "QApplication", App)
+    monkeypatch.setattr(mw, "MainWindow", Window)
+    monkeypatch.setattr(entry.sys, "argv", ["SportPhotoIndexer"])
+    with pytest.raises(SystemExit):
+        entry.main()
+    assert not shiboken6.isValid(windows[0])

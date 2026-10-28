@@ -16,6 +16,7 @@ def main() -> None:
         check_runtime()
         return
     import shiboken6
+    from PySide6.QtCore import QThread
     from PySide6.QtGui import QIcon
     from PySide6.QtWidgets import QApplication
 
@@ -36,6 +37,11 @@ def main() -> None:
     window.resize(1200, 800)
     window.show()
     code = app.exec()
+    # A running QThread deleted with the window aborts the process: end the work first,
+    # even when the exit skipped the window's close (a session logoff).
+    for thread in window.findChildren(QThread):
+        thread.requestInterruption()
+        thread.wait()
     # Destroyed while Python is whole: left to interpreter exit, PySide frees signal
     # receivers before the widgets, and a widget's destructor can touch a freed one.
     shiboken6.delete(window)
