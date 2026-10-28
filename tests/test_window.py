@@ -384,3 +384,28 @@ def test_a_start_protocol_is_optional_used_and_remembered_for_its_album_only(
     assert win._protocol is None and not win._btn_no_protocol.isEnabled()
     win.open_folder(album)
     assert win._protocol is None
+
+
+def test_a_protocol_that_cannot_be_read_stops_recognition_instead_of_dropping_out(
+    win, album, tmp_path, monkeypatch
+):
+    protocol = tmp_path / "start.txt"
+    protocol.write_text("7#Rider#Men#\n", encoding="utf-8")
+    monkeypatch.setattr(
+        mw.QFileDialog, "getOpenFileName", lambda *a, **k: (str(protocol), "")
+    )
+    warnings = []
+    monkeypatch.setattr(
+        mw.QMessageBox, "warning", lambda *args: warnings.append(args[-1])
+    )
+    win.open_folder(album)
+    win._on_protocol()
+    protocol.write_text("\n", encoding="utf-8")  # emptied after it was chosen
+    win._on_recognize()
+    assert win._worker is None and "has no bibs" in warnings[-1]
+    protocol.unlink()  # the drive with the protocol is gone
+    win.open_folder(album)
+    assert win._btn_protocol.text() == "Start protocol: start.txt"
+    win._on_recognize()
+    assert win._worker is None and "start.txt" in warnings[-1]
+    assert win._btn_auto.isEnabled() and win._btn_no_protocol.isEnabled()
