@@ -27,7 +27,9 @@ jobs:
   sources:
     name: model sources
     runs-on: ubuntu-latest
-    timeout-minutes: 60
+    # A run takes about 4 minutes; a source stalling on every file, tried three times
+    # half a minute apart, must still end with the summary of what to do.
+    timeout-minutes: 120
     steps:
       - uses: actions/checkout@v7
       - uses: astral-sh/setup-uv@v7
