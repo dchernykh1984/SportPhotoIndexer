@@ -8,6 +8,7 @@ import json
 import math
 import ssl
 import tempfile
+import urllib.error
 import urllib.parse
 import urllib.request
 from collections.abc import Callable
@@ -70,6 +71,18 @@ class ModelError(ValueError):
     pass
 
 
+# How a source fails. A full or read-only disk fails every source alike, so it stops
+# the download at once and is reported as itself.
+_SOURCE_ERRORS = (
+    urllib.error.URLError,
+    http.client.HTTPException,
+    ConnectionError,
+    TimeoutError,
+    ssl.SSLError,
+    ModelError,
+)
+
+
 def check_cancel(cancel: Callable[[], bool]) -> None:
     if cancel():
         raise CancelledError
@@ -123,7 +136,7 @@ def _download(key, path, progress, cancel) -> None:
         try:
             download(key, url, path, progress, cancel)
             return
-        except (OSError, http.client.HTTPException, ModelError) as exc:
+        except _SOURCE_ERRORS as exc:
             failed.append(f"{urllib.parse.urlsplit(url).netloc}: {exc}")
     raise ModelError("\n".join([f"{key}: every source failed; retry", *failed]))
 
