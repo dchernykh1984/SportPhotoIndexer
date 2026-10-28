@@ -1,6 +1,7 @@
 """Only verified pinned models reach the cache; cancellation leaves no partial file."""
 
 import email.message
+import errno
 import hashlib
 import http.client
 import io
@@ -82,14 +83,29 @@ def test_offline_failure_names_every_source_and_cleans_up(
     tmp_path, monkeypatch, catalog
 ):
     def offline(*args, **kwargs):
-        raise OSError("offline")
+        raise urllib.error.URLError("offline")
 
     monkeypatch.setattr(cache.urllib.request, "urlopen", offline)
     with pytest.raises(cache.ModelError) as failure:
         cache.ensure_models(False, lambda *a: None, lambda: False, tmp_path)
     for host in ("example.test", "copy.test", "github.com"):
-        assert f"{host}: offline" in str(failure.value)
+        assert f"{host}: <urlopen error offline>" in str(failure.value)
     assert list(tmp_path.iterdir()) == []
+
+
+def test_a_full_disk_stops_the_download_instead_of_trying_every_source(
+    tmp_path, monkeypatch, catalog
+):
+    calls = []
+
+    def full(*args, **kwargs):
+        calls.append(args)
+        raise OSError(errno.ENOSPC, "No space left on device")
+
+    monkeypatch.setattr(cache.tempfile, "NamedTemporaryFile", full)
+    with pytest.raises(OSError, match="No space left"):
+        cache.ensure_models(False, lambda *a: None, lambda: False, tmp_path)
+    assert len(calls) == 1
 
 
 def test_the_repository_mirror_is_the_last_source(tmp_path, monkeypatch, catalog):
