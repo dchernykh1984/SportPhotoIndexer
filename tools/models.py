@@ -56,6 +56,8 @@ def _fetch(key: str, url: str, path: Path) -> Exception | None:
             download_from(key, url, path, lambda *a: None, lambda: False)
             return None
         except SOURCE_ERRORS as exc:  # a disk error stops the check, as it does the app
+            if isinstance(exc, urllib.error.HTTPError):
+                exc.close()  # its response would hold the connection until collected
             error = exc
             if _lasting(exc):
                 break

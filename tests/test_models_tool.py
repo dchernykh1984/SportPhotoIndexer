@@ -2,6 +2,7 @@
 
 import email.message
 import errno
+import io
 import urllib.error
 
 import pytest
@@ -194,3 +195,20 @@ def test_what_to_do_about_a_model_is_said_before_the_next_model_is_checked(
         < next_model
     )
     assert "failed on every try" not in out
+
+
+def test_an_error_response_is_closed(tmp_path, monkeypatch):
+    catalog = {"a": {"path": "dir/a.onnx", "urls": [ONE]}}
+    monkeypatch.setattr(model_cache, "CATALOG", catalog)
+    monkeypatch.setattr(models, "CATALOG", catalog)
+    bodies = []
+
+    def download(key, url, path, progress, cancel):
+        bodies.append(io.BytesIO(b"<html>Not Found</html>"))
+        raise urllib.error.HTTPError(
+            url, 404, "Not Found", email.message.Message(), bodies[-1]
+        )
+
+    monkeypatch.setattr(models, "download_from", download)
+    models.main(tmp_path)
+    assert bodies and all(body.closed for body in bodies)
