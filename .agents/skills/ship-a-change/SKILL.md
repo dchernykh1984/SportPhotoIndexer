@@ -64,7 +64,10 @@ A body that reviewers can act on has four parts:
 
 Eight checks run on a PR: `pre-commit`, `commitizen`, `audit` (pip-audit), `tests`,
 `build / targets`, `build / build (ubuntu-22.04, linux-x86_64)` and the two
-`windows-runtime` checks (x64 and ARM64) for spawn and native photo codecs.
+`windows-runtime` checks (x64 and ARM64) for spawn and native photo codecs. A PR
+that changes the model sources (`app/model_catalog.json`, `app/model_cache.py`,
+`tools/models.py`) also runs `model sources`, which downloads every model from each
+source, about 3 GB.
 
 ```bash
 gh pr checks <number>
