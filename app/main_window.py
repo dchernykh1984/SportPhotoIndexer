@@ -54,6 +54,7 @@ class MainWindow(QMainWindow):
         self._folder: Path | None = None
         self._index: dict | None = None
         self._worker: RecognitionWorker | None = None
+        self._protocol: Path | None = None
         self._closing = False
         self._setup_ui()
         last = settings.load().get("folder")
@@ -77,6 +78,18 @@ class MainWindow(QMainWindow):
         self._btn_csv = QPushButton("Import bibs (CSV)...")
         self._btn_csv.clicked.connect(self._on_import_csv)
         bar.addWidget(self._btn_csv)
+        self._btn_protocol = QPushButton()
+        self._btn_protocol.setToolTip(
+            "Optional: the race's start protocol (start.txt of StartProtocolMaker, or"
+            " a table with the bib first). Read numbers that are not in it are"
+            " rejected: banners, car plates, displays."
+        )
+        self._btn_protocol.clicked.connect(self._on_protocol)
+        bar.addWidget(self._btn_protocol)
+        self._btn_no_protocol = QPushButton("Clear")
+        self._btn_no_protocol.setToolTip("Look for any bib, without a start protocol")
+        self._btn_no_protocol.clicked.connect(lambda: self._use_protocol(None))
+        bar.addWidget(self._btn_no_protocol)
         self._chk_previews = QCheckBox("Make a preview of every photo")
         self._chk_previews.setToolTip(
             "Previews are always made for photos over 20 MB, which Dropbox cannot"
@@ -170,11 +183,69 @@ class MainWindow(QMainWindow):
             self._btn_auto,
             self._mode,
             self._size,
+            self._btn_protocol,
         ):
             widget.setEnabled(on)
+        self._show_protocol()
 
     def _on_size(self) -> None:
         settings.save({**settings.load(), "model_size": self._size.currentData()})
+
+    def _show_protocol(self) -> None:
+        name = self._protocol.name if self._protocol else "none"
+        self._btn_protocol.setText(f"Start protocol: {name}")
+        self._btn_no_protocol.setEnabled(
+            self._btn_protocol.isEnabled() and self._protocol is not None
+        )
+
+    def _on_protocol(self) -> None:
+        chosen, _ = QFileDialog.getOpenFileName(
+            self,
+            "Start protocol",
+            str(self._protocol or self._folder or ""),
+            "Start protocol (*.txt *.csv);;All files (*)",
+        )
+        if chosen:
+            self._use_protocol(Path(chosen))
+
+    def _starters(self, path: Path) -> frozenset[str]:
+        """The protocol's bibs, or none after telling the user why."""
+        try:
+            starters = indexer.read_starters(path)
+        except OSError as exc:
+            QMessageBox.warning(self, "Start protocol", str(exc))
+            return frozenset()
+        if not starters:
+            QMessageBox.warning(
+                self,
+                "Start protocol",
+                f"{path.name} has no bibs: each line should start with one,"
+                " as in 12#Name#Category.",
+            )
+        return starters
+
+    def _protocols(self) -> dict:
+        """Each album's start protocol: a protocol belongs to one race."""
+        protocols = settings.load().get("start_protocols")
+        return dict(protocols) if isinstance(protocols, dict) else {}
+
+    def _use_protocol(self, path: Path | None) -> None:
+        if self._folder is None:
+            return
+        protocols = self._protocols()
+        if path is None:
+            protocols.pop(str(self._folder), None)
+        else:
+            starters = self._starters(path)
+            if not starters:
+                return
+            protocols[str(self._folder)] = str(path)
+            self._lbl_status.setText(
+                f"Start protocol {path.name}: {len(starters)} bibs"
+            )
+        self._protocol = path
+        settings.save({**settings.load(), "start_protocols": protocols})
+        self._show_protocol()
 
     # -- album ---------------------------------------------------------------------
 
@@ -196,6 +267,11 @@ class MainWindow(QMainWindow):
             self._folder, self._index = previous
             return
         settings.save({**settings.load(), "folder": str(folder)})
+        remembered = self._protocols().get(str(folder))
+        self._protocol = (
+            Path(remembered) if remembered and Path(remembered).is_file() else None
+        )
+        self._show_protocol()
 
     def rescan(self) -> bool:
         if self._folder is None:
@@ -344,6 +420,9 @@ class MainWindow(QMainWindow):
     def _on_recognize(self) -> None:
         if self._worker is not None or self._index is None or self._folder is None:
             return
+        starters = self._starters(self._protocol) if self._protocol else frozenset()
+        if self._protocol and not starters:
+            return
         self._set_enabled(False)
         self._btn_open.setEnabled(False)
         self._chk_previews.setEnabled(False)
@@ -354,6 +433,7 @@ class MainWindow(QMainWindow):
             appearance=self._mode.currentIndex() >= 1,
             size=self._size.currentData(),
             faces=self._mode.currentIndex() == 2,
+            starters=starters,
             parent=self,
         )
         self._worker.progress.connect(self._recognition_progress)

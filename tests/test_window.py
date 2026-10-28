@@ -324,3 +324,57 @@ def test_a_broken_optional_preview_does_not_hide_a_readable_jpeg(win, album):
     (album / photo["preview"]["path"]).write_bytes(b"not a preview")
     win._show_photo(0)
     assert not win._image.pixmap().isNull()
+
+
+def test_a_start_protocol_is_optional_used_and_remembered_for_its_album_only(
+    win, album, tmp_path, monkeypatch
+):
+    from contextlib import nullcontext
+
+    from app import recognition_worker as worker_module
+    from tests.conftest import make_photo
+    from tests.test_recognition import FakeVision
+
+    monkeypatch.setattr(worker_module, "ensure_models", lambda *a, **k: {})
+    engine = FakeVision()
+    monkeypatch.setattr(worker_module, "PhotoPool", lambda *a: nullcontext(engine))
+    protocol, empty = tmp_path / "start.txt", tmp_path / "empty.txt"
+    protocol.write_text("7#Rider#Men#\n", encoding="utf-8")
+    empty.write_text("\n", encoding="utf-8")
+    chosen = [protocol]
+    monkeypatch.setattr(
+        mw.QFileDialog, "getOpenFileName", lambda *a, **k: (str(chosen[0]), "")
+    )
+    warnings = []
+    monkeypatch.setattr(
+        mw.QMessageBox, "warning", lambda *args: warnings.append(args[-1])
+    )
+    win.open_folder(album)
+    assert win._btn_protocol.text() == "Start protocol: none"
+    assert not win._btn_no_protocol.isEnabled()
+    win._on_protocol()
+    assert win._btn_protocol.text() == "Start protocol: start.txt"
+    assert "1 bibs" in win._lbl_status.text()
+    win._on_recognize()
+    assert not win._btn_protocol.isEnabled() and not win._btn_no_protocol.isEnabled()
+    assert win._worker.wait(10000)
+    _app.processEvents()
+    red = indexer.load(album)["photos"][0]
+    assert [(b["value"], b["state"]) for b in red["bibs"]] == [("012", "rejected")]
+    again = mw.MainWindow()  # reopens the last album with its protocol
+    assert again._protocol == protocol
+    again.deleteLater()
+    other = tmp_path / "other"
+    other.mkdir()
+    make_photo(other, "IMG_0001.jpg")
+    win.open_folder(other)
+    assert win._protocol is None
+    win.open_folder(album)
+    assert win._protocol == protocol
+    chosen[0] = empty
+    win._on_protocol()
+    assert win._protocol == protocol and "has no bibs" in warnings[-1]
+    win._btn_no_protocol.click()
+    assert win._protocol is None and not win._btn_no_protocol.isEnabled()
+    win.open_folder(album)
+    assert win._protocol is None

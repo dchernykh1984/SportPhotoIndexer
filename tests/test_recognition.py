@@ -53,6 +53,7 @@ def run(album, data, engine, **options):
         cancel=options.pop("cancel", lambda: False),
         size=options.pop("size", "small"),
         faces=options.pop("faces", False),
+        starters=options.pop("starters", frozenset()),
     )
 
 
@@ -289,6 +290,19 @@ def test_bibs_saved_by_one_model_size_are_read_again_by_another(album):
     assert [kind for kind, _ in larger.calls] == ["ocr"] * 3
     stamp = data["photos"][0]["recognition"]["ocr"]["engine"]
     assert stamp == recognition.engine_id("florence-2-base") != recognition.engine_id()
+
+
+def test_a_bib_outside_the_start_protocol_is_rejected_until_the_protocol_goes(album):
+    data = prepared(album)
+    report = run(album, data, FakeVision(), starters=frozenset({"7"}))
+    red, green, _ = data["photos"]
+    assert [(b["value"], b["state"]) for b in red["bibs"]] == [("012", "rejected")]
+    assert report.seeds == 0 and green["bibs"] == []
+    cached = FakeVision()
+    run(album, data, cached)
+    assert [kind for kind, _ in cached.calls] == ["riders"] * 3  # no new reading
+    assert indexer.bibs_of(red) == ["012"]
+    assert green["bibs"][0]["value"] == "012"
 
 
 def test_an_unavailable_cached_photo_does_not_abort_the_other_photos(album):

@@ -14,6 +14,7 @@ import csv
 import hashlib
 import json
 import os
+import re
 import tempfile
 import time
 import uuid
@@ -367,6 +368,15 @@ def import_csv(index: dict, path: Path) -> tuple[int, list[str]]:
             set_bibs(index, by_name[name]["id"], parse_bibs(" ".join(row[1:])))
             applied += 1
     return applied, unknown
+
+
+def read_starters(path: Path) -> frozenset[str]:
+    """Bibs of a start protocol: the first field of each line, as in the ``start.txt``
+    of StartProtocolMaker (``12#Name#Category#...``) or a table with the bib first."""
+    text = path.read_text(encoding="utf-8-sig", errors="replace")
+    lines = text.splitlines()
+    bibs = (normalize_bib(re.split("[#;,\t]", line, maxsplit=1)[0]) for line in lines)
+    return frozenset(b for b in bibs if not bib_problem(b))
 
 
 def _content(index: dict) -> dict:

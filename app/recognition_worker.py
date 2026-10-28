@@ -20,6 +20,7 @@ class RecognitionWorker(QThread):
         appearance: bool,
         size: str = "small",
         faces: bool = False,
+        starters: frozenset[str] = frozenset(),
         parent=None,
     ):
         super().__init__(parent)
@@ -28,6 +29,7 @@ class RecognitionWorker(QThread):
         self.appearance = appearance
         self.size = size
         self.faces = faces
+        self.starters = starters
         self.report = recognition.Report()
         self.error = ""
 
@@ -55,6 +57,7 @@ class RecognitionWorker(QThread):
                     cancel=self.isInterruptionRequested,
                     size=self.size,
                     faces=self.faces,
+                    starters=self.starters,
                 )
         except CancelledError:
             self.report.cancelled = True

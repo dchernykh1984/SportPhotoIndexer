@@ -42,11 +42,12 @@ class Report:
     seeds: int = 0
 
 
-def _classified(observation, method, lock):
+def _classified(observation, method, lock, starters):
     state = observation.get("state", "candidate")
-    if state == "rejected":
-        return observation
     if method == "ocr":
+        # Derived again on every run, so a changed start protocol needs no new read.
+        if starters and observation["value"] not in starters:
+            return {**observation, "state": "rejected"}
         # Any bib format is accepted alike: races use letters too ("A12").
         needed = ACCEPT_LONE_DIGIT if len(observation["value"]) == 1 else ACCEPT_OCR
         state = (
@@ -54,12 +55,14 @@ def _classified(observation, method, lock):
             if (observation.get("confidence") or 0) >= needed
             else "candidate"
         )
+    elif state == "rejected":
+        return observation
     if lock:
         state = "candidate"
     return {**observation, "state": state}
 
 
-def _merge(photo, method, observations):
+def _merge(photo, method, observations, starters=frozenset()):
     manual = [b for b in photo["bibs"] if b["method"] == "manual"]
     reviewed = {b["value"] for b in manual}
     lock = photo.get("manual_review", {}).get("lock_accepted_set", False)
@@ -70,14 +73,14 @@ def _merge(photo, method, observations):
         value = observation["value"]
         if value in reviewed or value in accepted:
             continue
-        observation = _classified(observation, method, lock)
+        observation = _classified(observation, method, lock, starters)
         if value not in choices or (observation.get("confidence") or 0) > (
             choices[value].get("confidence") or 0
         ):
             choices[value] = observation
     automatic = sorted(
         [*retained, *choices.values()],
-        key=lambda b: b.get("confidence") or 0,
+        key=lambda b: (b["state"] != "rejected", b.get("confidence") or 0),
         reverse=True,
     )
     photo["bibs"] = manual + automatic[: max(0, MAX_BIBS_PER_PHOTO - len(manual))]
@@ -88,7 +91,7 @@ def _checkpoint(folder, index):
     indexer.save(folder, index)
 
 
-def _ocr(folder, index, engine, appearance, size, progress, cancel, report):
+def _ocr(folder, index, engine, appearance, size, starters, progress, cancel, report):
     engine_name = engine_id(size)
     total = len(index["photos"])
     pending = []
@@ -104,7 +107,8 @@ def _ocr(folder, index, engine, appearance, size, progress, cancel, report):
             check_cancel(cancel)
             try:
                 _verify(folder, photo)
-                _merge(photo, "ocr", [b for b in photo["bibs"] if b["method"] == "ocr"])
+                saved = [b for b in photo["bibs"] if b["method"] == "ocr"]
+                _merge(photo, "ocr", saved, starters)
                 photo.pop("recognition_error", None)
                 photo["processing_state"] = "pending" if appearance else "processed"
             except OSError as exc:
@@ -134,7 +138,7 @@ def _ocr(folder, index, engine, appearance, size, progress, cancel, report):
                     "sha256": photo["original"]["sha256"],
                     "engine": engine_name,
                 }
-                _merge(photo, "ocr", observations)
+                _merge(photo, "ocr", observations, starters)
                 photo.pop("recognition_error", None)
                 photo["processing_state"] = "pending" if appearance else "processed"
             else:
@@ -305,15 +309,19 @@ def run(
     cancel: Callable[[], bool],
     size: str = "small",
     faces: bool = False,
+    starters: frozenset[str] = frozenset(),
 ) -> Report:
     """Mutate the worker's snapshot, refusing concurrent edits.
 
     OCR checkpoints survive cancellation. Vectors live in a private temporary database,
-    removed on every exit. Restarting recomputes appearance.
+    removed on every exit. Restarting recomputes appearance. Read bibs that are not in
+    ``starters`` (the start protocol, when given) are kept as rejected.
     """
     report = Report()
     try:
-        _ocr(folder, index, engine, appearance, size, progress, cancel, report)
+        _ocr(
+            folder, index, engine, appearance, size, starters, progress, cancel, report
+        )
         if appearance:
             with tempfile.TemporaryDirectory(prefix="photo-appearance-") as temp:
                 with closing(sqlite3.connect(str(Path(temp) / "crops.sqlite3"))) as db:
