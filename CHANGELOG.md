@@ -1,5 +1,36 @@
 # Changelog
 
+## [0.6.0](https://github.com/dchernykh1984/SportPhotoIndexer/compare/sport-photo-indexer-v0.5.0...sport-photo-indexer-v0.6.0) (2026-10-28)
+
+
+### Features
+
+* default to the Large models and matching riders by appearance and faces ([3ee084d](https://github.com/dchernykh1984/SportPhotoIndexer/commit/3ee084dce37675f428d2bb2e02b27ab7615df619))
+
+
+### Bug Fixes
+
+* cancel a window's pending reopen or close when the window is deleted ([41f1328](https://github.com/dchernykh1984/SportPhotoIndexer/commit/41f1328a7811d85d617004de7096566bd3fb360a))
+* close the window only after a stopped scan's warning has been seen ([0e3f6ad](https://github.com/dchernykh1984/SportPhotoIndexer/commit/0e3f6adb19be24b2000df70a35c001192de31541))
+* decode a large photo straight to screen size so it shows quickly and above 64 MP at all ([f7e8036](https://github.com/dchernykh1984/SportPhotoIndexer/commit/f7e803639eb7dadc80b2ace3672e198267d9187a))
+* destroy the window before Python exits so no signal connection can crash the close ([b0eb5db](https://github.com/dchernykh1984/SportPhotoIndexer/commit/b0eb5dbb6a066faf0dca4aff8568b6074f667893))
+* end any running worker thread before the window is destroyed on exit ([c517147](https://github.com/dchernykh1984/SportPhotoIndexer/commit/c517147504409e7c6a2cc9e964fec8469d1a5cdf))
+* give a larger window to a larger photo instead of to the photo list ([fc2df24](https://github.com/dchernykh1984/SportPhotoIndexer/commit/fc2df24cc12fa1b587625e4032f05bee8337d948))
+* keep a photo sharp when the window moves to a sharper screen ([5d6a8ae](https://github.com/dchernykh1984/SportPhotoIndexer/commit/5d6a8aec4168f43450180217c3f5d54c376c6efc))
+* keep saying the work is stopping until it has stopped instead of showing a stale count ([dfa844a](https://github.com/dchernykh1984/SportPhotoIndexer/commit/dfa844af31bbcc868c87e9570738c3618d77e925))
+* keep the folder check's progress readable by switching off only the controls ([5342ec7](https://github.com/dchernykh1984/SportPhotoIndexer/commit/5342ec7a0b3618467539bd0bec18233b42484e71))
+* keep the window responsive while a large album is opened or rescanned ([cd2e1cd](https://github.com/dchernykh1984/SportPhotoIndexer/commit/cd2e1cda5dcfbbf4dd14ee350d1c2d7e0b7f2eda))
+* keep window resizing smooth with large photos by holding at most a screenful of each ([1e491b9](https://github.com/dchernykh1984/SportPhotoIndexer/commit/1e491b9c3d3b16b7877fe1e1ca4869e36f4e2876))
+* say when the folder check is stopping, stopped or failed instead of leaving its count behind ([e45e451](https://github.com/dchernykh1984/SportPhotoIndexer/commit/e45e4519b0809d811e3c63f2d7ad3daa9ecd3b29))
+* show a photo the camera stored sideways upright ([1425bb9](https://github.com/dchernykh1984/SportPhotoIndexer/commit/1425bb9d209dd10e5b5962bb8ab4f9a8977f81cb))
+* stop an album scan instead of freezing the window when its wait ends early ([432571c](https://github.com/dchernykh1984/SportPhotoIndexer/commit/432571cd5213fffc6f3c3593639de91ade95c7ea))
+* stop the app crashing when it closes ([a99a4fb](https://github.com/dchernykh1984/SportPhotoIndexer/commit/a99a4fb4616e71f87aa31e892ee73bdae5bf7da2))
+
+
+### Documentation
+
+* give the downloads of the default mode and of the small models in it ([e8c7fec](https://github.com/dchernykh1984/SportPhotoIndexer/commit/e8c7feca11d969573f8fd062749653562b8a1a41))
+
 ## [0.5.0](https://github.com/dchernykh1984/SportPhotoIndexer/compare/sport-photo-indexer-v0.4.0...sport-photo-indexer-v0.5.0) (2026-10-28)
 
 
