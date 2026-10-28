@@ -10,7 +10,8 @@ The weights are not bundled and no photo or appearance vector is uploaded by rec
 When a source fails, the app downloads the same file from the next one: OpenCV's own
 Hugging Face repositories for the Zoo models, ModelScope's mirror of the Florence-2
 exports, and last this repository's `models-v1` release, which receives a model only
-once its other sources have lost it. Every copy must match the same size and SHA-256,
+once its other sources have lost it. The PP-OCRv5 reader has no second public source,
+so the release is its only fallback. Every copy must match the same size and SHA-256,
 so a copy is never trusted for its host. The weekly `models` workflow runs
 `tools/models.py`, which downloads every model from each source; when a model has lost
 a source and the release does not hold it yet, the run fails and prints the commands
