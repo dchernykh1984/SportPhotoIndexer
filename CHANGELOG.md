@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.7.1](https://github.com/dchernykh1984/SportPhotoIndexer/compare/sport-photo-indexer-v0.7.0...sport-photo-indexer-v0.7.1) (2026-10-28)
+
+
+### Documentation
+
+* give the app's current share of found bibs in the album indexing skill ([4667b91](https://github.com/dchernykh1984/SportPhotoIndexer/commit/4667b91a6da4626638d5eb0c6e600ae7d5bf484b))
+
 ## [0.7.0](https://github.com/dchernykh1984/SportPhotoIndexer/compare/sport-photo-indexer-v0.6.0...sport-photo-indexer-v0.7.0) (2026-10-28)
 
 
