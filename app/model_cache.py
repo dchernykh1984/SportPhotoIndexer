@@ -74,7 +74,7 @@ class ModelError(ValueError):
 # How a source fails (_read reports the network failing mid-file the same way). A full
 # or read-only disk fails every source alike, so it stops the download at once and is
 # reported as itself.
-_SOURCE_ERRORS = (urllib.error.URLError, http.client.HTTPException, ModelError)
+SOURCE_ERRORS = (urllib.error.URLError, http.client.HTTPException, ModelError)
 
 
 # A host gets 15 seconds to answer, a source a minute without data: ModelScope pauses
@@ -178,7 +178,7 @@ def _download_any(key, path, progress, cancel) -> None:
         try:
             download_from(key, url, path, progress, cancel)
             return
-        except _SOURCE_ERRORS as exc:
+        except SOURCE_ERRORS as exc:
             if isinstance(exc, urllib.error.HTTPError):
                 exc.close()  # its response would hold the connection until collected
             failed.append(f"{urllib.parse.urlsplit(url).netloc}: {exc}")
