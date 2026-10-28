@@ -35,53 +35,53 @@
     "bytes": 3800954,
     "url": "https://media.githubusercontent.com/media/opencv/opencv_zoo/48b10fa505aeb51fbd127fc60a5c660040e823b7/models/object_detection_nanodet/object_detection_nanodet_2022nov.onnx"
   },
-  "florence-2-base/vision_encoder": {
+  "florence-2-base-int8/vision_encoder": {
     "path": "florence-2-base-int8-vision_encoder.onnx",
     "sha256": "56351a93ecfb61a0384dc63c130cc5bdeea8de1a85f172e109821c7cc956be5a",
     "bytes": 93788276,
     "url": "https://huggingface.co/onnx-community/Florence-2-base/resolve/d59e079711c57174f29265539fb4cc9f0f335916/onnx/vision_encoder_quantized.onnx"
   },
-  "florence-2-base/embed_tokens": {
+  "florence-2-base-int8/embed_tokens": {
     "path": "florence-2-base-int8-embed_tokens.onnx",
     "sha256": "8818c58a214e53bf7e22c48bb4674c2fa3112b9539c3ce4075a2eac797b1ef74",
     "bytes": 39390496,
     "url": "https://huggingface.co/onnx-community/Florence-2-base/resolve/d59e079711c57174f29265539fb4cc9f0f335916/onnx/embed_tokens_quantized.onnx"
   },
-  "florence-2-base/encoder_model": {
+  "florence-2-base-int8/encoder_model": {
     "path": "florence-2-base-int8-encoder_model.onnx",
     "sha256": "a0459867dc116e8e49f53073e368e45c21169d0b0dd7dc350abed06926e0d835",
     "bytes": 43651493,
     "url": "https://huggingface.co/onnx-community/Florence-2-base/resolve/d59e079711c57174f29265539fb4cc9f0f335916/onnx/encoder_model_quantized.onnx"
   },
-  "florence-2-base/decoder_model_merged": {
+  "florence-2-base-int8/decoder_model_merged": {
     "path": "florence-2-base-int8-decoder_model_merged.onnx",
     "sha256": "7ffecf4dd98784308878fd52a7f95ed64f5ed025b4785f6f105450be8fe2be04",
     "bytes": 98177854,
     "url": "https://huggingface.co/onnx-community/Florence-2-base/resolve/d59e079711c57174f29265539fb4cc9f0f335916/onnx/decoder_model_merged_quantized.onnx"
   },
-  "florence-2-large/vision_encoder": {
-    "path": "florence-2-large-int8-vision_encoder.onnx",
-    "sha256": "010d201de5488c8e0efb871357dc2e8ae7d372bf756d08419db6ae970ffe033e",
-    "bytes": 366371798,
-    "url": "https://huggingface.co/onnx-community/Florence-2-large/resolve/b7751295927207b2a8c2f354af8baadea5b0404b/onnx/vision_encoder_quantized.onnx"
+  "florence-2-base/vision_encoder": {
+    "path": "florence-2-base-vision_encoder.onnx",
+    "sha256": "2c7464fce495ea43b415b48afe7dbe84a9ebbe0cfe3c31fdd81c6dd66b39ff75",
+    "bytes": 366591558,
+    "url": "https://huggingface.co/onnx-community/Florence-2-base/resolve/d59e079711c57174f29265539fb4cc9f0f335916/onnx/vision_encoder.onnx"
   },
-  "florence-2-large/embed_tokens": {
-    "path": "florence-2-large-int8-embed_tokens.onnx",
-    "sha256": "8f64649977559f0f88c5beed562d1f4c1f946f4831d17afe433f2d76a7da2fb6",
-    "bytes": 52520480,
-    "url": "https://huggingface.co/onnx-community/Florence-2-large/resolve/b7751295927207b2a8c2f354af8baadea5b0404b/onnx/embed_tokens_quantized.onnx"
+  "florence-2-base/embed_tokens": {
+    "path": "florence-2-base-embed_tokens.onnx",
+    "sha256": "fec0fd20276af861afb6a23a11544bf1378c05e2a41001b610cc281e244c4b20",
+    "bytes": 157560107,
+    "url": "https://huggingface.co/onnx-community/Florence-2-base/resolve/d59e079711c57174f29265539fb4cc9f0f335916/onnx/embed_tokens.onnx"
   },
-  "florence-2-large/encoder_model": {
-    "path": "florence-2-large-int8-encoder_model.onnx",
-    "sha256": "10f49539850b62d21b80f1d0950359aa6b5e6801378fa8aa968a5eaf2f449448",
-    "bytes": 152985855,
-    "url": "https://huggingface.co/onnx-community/Florence-2-large/resolve/b7751295927207b2a8c2f354af8baadea5b0404b/onnx/encoder_model_quantized.onnx"
+  "florence-2-base/encoder_model": {
+    "path": "florence-2-base-encoder_model.onnx",
+    "sha256": "b155b5a0e56a4244c62060751bb1b70dfe481015d0dbfa6d19b1912d9e58da0d",
+    "bytes": 173380723,
+    "url": "https://huggingface.co/onnx-community/Florence-2-base/resolve/d59e079711c57174f29265539fb4cc9f0f335916/onnx/encoder_model.onnx"
   },
-  "florence-2-large/decoder_model_merged": {
-    "path": "florence-2-large-int8-decoder_model_merged.onnx",
-    "sha256": "9a87417445e9ecbf0adb68ac0c2c86a7a05f7415b41a45404152528c2dc5d494",
-    "bytes": 257619797,
-    "url": "https://huggingface.co/onnx-community/Florence-2-large/resolve/b7751295927207b2a8c2f354af8baadea5b0404b/onnx/decoder_model_merged_quantized.onnx"
+  "florence-2-base/decoder_model_merged": {
+    "path": "florence-2-base-decoder_model_merged.onnx",
+    "sha256": "6d6e1266d7f94f5d4ec9cc07d9c1f7b3e47049c9b0de7bbe82a91e62dfd152af",
+    "bytes": 388421910,
+    "url": "https://huggingface.co/onnx-community/Florence-2-base/resolve/d59e079711c57174f29265539fb4cc9f0f335916/onnx/decoder_model_merged.onnx"
   },
   "florence-2/tokenizer": {
     "path": "florence-2-tokenizer.json",

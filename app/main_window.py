@@ -42,8 +42,8 @@ _NO_BIB = "no bib"
 # Larger models find more bibs and take longer (docs/recognition-benchmark.md).
 _SIZES = {
     "small": "Small models",
-    "florence-2-base": "Medium: Florence-2 base",
-    "florence-2-large": "Large: Florence-2 large",
+    "florence-2-base-int8": "Medium: Florence-2 base, 8-bit",
+    "florence-2-base": "Large: Florence-2 base",
 }
 
 
