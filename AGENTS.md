@@ -39,6 +39,11 @@ are written into the album, and nothing that `app/index_format.py` would refuse.
 - Before committing: `uv run pytest` (the coverage gate is 90%), `uv run ruff check .`,
   `uv run ruff format --check .`, `uv run mypy app tests`. pre-commit runs the same
   set again on commit.
+- **Review cycles fix what they find.** Each valid finding gets its own commit, then
+  every failing check is fixed in another commit until the pipeline is green. A
+  condition in the request such as "if something serious turns up, tell me and ask"
+  applies after the fixes, to merging or releasing; it never means stopping at the
+  list of findings.
 
 ## What the tests actually cover
 
@@ -50,7 +55,8 @@ the window. Handler behaviour is protected only by the Qt-level tests in
 ## Skills
 
 - `ship-a-change` -- branch, commit, open the PR with `gh`, watch CI to green.
-- `review-cycle` -- review a branch or PR and land the fixes.
+- `review-cycle` -- review a branch or PR, fix every valid finding in its own commit,
+  then bring the pipeline to green.
 - `qt-window-tests` -- how to test PySide6 windows here.
 - `index-an-album` -- index a photo folder by eye: bibs, start protocol, starters
   without a readable bib, and the index written through `app.cli`.

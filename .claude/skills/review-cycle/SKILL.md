@@ -1,11 +1,20 @@
 ---
 name: review-cycle
-description: How to run a review cycle on a branch or pull request here -- triaging findings, landing one commit per valid finding with a failing-first test, and posting the summary back to the PR. Includes the bug classes this codebase keeps producing. Use when asked to review, to do review cycles, or to act on review findings.
+description: How to run a review cycle on a branch or pull request here -- validating findings, landing one commit per valid finding with a failing-first test, fixing failed checks until the pipeline is green, and posting the summary back to the PR. Includes the bug classes this codebase keeps producing. Use when asked to review, to do review cycles, or to act on review findings.
 ---
 
 # Review cycle
 
-A cycle is: review, triage, fix each valid finding in its own commit, then report.
+A cycle is: review, validate each finding against the code, fix every valid finding
+in its own commit, push, bring the pipeline to green by fixing each failure in another
+commit, then report. A cycle is not finished while a valid finding is unfixed or a
+check is red; never end one at the list of findings.
+
+Conditions in the request govern what happens after the fixes, never whether to make
+them. "If nothing serious turns up, release" and "if something serious is found, tell
+me and ask what next" both mean: fix every valid finding, get the pipeline green, then
+report what was serious and ask before merging or releasing. Merge, tag or release
+only when the person asked for it.
 
 ## Reviewing
 
@@ -30,10 +39,19 @@ One commit per finding, each with a test that fails without it (see `ship-a-chan
 for the stash check). Keep the commit message about the user-visible effect, not the
 mechanism: `fix: keep Enter on the photo the user was typing for`.
 
+## Pipeline
+
+Push the fixes and wait for every check on the new head (see `ship-a-change` for
+reading the rollup). A failing check is a finding of its own: read its log, fix the
+cause in a new commit, push and wait again, until every check passes on the head SHA.
+Report the cycle only then.
+
 ## Reporting
 
 Post one comment per cycle with a table of finding to fix commit, so the reviewer can
-follow what was accepted and how it was closed:
+follow what was accepted and how it was closed. Every row names its fix commit, or
+the reason the finding was declined after checking it against the code; no finding is
+left open:
 
 ```bash
 gh pr comment <number> --body "$(cat <<'EOF'
