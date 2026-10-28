@@ -15,6 +15,7 @@ from PIL import Image
 from PySide6.QtCore import QEventLoop, Qt, QThread, QTimer, Signal
 from PySide6.QtGui import QGuiApplication, QImageReader, QPixmap
 from PySide6.QtWidgets import (
+    QAbstractButton,
     QCheckBox,
     QComboBox,
     QFileDialog,
@@ -437,14 +438,24 @@ class MainWindow(QMainWindow):
         worker.finished.connect(loop.quit)
         worker.progress.connect(self._show_progress)
         self._scanner = worker
-        self._central.setEnabled(False)  # the index must not change meanwhile
+        # Every control off, so the index cannot change meanwhile; the progress bar and
+        # the status line stay readable.
+        controls = [
+            widget
+            for kind in (QAbstractButton, QComboBox, QLineEdit, QListWidget)
+            for widget in self._central.findChildren(kind)
+            if widget.isEnabled()
+        ]
+        for widget in controls:
+            widget.setEnabled(False)
         worker.start()
         loop.exec()
         # The loop also ends when the application quits: never wait out a long scan.
         worker.requestInterruption()
         worker.wait()
         self._scanner = None
-        self._central.setEnabled(True)
+        for widget in controls:
+            widget.setEnabled(True)
         worker.deleteLater()
         if worker.error is not None:  # no count of a check that did not finish
             self._progress.setRange(0, 1)
