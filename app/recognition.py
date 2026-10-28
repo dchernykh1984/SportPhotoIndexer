@@ -72,7 +72,14 @@ def _merge(photo, method, observations, starters=frozenset()):
     manual = [b for b in photo["bibs"] if b["method"] == "manual"]
     reviewed = {b["value"] for b in manual}
     lock = photo.get("manual_review", {}).get("lock_accepted_set", False)
-    retained = [b for b in photo["bibs"] if b["method"] not in (method, "manual")]
+    # An earlier run may have spread a bib the protocol now rejects; a run with
+    # appearance suggests the right ones again.
+    retained = [
+        b
+        for b in photo["bibs"]
+        if b["method"] not in (method, "manual")
+        and not (starters and _loose(b["value"]) not in starters)
+    ]
     accepted = {b["value"] for b in retained if b["state"] == "accepted"}
     choices = {}
     for observation in observations:
