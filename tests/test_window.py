@@ -591,3 +591,15 @@ def test_a_close_during_a_failing_scan_waits_for_its_warning(
     assert win._lbl_status.text() == "Folder check failed: the drive went away"
     _app.processEvents()
     assert not win.isVisible()  # closed once the warning was dealt with
+
+
+def test_a_huge_photo_is_kept_at_screen_size_so_resizing_stays_quick(win):
+    from PySide6.QtGui import QPixmap
+
+    huge = QPixmap(9000, 6000)
+    huge.fill()
+    win._image.show_photo(huge)
+    screen = win._image.screen().availableGeometry().size()
+    screen *= win._image.devicePixelRatioF()
+    kept = win._image._original
+    assert kept.width() <= screen.width() and kept.height() <= screen.height()
