@@ -314,6 +314,19 @@ def test_a_protocol_matches_bibs_whatever_their_leading_zeroes_and_case(album):
     assert indexer.bibs_of(data["photos"][1]) == ["A7"]
 
 
+def test_a_bib_the_protocol_hid_is_not_rejected_by_the_person_checking_the_photo(
+    album,
+):
+    data = prepared(album)
+    run(album, data, FakeVision(), appearance=False, starters=frozenset({"7"}))
+    red = data["photos"][0]
+    indexer.set_bibs(data, red["id"], ["7"])
+    indexer.save(album, data)
+    assert [(b["value"], b["method"]) for b in red["bibs"]] == [("7", "manual")]
+    run(album, data, FakeVision(), appearance=False, size="florence-2-base")
+    assert ("012", "candidate") in [(b["value"], b["state"]) for b in red["bibs"]]
+
+
 def test_an_unavailable_cached_photo_does_not_abort_the_other_photos(album):
     data = prepared(album)
     run(album, data, FakeVision(), appearance=False)
