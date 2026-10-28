@@ -707,3 +707,19 @@ def test_a_large_photo_is_decoded_straight_to_screen_size_and_upright(tmp_path):
     Image.new("RGB", (4000, 3000), "orange").save(path, exif=exif)
     pixmap = mw._upright(path, 800)
     assert (pixmap.width(), pixmap.height()) == (600, 800)
+
+
+def test_a_photo_is_kept_sharp_enough_for_the_sharpest_screen(win, monkeypatch):
+    from types import SimpleNamespace
+
+    from PySide6.QtCore import QRect
+
+    def screen(width, height, ratio):
+        return SimpleNamespace(
+            availableGeometry=lambda: QRect(0, 0, width, height),
+            devicePixelRatio=lambda: ratio,
+        )
+
+    laptop, studio = screen(1920, 1080, 1.0), screen(2560, 1440, 2.0)
+    monkeypatch.setattr(mw.QGuiApplication, "screens", lambda: [laptop, studio])
+    assert win._image.longest() == 5120  # moved to the 5K display, still sharp
