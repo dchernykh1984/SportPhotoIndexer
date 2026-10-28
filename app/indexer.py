@@ -372,11 +372,15 @@ def import_csv(index: dict, path: Path) -> tuple[int, list[str]]:
 
 def read_starters(path: Path) -> frozenset[str]:
     """Bibs of a start protocol: the first field of each line, as in the ``start.txt``
-    of StartProtocolMaker (``12#Name#Category#...``) or a table with the bib first."""
+    of StartProtocolMaker (``12#Name#Category#...``) or a table with the bib first.
+    A field without a digit (a header, a name, an unpaid marker) is no bib: a reader
+    never reports one, so it would only make a wrong file look right."""
     text = path.read_text(encoding="utf-8-sig", errors="replace")
-    lines = text.splitlines()
-    bibs = (normalize_bib(re.split("[#;,\t]", line, maxsplit=1)[0]) for line in lines)
-    return frozenset(b for b in bibs if not bib_problem(b))
+    first = (re.split("[#;,\t]", line, maxsplit=1)[0] for line in text.splitlines())
+    bibs = (normalize_bib(field.strip().strip("\"'")) for field in first)
+    return frozenset(
+        b for b in bibs if not bib_problem(b) and any(c.isdigit() for c in b)
+    )
 
 
 def _content(index: dict) -> dict:

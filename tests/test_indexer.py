@@ -154,6 +154,16 @@ def test_a_start_protocol_gives_the_first_field_of_each_line(tmp_path):
     assert indexer.read_starters(protocol) == {"1", "A12", "007", "40"}
 
 
+def test_a_spreadsheet_protocol_loses_its_quotes_and_its_header(tmp_path):
+    protocol = tmp_path / "start.csv"
+    protocol.write_text(
+        '"Bib";"Name"\n"12";"Ivanov"\nNOT_PAID#Unpaid Rider#\n', encoding="utf-8"
+    )
+    assert indexer.read_starters(protocol) == {"12"}
+    protocol.write_text("Ivanov;12\nPetrov;14\n", encoding="utf-8")
+    assert indexer.read_starters(protocol) == set()  # names first: no bibs
+
+
 def test_an_unreadable_index_is_reported_not_overwritten(album):
     (album / INDEX_FILE).write_text("{oops", encoding="utf-8")
     with pytest.raises(indexer.IndexError_):
