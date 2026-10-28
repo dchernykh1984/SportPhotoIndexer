@@ -91,9 +91,9 @@ def test_a_larger_size_adds_its_own_models_to_the_small_set(
         cache.urllib.request, "urlopen", lambda *a, **k: io.BytesIO(catalog)
     )
     files = cache.ensure_models(
-        False, lambda *a: None, lambda: False, tmp_path, "florence-2-large"
+        False, lambda *a: None, lambda: False, tmp_path, "florence-2-base"
     )
-    assert set(files) == {*cache.OCR_MODELS, *cache.SIZES["florence-2-large"]}
+    assert set(files) == {*cache.OCR_MODELS, *cache.SIZES["florence-2-base"]}
     assert "appearance" not in files
 
 

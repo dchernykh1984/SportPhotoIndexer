@@ -201,16 +201,16 @@ def test_the_chosen_model_size_is_downloaded_used_and_remembered(
     win.open_folder(album)
     assert win._size.currentData() == "small"
     assert "MB" in win._size.currentText()
-    win._size.setCurrentIndex(win._size.findData("florence-2-large"))
+    win._size.setCurrentIndex(win._size.findData("florence-2-base"))
     win._on_recognize()
     assert not win._size.isEnabled()
     assert win._worker.wait(10000)
     _app.processEvents()
-    assert asked == ["florence-2-large"]
+    assert asked == ["florence-2-base"]
     stamp = indexer.load(album)["photos"][0]["recognition"]["ocr"]["engine"]
-    assert stamp == recognition.engine_id("florence-2-large")
+    assert stamp == recognition.engine_id("florence-2-base")
     again = mw.MainWindow()
-    assert again._size.currentData() == "florence-2-large"
+    assert again._size.currentData() == "florence-2-base"
     again.deleteLater()
 
 

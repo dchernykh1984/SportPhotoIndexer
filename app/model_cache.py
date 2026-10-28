@@ -30,7 +30,7 @@ SIZES = {
     "small": (),
     **{
         size: (*(f"{size}/{part}" for part in _FLORENCE), "florence-2/tokenizer")
-        for size in ("florence-2-base", "florence-2-large")
+        for size in ("florence-2-base-int8", "florence-2-base")
     },
 }
 
