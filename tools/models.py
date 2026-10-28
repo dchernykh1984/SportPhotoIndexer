@@ -13,6 +13,7 @@ upload the models the mirror lacks, and the dead sources to remove from the cata
 
 from __future__ import annotations
 
+import dataclasses
 import shlex
 import sys
 import time
@@ -28,6 +29,7 @@ from app.model_cache import (
     download_from,
     file_name,
     sources,
+    verified,
 )
 
 RELEASE = MIRROR.rstrip("/").rsplit("/", 1)[1]
@@ -62,15 +64,24 @@ def _fetch(key: str, url: str, path: Path) -> Exception | None:
     return error
 
 
-def check(folder: Path) -> tuple[list[str], list[str], list[str], list[str]]:
-    """Report every source; the file names of the models the mirror must get, the
-    catalog's sources that failed, the mirror's files that could not be read, and the
-    mirror's files that hold other bytes than the catalog pins."""
+@dataclasses.dataclass
+class Report:
+    """What the check found to do; empty when every source gave its model."""
+
+    upload: list[Path] = dataclasses.field(default_factory=list)  # verified here
+    lost: list[str] = dataclasses.field(default_factory=list)  # no verified copy here
+    dead: list[str] = dataclasses.field(default_factory=list)  # catalog sources
+    unread: list[str] = dataclasses.field(default_factory=list)  # mirror files
+    clashes: list[str] = dataclasses.field(default_factory=list)  # mirror files
+
+    def __bool__(self) -> bool:
+        return any((self.upload, self.lost, self.dead, self.unread, self.clashes))
+
+
+def check(folder: Path) -> Report:
+    """Report every source, and what to do about the models whose sources failed."""
     folder.mkdir(parents=True, exist_ok=True)
-    missing: list[str] = []
-    dead: list[str] = []
-    unread: list[str] = []
-    clashes: list[str] = []
+    report = Report()
     for key in CATALOG:
         name = file_name(key)
         failed = mirrored = unknown = False
@@ -86,23 +97,27 @@ def check(folder: Path) -> tuple[list[str], list[str], list[str], list[str]]:
             # What to do is said at once, so a run cut off by its time limit says it.
             if not ours:
                 failed = True
-                dead.append(url)
+                report.dead.append(url)
                 print(
                     f"-> remove from app/model_catalog.json once it stays down: {url}"
                 )
             elif isinstance(error, ModelError) and not isinstance(error, CutShortError):
                 # Other bytes under this name may be the ones an older app pins.
-                clashes.append(url)
+                report.clashes.append(url)
                 unknown = True
                 print(f"-> the mirror holds other bytes under {name}")
             elif not empty:
                 # Neither empty nor other bytes: whether it holds the model is unknown.
-                unread.append(url)
+                report.unread.append(url)
                 unknown = True
         if failed and not mirrored and not unknown:
-            missing.append(name)
-            print(f"-> upload: {_upload(folder / name)}")
-    return missing, dead, unread, clashes
+            if verified(key, folder / name):
+                report.upload.append(folder / name)
+                print(f"-> upload: {_upload(folder / name)}")
+            else:
+                report.lost.append(name)
+                print(f"-> no verified copy of {name} here to upload")
+    return report
 
 
 def _upload(path: Path) -> str:
@@ -111,38 +126,47 @@ def _upload(path: Path) -> str:
 
 
 def main(folder: Path) -> int:
-    missing, dead, unread, clashes = check(folder)
-    if missing:
-        print(
-            "\nA source has lost these models and the mirror does not hold them yet."
-            "\nUpload them from a folder where this check passed before:"
-            f"\n  gh release view {RELEASE} >/dev/null || gh release create {RELEASE}"
-            " --latest=false --title 'Recognition models'"
-            " --notes 'Copies of models whose sources failed; see MODEL_NOTICES.md.'"
-        )
-        for name in missing:
-            print(f"  {_upload(folder / name)}")
-    if dead:
-        # The app tries a dead source before the mirror on every fresh download.
-        print(
-            "\nThese sources failed. Once one stays down, remove it from"
-            " app/model_catalog.json, or the app keeps trying it first:"
-        )
-        for url in dead:
-            print(f"  {url}")
-    if unread:
-        print("\nThe mirror could not be read; look at it before uploading anything:")
-        for url in unread:
-            print(f"  {url}")
-    if clashes:
-        print(
-            "\nThe mirror holds other bytes under these names than the catalog pins. An"
+    report = check(folder)
+    create = (
+        f"gh release view {RELEASE} >/dev/null || gh release create {RELEASE}"
+        " --latest=false --title 'Recognition models'"
+        " --notes 'Copies of models whose sources failed; see MODEL_NOTICES.md.'"
+    )
+    sections = [
+        (
+            "A source has lost these models and the mirror does not hold them yet."
+            " Upload them from this folder:",
+            [create, *map(_upload, report.upload)] if report.upload else [],
+        ),
+        (
+            "No source gave these models and no verified copy of them is here. Upload"
+            " each from the data/models of a checkout where this check passed before;"
+            " if none holds it, the model is lost:",
+            report.lost,
+        ),
+        (
+            # The app tries a dead source before the mirror on every fresh download.
+            "These sources failed. Once one stays down, remove it from"
+            " app/model_catalog.json, or the app keeps trying it first:",
+            report.dead,
+        ),
+        (
+            "The mirror could not be read; look at it before uploading anything:",
+            report.unread,
+        ),
+        (
+            "The mirror holds other bytes under these names than the catalog pins. An"
             " installed app may still need them: give the new version of the model a"
-            " new file name in app/model_catalog.json instead of replacing them:"
-        )
-        for url in clashes:
-            print(f"  {url}")
-    return 1 if missing or dead or unread or clashes else 0
+            " new file name in app/model_catalog.json instead of replacing them:",
+            report.clashes,
+        ),
+    ]
+    for title, lines in sections:
+        if lines:
+            print(f"\n{title}")
+            for line in lines:
+                print(f"  {line}")
+    return 1 if report else 0
 
 
 if __name__ == "__main__":

@@ -186,16 +186,21 @@ def ensure_models(
     result = {}
     for key in _keys(appearance, size, faces):
         check_cancel(cancel)
-        model = CATALOG[key]
         path = cache / file_name(key)
-        if not (
-            path.exists()
-            and path.stat().st_size == model["bytes"]
-            and _digest(path, cancel) == model["sha256"]
-        ):
+        if not verified(key, path, cancel):
             _download_any(key, path, progress, cancel)
         result[key] = path
     return result
+
+
+def verified(key: str, path: Path, cancel: Callable[[], bool] = bool) -> bool:
+    """Whether ``path`` holds the model's pinned file."""
+    model = CATALOG[key]
+    return (
+        path.exists()
+        and path.stat().st_size == model["bytes"]
+        and _digest(path, cancel) == model["sha256"]
+    )
 
 
 def file_name(key: str) -> str:
