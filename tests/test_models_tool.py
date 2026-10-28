@@ -272,3 +272,17 @@ def test_an_answer_that_comes_as_the_time_runs_out_is_reported_as_itself(
     out = capsys.readouterr().out
     assert f"FAILED {ONE}: download checksum does not match" in out
     assert "slower than" not in out
+
+
+def test_a_check_out_of_time_names_the_models_it_did_not_reach(
+    tmp_path, monkeypatch, capsys
+):
+    catalog = {"a": {"path": "dir/a.onnx", "urls": [ONE]}}
+    monkeypatch.setattr(model_cache, "CATALOG", catalog)
+    monkeypatch.setattr(models, "CATALOG", catalog)
+    monkeypatch.setattr(models, "BUDGET", -1)
+    calls = []
+    monkeypatch.setattr(models, "download_from", lambda *args: calls.append(args))
+    assert models.main(tmp_path) == 1
+    assert calls == []
+    assert "ran out of its time before these models" in capsys.readouterr().out
