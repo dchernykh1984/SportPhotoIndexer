@@ -271,10 +271,10 @@ class MainWindow(QMainWindow):
             self._folder, self._index = previous
             return
         settings.save({**settings.load(), "folder": str(folder)})
+        # A missing file stays chosen: recognition then stops and says so, instead of
+        # quietly running without the protocol.
         remembered = self._protocols().get(str(folder))
-        self._protocol = (
-            Path(remembered) if remembered and Path(remembered).is_file() else None
-        )
+        self._protocol = Path(remembered) if remembered else None
         self._show_protocol()
 
     def rescan(self) -> bool:
