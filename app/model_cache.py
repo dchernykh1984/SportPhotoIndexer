@@ -154,7 +154,7 @@ def ensure_models(
             and path.stat().st_size == model["bytes"]
             and _digest(path, cancel) == model["sha256"]
         ):
-            _download(key, path, progress, cancel)
+            _download_any(key, path, progress, cancel)
         result[key] = path
     return result
 
@@ -169,14 +169,14 @@ def sources(key: str) -> tuple[str, ...]:
     return (*CATALOG[key]["urls"], MIRROR + file_name(key))
 
 
-def _download(key, path, progress, cancel) -> None:
+def _download_any(key, path, progress, cancel) -> None:
     # The sources after the first are byte-identical copies, so a source that is down
     # or has lost the file costs one request instead of the model.
     failed = []
     for url in sources(key):
         check_cancel(cancel)  # Stop pressed while a source failed opens no other one
         try:
-            download(key, url, path, progress, cancel)
+            download_from(key, url, path, progress, cancel)
             return
         except _SOURCE_ERRORS as exc:
             if isinstance(exc, urllib.error.HTTPError):
@@ -185,7 +185,7 @@ def _download(key, path, progress, cancel) -> None:
     raise ModelError("\n".join([f"{key}: every source failed; retry", *failed]))
 
 
-def download(
+def download_from(
     key: str,
     url: str,
     path: Path,

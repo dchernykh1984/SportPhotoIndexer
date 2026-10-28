@@ -47,7 +47,7 @@ def test_the_check_asks_for_an_upload_only_when_the_mirror_lacks_a_lost_model(
         if url in gone or (url.startswith(models.MIRROR) and mirror == "wrong"):
             raise model_cache.ModelError("download checksum does not match")
 
-    monkeypatch.setattr(models, "download", download)
+    monkeypatch.setattr(models, "download_from", download)
     # A dead source fails the check even when the mirror holds its model.
     assert models.main(tmp_path) == int(upload or bool(gone))
     out = capsys.readouterr().out
@@ -72,7 +72,7 @@ def test_a_source_that_fails_twice_is_tried_again_before_it_counts_as_lost(
         if calls.count(url) < 3:
             raise TimeoutError("timed out")
 
-    monkeypatch.setattr(models, "download", download)
+    monkeypatch.setattr(models, "download_from", download)
     assert models.main(tmp_path) == 0
     assert "FAILED" not in capsys.readouterr().out
     assert calls.count(ONE) == 3
@@ -110,6 +110,6 @@ def test_only_a_failure_that_may_pass_is_tried_again(
         calls.append(url)
         raise error
 
-    monkeypatch.setattr(models, "download", download)
+    monkeypatch.setattr(models, "download_from", download)
     models.main(tmp_path)
     assert calls.count(ONE) == tries

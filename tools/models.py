@@ -18,7 +18,14 @@ import time
 import urllib.error
 from pathlib import Path
 
-from app.model_cache import CATALOG, MIRROR, ModelError, download, file_name, sources
+from app.model_cache import (
+    CATALOG,
+    MIRROR,
+    ModelError,
+    download_from,
+    file_name,
+    sources,
+)
 
 RELEASE = MIRROR.rstrip("/").rsplit("/", 1)[1]
 # Tries of a source whose failure may pass, half a minute apart: ModelScope stalls for
@@ -43,7 +50,7 @@ def _fetch(key: str, url: str, path: Path) -> Exception | None:
         if attempt:
             time.sleep(PAUSE)
         try:
-            download(key, url, path, lambda *a: None, lambda: False)
+            download_from(key, url, path, lambda *a: None, lambda: False)
             return None
         except Exception as exc:  # every source is reported, whatever went wrong
             error = exc
