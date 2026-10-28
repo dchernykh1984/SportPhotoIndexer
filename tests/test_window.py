@@ -164,10 +164,8 @@ def test_one_button_runs_the_selected_automatic_stages_and_reloads_saved_results
     monkeypatch.setattr(worker_module, "ensure_models", lambda *args, **kwargs: {})
     monkeypatch.setattr(worker_module, "PhotoPool", lambda *args: nullcontext(engine))
     win.open_folder(album)
-    assert win._mode.currentIndex() == 1
     assert not win._btn_stop.isEnabled()
-    if not appearance:
-        win._mode.setCurrentIndex(0)
+    win._mode.setCurrentIndex(1 if appearance else 0)
     win._on_recognize()
     thread = win._worker
     assert thread is not None
@@ -188,6 +186,9 @@ def test_one_button_runs_the_selected_automatic_stages_and_reloads_saved_results
 
 
 def test_the_search_mode_and_model_size_can_be_chosen_before_an_album(win):
+    # Out of the box the search that finds the most: Large models, faces too.
+    assert win._mode.currentText() == "Bib numbers, then rider appearance and faces"
+    assert win._size.currentData() == "florence-2-base"
     assert win._mode.isEnabled() and win._size.isEnabled()
     assert not win._btn_auto.isEnabled()
 
@@ -207,19 +208,18 @@ def test_the_chosen_model_size_is_downloaded_used_and_remembered(
     engine = FakeVision()
     monkeypatch.setattr(worker_module, "PhotoPool", lambda *a: nullcontext(engine))
     win.open_folder(album)
-    assert win._size.currentData() == "small"
     assert "MB" in win._size.currentText()
-    win._size.setCurrentIndex(win._size.findData("florence-2-base"))
+    win._size.setCurrentIndex(win._size.findData("small"))
     win._on_recognize()
     assert not win._size.isEnabled() and not win._mode.isEnabled()
     assert win._worker.wait(10000)
     _app.processEvents()
     assert win._size.isEnabled() and win._mode.isEnabled()
-    assert asked == ["florence-2-base"]
+    assert asked == ["small"]
     stamp = indexer.load(album)["photos"][0]["recognition"]["ocr"]["engine"]
-    assert stamp == recognition.engine_id("florence-2-base")
+    assert stamp == recognition.engine_id("small")
     again = mw.MainWindow()
-    assert again._size.currentData() == "florence-2-base"
+    assert again._size.currentData() == "small"
     again.deleteLater()
 
 
@@ -238,13 +238,12 @@ def test_the_faces_mode_downloads_face_models_and_matches_by_face(
     engine = FakeVision()
     monkeypatch.setattr(worker_module, "PhotoPool", lambda *a: nullcontext(engine))
     win.open_folder(album)
-    assert "faces" not in win._mode.currentText()
     win._mode.setCurrentIndex(2)
     assert "faces" in win._mode.currentText()
     win._on_recognize()
     assert win._worker.wait(10000)
     _app.processEvents()
-    assert asked[0]["faces"] is True and asked[0]["size"] == "small"
+    assert asked[0]["faces"] is True and asked[0]["size"] == "florence-2-base"
     assert ("riders", 0) in engine.calls
     assert "Recognition finished" in win._lbl_status.text()
 
