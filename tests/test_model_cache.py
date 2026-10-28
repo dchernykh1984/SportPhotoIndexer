@@ -36,6 +36,7 @@ def test_downloaded_models_are_verified_reused_and_progress_is_visible(
     def open_url(url, **kwargs):
         calls.append(url)
         assert kwargs["context"].verify_mode
+        assert kwargs["timeout"] >= 60  # a far source pauses mid-file
         return io.BytesIO(catalog)
 
     monkeypatch.setattr(cache.urllib.request, "urlopen", open_url)
