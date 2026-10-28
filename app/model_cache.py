@@ -2,12 +2,15 @@
 
 from __future__ import annotations
 
+import contextlib
 import hashlib
 import http.client
 import json
 import math
+import socket
 import ssl
 import tempfile
+import threading
 import urllib.error
 import urllib.parse
 import urllib.request
@@ -90,7 +93,17 @@ CONNECT_TIMEOUT = 15
 READ_TIMEOUT = 60
 
 
+class _Response(http.client.HTTPResponse):
+    """Keeps its socket, so that Stop can end a read that waits for data."""
+
+    def __init__(self, sock: socket.socket, *args, **kwargs) -> None:
+        super().__init__(sock, *args, **kwargs)
+        self.socket = sock
+
+
 class _Connection(http.client.HTTPSConnection):
+    response_class = _Response
+
     def connect(self) -> None:
         super().connect()
         self.sock.settimeout(READ_TIMEOUT)
@@ -106,7 +119,7 @@ class _Handler(urllib.request.HTTPSHandler):
         return self.do_open(_Connection, req, context=self.ssl_context)
 
 
-def _open(url: str) -> http.client.HTTPResponse:
+def _open(url: str) -> _Response:
     context = ssl.create_default_context(cafile=certifi.where())
     opener = urllib.request.build_opener(_Handler(context))
     try:
@@ -125,6 +138,22 @@ def _read(response: http.client.HTTPResponse) -> bytes:
         return response.read(64 * 1024)
     except OSError as exc:
         raise urllib.error.URLError(exc) from exc
+
+
+def _end_on_stop(
+    response: _Response,
+    cancel: Callable[[], bool],
+    done: threading.Event,
+) -> None:
+    """Shut the socket of a read waiting for data once Stop is pressed: the download
+    then ends at once, not after a minute of the read timeout."""
+    while not done.wait(0.2):
+        if cancel():
+            # A response without the socket (plain HTTP after a redirect) runs out
+            # its read timeout instead.
+            with contextlib.suppress(AttributeError, OSError):
+                response.socket.shutdown(socket.SHUT_RDWR)
+            return
 
 
 def check_cancel(cancel: Callable[[], bool]) -> None:
@@ -206,19 +235,28 @@ def download_from(
         with tempfile.NamedTemporaryFile(dir=path.parent, delete=False) as stream:
             tmp = Path(stream.name)
             with _open(url) as response:
-                size = 0
-                while chunk := _read(response):
-                    check_cancel(cancel)
-                    size += len(chunk)
-                    if size > model["bytes"]:
-                        raise ModelError("download exceeds the expected size")
-                    stream.write(chunk)
-                    progress(f"Downloading {key}", size, model["bytes"])
+                done = threading.Event()
+                watch = (response, cancel, done)
+                threading.Thread(target=_end_on_stop, args=watch, daemon=True).start()
+                try:
+                    size = 0
+                    while chunk := _read(response):
+                        check_cancel(cancel)
+                        size += len(chunk)
+                        if size > model["bytes"]:
+                            raise ModelError("download exceeds the expected size")
+                        stream.write(chunk)
+                        progress(f"Downloading {key}", size, model["bytes"])
+                finally:
+                    done.set()
         if size < model["bytes"]:
             raise CutShortError("download ended early")
         if _digest(tmp, cancel) != model["sha256"]:
             raise ModelError("download checksum does not match")
         tmp.replace(path)
+    except SOURCE_ERRORS:
+        check_cancel(cancel)  # a read that Stop ended is a Stop, not a failing source
+        raise
     finally:
         if tmp is not None:
             tmp.unlink(missing_ok=True)

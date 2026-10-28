@@ -7,6 +7,8 @@ import http.client
 import io
 import re
 import ssl
+import threading
+import time
 import urllib.error
 import urllib.request
 
@@ -78,6 +80,37 @@ def test_a_download_cut_short_is_told_apart_from_a_wrong_file(
             "text_reader", "https://x.test", tmp_path / "m", print, bool
         )
     assert not isinstance(failure.value, cache.CutShortError)
+
+
+class _Waiting(io.BytesIO):
+    """A response whose read waits for data until its socket is shut down."""
+
+    def __init__(self):
+        super().__init__()
+        self.shut = threading.Event()
+        self.socket = self
+
+    def shutdown(self, how):
+        self.shut.set()
+
+    def read(self, *args):
+        self.shut.wait(5)
+        return b""
+
+
+def test_stop_ends_a_read_that_waits_for_data_at_once(tmp_path, monkeypatch, catalog):
+    monkeypatch.setattr(cache, "_open", lambda url: _Waiting())
+    pressed = time.monotonic() + 0.3
+    with pytest.raises(cache.CancelledError):
+        cache.download_from(
+            "text_reader",
+            "https://x.test",
+            tmp_path / "m",
+            print,
+            lambda: time.monotonic() > pressed,
+        )
+    assert time.monotonic() - pressed < 2
+    assert list(tmp_path.iterdir()) == []
 
 
 def test_cancel_interrupts_download_and_cleans_up(tmp_path, monkeypatch, catalog):
