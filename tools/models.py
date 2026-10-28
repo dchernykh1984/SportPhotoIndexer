@@ -62,13 +62,13 @@ def main(folder: Path) -> int:
         return 0
     print(
         "\nA source has lost these models and the mirror does not hold them yet."
-        "\nUpload them from data/models of a checkout where this check passed before:"
+        "\nUpload them from a folder where this check passed before:"
         f"\n  gh release view {RELEASE} >/dev/null || gh release create {RELEASE}"
         " --latest=false --title 'Recognition models'"
         " --notes 'Copies of models whose sources failed; see MODEL_NOTICES.md.'"
     )
     for name in missing:
-        print(f"  gh release upload {RELEASE} --clobber data/models/{name}")
+        print(f"  gh release upload {RELEASE} --clobber {folder / name}")
     return 1
 
 
