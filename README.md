@@ -39,6 +39,19 @@ Bibs keep exactly what you type: `012` stays `012`, letters stay letters. If a p
 file is replaced, old observations no longer apply: manual decisions are archived in
 `manual_history`, automatic results are cleared and the photo is "not checked" again.
 
+### Which way to index
+
+- **Small models**: a quick first index on any computer (about five minutes for 500
+  photos on a ten-core Mac), good enough to publish the album at once.
+- **Large models**: the normal way. Several times longer, and it finds the most of
+  the three automatic sizes.
+- **By eye, or with a coding agent that can look at photos** (Claude Code, Codex):
+  the most complete. The `index-an-album` skill in `.claude/skills/` (the same in
+  `.agents/skills/`) reads every bib, takes the start protocol, recognises starters
+  whose bib is not readable and writes the index through the command line, where
+  typed bibs override automatic ones. `measure-recognition` scores the app on an
+  album indexed that way.
+
 ### Automatic recognition and stopping
 
 Recognition runs on this computer's CPU; photos are not uploaded to a recognition service.
