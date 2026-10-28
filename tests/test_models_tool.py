@@ -38,7 +38,7 @@ def test_the_check_asks_for_an_upload_only_when_the_mirror_lacks_a_lost_model(
     monkeypatch.setattr(models, "download", download)
     assert models.main(tmp_path) == code
     out = capsys.readouterr().out
-    upload = "gh release upload models-v1 --clobber data/models/a.onnx"
+    upload = f"gh release upload models-v1 --clobber {tmp_path / 'a.onnx'}"
     assert (upload in out) == bool(code)
     assert out.count("FAILED") == len(gone) + (mirror == "wrong")
 

@@ -29,4 +29,5 @@ jobs:
           enable-cache: true
           python-version: "3.14"
       - name: Download every model from each source
-        run: uv run --locked python -u -m tools.models "$RUNNER_TEMP/models"
+        # Into data/models, the folder the printed upload commands name on a checkout.
+        run: uv run --locked python -u -m tools.models
