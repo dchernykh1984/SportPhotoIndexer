@@ -35,7 +35,7 @@ from PySide6.QtWidgets import (
 
 from app import indexer, settings
 from app.index_format import INDEX_FILE
-from app.model_cache import download_megabytes
+from app.model_cache import CancelledError, download_megabytes
 from app.recognition_worker import RecognitionWorker
 
 _PENDING = "not checked"
@@ -48,14 +48,10 @@ _SIZES = {
 }
 
 
-class _ScanStoppedError(Exception):
-    """The window was closed while the folder was being scanned."""
-
-
 class _ScanWorker(QThread):
     """indexer.scan off the window's thread: hashing a large album takes minutes."""
 
-    progress = Signal(int, int)
+    progress = Signal(str, int, int)
 
     def __init__(self, folder: Path, index: dict | None, previews: bool, parent=None):
         super().__init__(parent)
@@ -66,15 +62,17 @@ class _ScanWorker(QThread):
     def run(self) -> None:
         try:
             self.result = indexer.scan(
-                self.folder, self.index, previews=self.previews, progress=self._step
+                self.folder,
+                self.index,
+                previews=self.previews,
+                progress=self._step,
+                cancel=self.isInterruptionRequested,
             )
         except Exception as exc:  # raised again on the window's thread
             self.error = exc
 
     def _step(self, done: int, total: int) -> None:
-        if self.isInterruptionRequested():
-            raise _ScanStoppedError
-        self.progress.emit(done, total)
+        self.progress.emit("Checking photos", done, total)
 
 
 def _upright(path: Path) -> QPixmap:
@@ -400,7 +398,7 @@ class MainWindow(QMainWindow):
         worker = _ScanWorker(folder, self._index, self._chk_previews.isChecked(), self)
         loop = QEventLoop()
         worker.finished.connect(loop.quit)
-        worker.progress.connect(self._scan_progress)
+        worker.progress.connect(self._show_progress)
         self._scanner = worker
         self._central.setEnabled(False)  # the index must not change meanwhile
         worker.start()
@@ -411,16 +409,11 @@ class MainWindow(QMainWindow):
         worker.deleteLater()
         if self._closing:
             QTimer.singleShot(0, self.close)
-        if isinstance(worker.error, _ScanStoppedError):
+        if isinstance(worker.error, CancelledError):
             return None
         if worker.error is not None:
             raise worker.error
         return worker.result
-
-    def _scan_progress(self, done: int, total: int) -> None:
-        self._progress.setRange(0, max(1, total))
-        self._progress.setValue(done)
-        self._lbl_status.setText(f"Checking photos: {done} / {total}")
 
     def _on_import_csv(self) -> None:
         if self._index is None or self._folder is None:
@@ -547,7 +540,7 @@ class MainWindow(QMainWindow):
             starters=starters,
             parent=self,
         )
-        self._worker.progress.connect(self._recognition_progress)
+        self._worker.progress.connect(self._show_progress)
         self._worker.finished.connect(self._recognition_finished)
         self._lbl_status.setText("Preparing local models...")
         self._worker.start()
@@ -558,7 +551,7 @@ class MainWindow(QMainWindow):
             self._btn_stop.setEnabled(False)
             self._lbl_status.setText("Stopping after the current operation...")
 
-    def _recognition_progress(self, phase: str, done: int, total: int) -> None:
+    def _show_progress(self, phase: str, done: int, total: int) -> None:
         self._progress.setRange(0, max(1, total))
         self._progress.setValue(done)
         self._lbl_status.setText(f"{phase}: {done} / {total}")
