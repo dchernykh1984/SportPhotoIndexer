@@ -93,6 +93,12 @@ logs/
 # Activity cache
 .cache/
 
+# ===== App =====
+
+# What the app writes when run from source (app/paths.py): settings and the
+# downloaded models, data/models being the copy the model mirror is filled from.
+/data/
+
 # ===== OS =====
 
 # macOS
