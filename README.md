@@ -60,7 +60,8 @@ of the chosen size -- **15 MB** small, **292 MB** medium, **1103 MB** large -- p
 **106 MB** for appearance and 39 MB more for faces. Progress names the download;
 verified models stay in `data/models` next to the portable app and work offline afterwards.
 Give that folder enough writable disk space. [Models and licenses](MODEL_NOTICES.md)
-list the pinned sources and hashes; failed downloads can be retried.
+list the pinned sources and hashes. When a source fails, the same file comes from the
+next one, the last being a copy in this repository; a failed download can be retried.
 
 Photos are processed in parallel automatically. The worker count is bounded by physical
 CPU cores, the CPUs available to this process, the album size and available RAM. Models

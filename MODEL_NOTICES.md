@@ -7,6 +7,15 @@ Florence-2 exports on Hugging Face, checks their size and SHA-256,
 then reuses them offline. `app/model_catalog.json` contains the exact sources and hashes.
 The weights are not bundled and no photo or appearance vector is uploaded by recognition.
 
+When a source fails, the app downloads the same file from the next one: OpenCV's own
+Hugging Face repositories for the Zoo models, ModelScope's mirror of the Florence-2
+exports, and last this repository's `models-v1` release, which receives a model only
+once its other sources have lost it. Every copy must match the same size and SHA-256,
+so a copy is never trusted for its host. The weekly `models` workflow runs
+`tools/models.py`, which downloads every model from each source; when a model has lost
+a source and the release does not hold it yet, the run fails and prints the commands
+that upload it from a verified local copy in `data/models`.
+
 | Stage | Model | Download |
 | --- | --- | --- |
 | Text regions | PP-OCRv3 English detector | 2,423,490 bytes |
