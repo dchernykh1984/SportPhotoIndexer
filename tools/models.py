@@ -68,7 +68,11 @@ def _fetch(key: str, url: str, path: Path) -> Exception | None:
         try:
             download_from(key, url, path, lambda *a: None, too_slow)
             return None
-        except CancelledError:  # too slow; another try would take as long
+        except CancelledError as stop:  # the time ran out
+            cause = stop.__context__
+            if isinstance(cause, SOURCE_ERRORS) and _lasting(cause):
+                return cause  # an answer that came as the time ran out is the answer
+            # Too slow; another try would take as long.
             return TimeoutError(f"slower than {SLOWEST // 60} minutes for one file")
         except SOURCE_ERRORS as exc:  # a disk error stops the check, as it does the app
             error = exc

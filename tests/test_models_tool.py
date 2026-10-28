@@ -250,3 +250,25 @@ def test_a_source_slower_than_the_limit_is_cut_off_and_not_tried_again(
     assert models.main(tmp_path) == 1
     assert calls.count(ONE) == 1
     assert f"FAILED {ONE}: slower than" in capsys.readouterr().out
+
+
+def test_an_answer_that_comes_as_the_time_runs_out_is_reported_as_itself(
+    tmp_path, monkeypatch, capsys
+):
+    catalog = {"a": {"path": "dir/a.onnx", "urls": [ONE]}}
+    monkeypatch.setattr(model_cache, "CATALOG", catalog)
+    monkeypatch.setattr(models, "CATALOG", catalog)
+
+    def download(key, url, path, progress, cancel):
+        try:
+            raise model_cache.ModelError("download checksum does not match")
+        except model_cache.ModelError:
+            # As download_from does when the time ran out during the hash.
+            model_cache.check_cancel(lambda: True)
+            raise
+
+    monkeypatch.setattr(models, "download_from", download)
+    models.main(tmp_path)
+    out = capsys.readouterr().out
+    assert f"FAILED {ONE}: download checksum does not match" in out
+    assert "slower than" not in out
