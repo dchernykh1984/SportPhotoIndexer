@@ -511,3 +511,36 @@ def test_a_photo_stored_sideways_is_shown_upright(win, album):
     assert win._list.currentRow() == 0
     pixmap = win._image.pixmap()
     assert pixmap.height() > pixmap.width()
+
+
+def test_a_scan_wait_cut_short_stops_the_scan_instead_of_freezing(
+    win, album, tmp_path, monkeypatch
+):
+    import time
+
+    from app.model_cache import check_cancel
+    from tests.conftest import make_photo
+
+    win.open_folder(album)
+
+    def endless(folder, index=None, *, previews=False, progress=None, cancel=None):
+        for _ in range(500):
+            check_cancel(cancel)
+            time.sleep(0.01)
+        raise AssertionError("the scan was never stopped")
+
+    class CutShort:  # a nested loop that QApplication.quit() ended at once
+        def exec(self):
+            return 0
+
+        def quit(self):
+            pass
+
+    monkeypatch.setattr(indexer, "scan", endless)
+    monkeypatch.setattr(mw, "QEventLoop", CutShort)
+    other = tmp_path / "other"
+    other.mkdir()
+    make_photo(other, "IMG_0001.jpg")
+    started = time.monotonic()
+    win.open_folder(other)
+    assert time.monotonic() - started < 2 and win._folder == album

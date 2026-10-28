@@ -403,6 +403,8 @@ class MainWindow(QMainWindow):
         self._central.setEnabled(False)  # the index must not change meanwhile
         worker.start()
         loop.exec()
+        # The loop also ends when the application quits: never wait out a long scan.
+        worker.requestInterruption()
         worker.wait()
         self._scanner = None
         self._central.setEnabled(True)
