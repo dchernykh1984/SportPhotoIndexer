@@ -6,7 +6,9 @@ import hashlib
 import http.client
 import io
 import re
+import ssl
 import urllib.error
+import urllib.request
 
 import pytest
 
@@ -35,11 +37,9 @@ def test_downloaded_models_are_verified_reused_and_progress_is_visible(
 
     def open_url(url, **kwargs):
         calls.append(url)
-        assert kwargs["context"].verify_mode
-        assert kwargs["timeout"] >= 60  # a far source pauses mid-file
         return io.BytesIO(catalog)
 
-    monkeypatch.setattr(cache.urllib.request, "urlopen", open_url)
+    monkeypatch.setattr(cache, "_open", open_url)
     files = cache.ensure_models(
         True, lambda *args: updates.append(args), lambda: False, tmp_path
     )
@@ -56,9 +56,7 @@ def test_bad_downloads_never_replace_the_cached_model(
 ):
     old = tmp_path / "test.onnx"
     old.write_bytes(b"old model")
-    monkeypatch.setattr(
-        cache.urllib.request, "urlopen", lambda *a, **k: io.BytesIO(payload)
-    )
+    monkeypatch.setattr(cache, "_open", lambda *a, **k: io.BytesIO(payload))
     with pytest.raises(cache.ModelError):
         cache.ensure_models(False, lambda *a: None, lambda: False, tmp_path)
     assert old.read_bytes() == b"old model"
@@ -66,9 +64,7 @@ def test_bad_downloads_never_replace_the_cached_model(
 
 
 def test_cancel_interrupts_download_and_cleans_up(tmp_path, monkeypatch, catalog):
-    monkeypatch.setattr(
-        cache.urllib.request, "urlopen", lambda *a, **k: io.BytesIO(catalog)
-    )
+    monkeypatch.setattr(cache, "_open", lambda *a, **k: io.BytesIO(catalog))
     stopped = False
 
     def progress(*args):
@@ -80,13 +76,48 @@ def test_cancel_interrupts_download_and_cleans_up(tmp_path, monkeypatch, catalog
     assert list(tmp_path.iterdir()) == []
 
 
+def test_a_host_gets_15_seconds_to_answer_and_a_minute_between_data(monkeypatch):
+    timeouts = []
+
+    class Socket:
+        def settimeout(self, value):
+            timeouts.append(value)
+
+    def connect(self):
+        timeouts.append(self.timeout)
+        self.sock = Socket()
+
+    monkeypatch.setattr(http.client.HTTPSConnection, "connect", connect)
+    cache._Connection("example.test", timeout=cache.CONNECT_TIMEOUT).connect()
+    assert timeouts == [15, 60]
+
+
+def test_sources_open_over_verified_tls_with_the_connect_timeout(monkeypatch):
+    seen = {}
+
+    def do_open(self, http_class, req, **kwargs):
+        seen.update(
+            cls=http_class, timeout=req.timeout, verify=kwargs["context"].verify_mode
+        )
+        raise urllib.error.URLError("stop here")
+
+    monkeypatch.setattr(urllib.request.AbstractHTTPHandler, "do_open", do_open)
+    with pytest.raises(urllib.error.URLError):
+        cache._open("https://example.test/a.onnx")
+    assert seen == {
+        "cls": cache._Connection,
+        "timeout": 15,
+        "verify": ssl.CERT_REQUIRED,
+    }
+
+
 def test_offline_failure_names_every_source_and_cleans_up(
     tmp_path, monkeypatch, catalog
 ):
     def offline(*args, **kwargs):
         raise urllib.error.URLError("offline")
 
-    monkeypatch.setattr(cache.urllib.request, "urlopen", offline)
+    monkeypatch.setattr(cache, "_open", offline)
     with pytest.raises(cache.ModelError) as failure:
         cache.ensure_models(False, lambda *a: None, lambda: False, tmp_path)
     for host in ("example.test", "copy.test", "github.com"):
@@ -103,7 +134,7 @@ def test_stop_pressed_while_a_source_fails_opens_no_other_source(
         calls.append(url)  # the user presses Stop while this source hangs
         raise urllib.error.URLError(TimeoutError("timed out"))
 
-    monkeypatch.setattr(cache.urllib.request, "urlopen", stalled)
+    monkeypatch.setattr(cache, "_open", stalled)
     with pytest.raises(cache.CancelledError):
         cache.ensure_models(False, lambda *a: None, lambda: bool(calls), tmp_path)
     assert len(calls) == 1
@@ -133,7 +164,7 @@ def test_the_repository_mirror_is_the_last_source(tmp_path, monkeypatch, catalog
             raise urllib.error.URLError("gone")
         return io.BytesIO(catalog)
 
-    monkeypatch.setattr(cache.urllib.request, "urlopen", open_url)
+    monkeypatch.setattr(cache, "_open", open_url)
     files = cache.ensure_models(False, lambda *a: None, lambda: False, tmp_path)
     assert calls[-1] == cache.MIRROR + "test.onnx" and len(calls) == 3
     assert files["text_reader"].read_bytes() == catalog
@@ -169,7 +200,7 @@ def test_a_failing_source_falls_back_to_the_next_copy(
             return first
         return io.BytesIO(catalog)
 
-    monkeypatch.setattr(cache.urllib.request, "urlopen", open_url)
+    monkeypatch.setattr(cache, "_open", open_url)
     files = cache.ensure_models(False, lambda *a: None, lambda: False, tmp_path)
     assert calls == ["https://example.test/test.onnx", "https://copy.test/test.onnx"]
     assert files["text_reader"].read_bytes() == catalog
@@ -179,9 +210,7 @@ def test_a_failing_source_falls_back_to_the_next_copy(
 def test_a_larger_size_adds_its_own_models_to_the_small_set(
     tmp_path, monkeypatch, catalog
 ):
-    monkeypatch.setattr(
-        cache.urllib.request, "urlopen", lambda *a, **k: io.BytesIO(catalog)
-    )
+    monkeypatch.setattr(cache, "_open", lambda *a, **k: io.BytesIO(catalog))
     files = cache.ensure_models(
         False, lambda *a: None, lambda: False, tmp_path, "florence-2-base"
     )
@@ -190,9 +219,7 @@ def test_a_larger_size_adds_its_own_models_to_the_small_set(
 
 
 def test_faces_add_only_the_two_face_models(tmp_path, monkeypatch, catalog):
-    monkeypatch.setattr(
-        cache.urllib.request, "urlopen", lambda *a, **k: io.BytesIO(catalog)
-    )
+    monkeypatch.setattr(cache, "_open", lambda *a, **k: io.BytesIO(catalog))
     files = cache.ensure_models(
         True, lambda *a: None, lambda: False, tmp_path, faces=True
     )

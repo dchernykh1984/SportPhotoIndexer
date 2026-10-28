@@ -83,6 +83,35 @@ _SOURCE_ERRORS = (
 )
 
 
+# A host gets 15 seconds to answer, a source a minute without data: ModelScope pauses
+# longer than 15 seconds in the middle of a file when it is far away, while a host that
+# drops packets must not hold every source for a minute.
+CONNECT_TIMEOUT = 15
+READ_TIMEOUT = 60
+
+
+class _Connection(http.client.HTTPSConnection):
+    def connect(self) -> None:
+        super().connect()
+        self.sock.settimeout(READ_TIMEOUT)
+
+
+class _Handler(urllib.request.HTTPSHandler):
+    def __init__(self, context: ssl.SSLContext) -> None:
+        super().__init__(context=context)
+        self.ssl_context = context
+
+    def https_open(self, req: urllib.request.Request) -> http.client.HTTPResponse:
+        return self.do_open(_Connection, req, context=self.ssl_context)
+
+
+def _open(url: str) -> http.client.HTTPResponse:
+    context = ssl.create_default_context(cafile=certifi.where())
+    opener = urllib.request.build_opener(_Handler(context))
+    # URLs are fixed HTTPS entries in the committed catalog.
+    return opener.open(url, timeout=CONNECT_TIMEOUT)
+
+
 def check_cancel(cancel: Callable[[], bool]) -> None:
     if cancel():
         raise CancelledError
@@ -159,13 +188,7 @@ def download(
     try:
         with tempfile.NamedTemporaryFile(dir=path.parent, delete=False) as stream:
             tmp = Path(stream.name)
-            context = ssl.create_default_context(cafile=certifi.where())
-            # URLs are fixed HTTPS entries in the committed catalog. A minute without
-            # data before giving up a source: ModelScope pauses longer than 15 seconds
-            # in the middle of a file when it is far away.
-            with urllib.request.urlopen(  # noqa: S310
-                url, timeout=60, context=context
-            ) as response:
+            with _open(url) as response:
                 size = 0
                 while chunk := response.read(64 * 1024):
                     check_cancel(cancel)
