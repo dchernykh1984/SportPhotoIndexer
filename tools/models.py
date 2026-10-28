@@ -13,6 +13,7 @@ lacks, and the dead sources to remove from the catalog.
 
 from __future__ import annotations
 
+import shlex
 import sys
 import time
 import urllib.error
@@ -103,7 +104,8 @@ def main(folder: Path) -> int:
             " --notes 'Copies of models whose sources failed; see MODEL_NOTICES.md.'"
         )
         for name in missing:
-            print(f"  gh release upload {RELEASE} --clobber {folder / name}")
+            file = shlex.quote(str(folder / name))
+            print(f"  gh release upload {RELEASE} --clobber {file}")
     if dead:
         # The app tries a dead source before the mirror on every fresh download.
         print(
