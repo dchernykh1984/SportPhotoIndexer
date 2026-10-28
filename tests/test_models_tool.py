@@ -19,16 +19,16 @@ def pauses(monkeypatch):
 
 
 @pytest.mark.parametrize(
-    ("gone", "mirror", "code"),
+    ("gone", "mirror", "upload"),
     [
-        (set(), "empty", 0),
-        ({TWO}, "empty", 1),
-        ({ONE, TWO}, "ok", 0),
-        (set(), "wrong", 1),
+        (set(), "empty", False),
+        ({TWO}, "empty", True),
+        ({ONE, TWO}, "ok", False),
+        (set(), "wrong", True),
     ],
 )
 def test_the_check_asks_for_an_upload_only_when_the_mirror_lacks_a_lost_model(
-    tmp_path, monkeypatch, capsys, gone, mirror, code
+    tmp_path, monkeypatch, capsys, gone, mirror, upload
 ):
     catalog = {"a": {"path": "dir/a.onnx", "urls": [ONE, TWO]}}
     monkeypatch.setattr(model_cache, "CATALOG", catalog)
@@ -43,11 +43,13 @@ def test_the_check_asks_for_an_upload_only_when_the_mirror_lacks_a_lost_model(
             raise model_cache.ModelError("download checksum does not match")
 
     monkeypatch.setattr(models, "download", download)
-    assert models.main(tmp_path) == code
+    # A dead source fails the check even when the mirror holds its model.
+    assert models.main(tmp_path) == int(upload or bool(gone))
     out = capsys.readouterr().out
-    upload = f"gh release upload models-v1 --clobber {tmp_path / 'a.onnx'}"
-    assert (upload in out) == bool(code)
+    command = f"gh release upload models-v1 --clobber {tmp_path / 'a.onnx'}"
+    assert (command in out) == upload
     assert out.count("FAILED") == len(gone) + (mirror == "wrong")
+    assert all(f"\n  {url}\n" in out for url in gone)
 
 
 def test_a_source_that_fails_twice_is_tried_again_before_it_counts_as_lost(
