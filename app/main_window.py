@@ -181,12 +181,16 @@ class MainWindow(QMainWindow):
             self._edit_bibs,
             self._btn_save,
             self._btn_auto,
-            self._mode,
-            self._size,
             self._btn_protocol,
         ):
             widget.setEnabled(on)
         self._show_protocol()
+
+    def _set_running(self, running: bool) -> None:
+        # The mode and the model size can be chosen before an album is open.
+        for widget in (self._btn_open, self._chk_previews, self._mode, self._size):
+            widget.setEnabled(not running)
+        self._btn_stop.setEnabled(running)
 
     def _on_size(self) -> None:
         settings.save({**settings.load(), "model_size": self._size.currentData()})
@@ -424,9 +428,7 @@ class MainWindow(QMainWindow):
         if self._protocol and not starters:
             return
         self._set_enabled(False)
-        self._btn_open.setEnabled(False)
-        self._chk_previews.setEnabled(False)
-        self._btn_stop.setEnabled(True)
+        self._set_running(True)
         self._worker = RecognitionWorker(
             self._folder,
             self._index,
@@ -464,9 +466,7 @@ class MainWindow(QMainWindow):
         self._fill_list()
         self._show_photo(self._list.currentRow())
         self._set_enabled(bool((self._index or {}).get("photos")))
-        self._btn_open.setEnabled(True)
-        self._chk_previews.setEnabled(True)
-        self._btn_stop.setEnabled(False)
+        self._set_running(False)
         if worker.error:
             state = "Recognition failed; saved progress kept"
         elif worker.report.cancelled:
