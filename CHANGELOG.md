@@ -1,5 +1,29 @@
 # Changelog
 
+## [0.4.0](https://github.com/dchernykh1984/SportPhotoIndexer/compare/sport-photo-indexer-v0.3.0...sport-photo-indexer-v0.4.0) (2026-10-28)
+
+
+### Features
+
+* add an appearance mode that matches riders by face as well as by body ([64d1543](https://github.com/dchernykh1984/SportPhotoIndexer/commit/64d1543977b057976c7726d477951cc91fdc268d))
+* choose the model size in the window and remember it ([9a6fbfe](https://github.com/dchernykh1984/SportPhotoIndexer/commit/9a6fbfe7a8b09cbaafa2fbaca6e173108231d8ea))
+* offer full-precision Florence-2 base as the largest size instead of 8-bit Florence-2 large ([cbe6edf](https://github.com/dchernykh1984/SportPhotoIndexer/commit/cbe6edf75e94a26ca9e57e82b26e000bce2bc3c7))
+* offer larger model sizes that read bibs with Florence-2 beside the small reader ([dd581d6](https://github.com/dchernykh1984/SportPhotoIndexer/commit/dd581d6bf200cdb1530c68d29ff5aabec9ab4e59))
+* read bibs in enlarged windows around each person with the detector's own input scaling ([b18a22d](https://github.com/dchernykh1984/SportPhotoIndexer/commit/b18a22d130165f9c045304b4dff453ee5467611b))
+* read texts and their regions with Florence-2 on ONNX Runtime ([de45577](https://github.com/dchernykh1984/SportPhotoIndexer/commit/de45577f6f3172ee0e409568183c2b13b4b9b38d))
+
+
+### Bug Fixes
+
+* accept bibs with letters on the same terms as digits so any bib format works ([9aad45e](https://github.com/dchernykh1984/SportPhotoIndexer/commit/9aad45ec230574d82fec5ed9ecfa2e5dc0af0ecb))
+* accept digits from 0.95, a lone digit from 0.99, and keep lettered reads as suggestions ([37bbdc0](https://github.com/dchernykh1984/SportPhotoIndexer/commit/37bbdc0c56916067bed251435fe279088e4b1ece))
+
+
+### Documentation
+
+* record recognition precision and recall on two hand-labelled races ([0411613](https://github.com/dchernykh1984/SportPhotoIndexer/commit/0411613425446423b75109545c9070d4c2a4f7f5))
+* record what each model size finds and costs, and what faces add, on the labelled races ([76bb145](https://github.com/dchernykh1984/SportPhotoIndexer/commit/76bb145d4b36d35d8bf1ab7363c3e6468243d26f))
+
 ## [0.3.0](https://github.com/dchernykh1984/SportPhotoIndexer/compare/sport-photo-indexer-v0.2.0...sport-photo-indexer-v0.3.0) (2026-10-27)
 
 
