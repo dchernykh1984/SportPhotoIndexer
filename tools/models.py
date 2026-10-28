@@ -6,9 +6,9 @@ Downloads each model from every source the app knows (app.model_cache.sources: t
 catalog's sources, then this repository's mirror release) into DIR, data/models by
 default, which git ignores. Run there, it keeps the verified copy the mirror is filled
 from; the weekly `models` workflow runs it to learn that a source has lost a model
-before the app's users do. Exits 1 when a source fails on every try or the mirror
-cannot be read, and prints what to do: the commands that upload the models the mirror
-lacks, and the dead sources to remove from the catalog.
+before the app's users do. Exits 1 when a source fails, or the mirror cannot be read
+or holds other bytes under a model's name, and prints what to do: the commands that
+upload the models the mirror lacks, and the dead sources to remove from the catalog.
 """
 
 from __future__ import annotations
@@ -62,13 +62,15 @@ def _fetch(key: str, url: str, path: Path) -> Exception | None:
     return error
 
 
-def check(folder: Path) -> tuple[list[str], list[str], list[str]]:
+def check(folder: Path) -> tuple[list[str], list[str], list[str], list[str]]:
     """Report every source; the file names of the models the mirror must get, the
-    catalog's sources that failed, and the mirror's files that could not be read."""
+    catalog's sources that failed, the mirror's files that could not be read, and the
+    mirror's files that hold other bytes than the catalog pins."""
     folder.mkdir(parents=True, exist_ok=True)
     missing: list[str] = []
     dead: list[str] = []
     unread: list[str] = []
+    clashes: list[str] = []
     for key in CATALOG:
         name = file_name(key)
         failed = mirrored = unknown = False
@@ -81,30 +83,35 @@ def check(folder: Path) -> tuple[list[str], list[str], list[str]]:
                 continue
             empty = isinstance(error, urllib.error.HTTPError) and error.code == 404
             print(f"{'empty ' if ours and empty else 'FAILED'} {url}: {error}")
-            if ours and not empty and not isinstance(error, ModelError):
-                # Neither empty nor a wrong file: whether it holds the model is unknown.
-                unread.append(url)
-                unknown = True
-                continue
-            failed |= not (ours and empty)
+            # What to do is said at once, so a run cut off by its time limit says it.
             if not ours:
+                failed = True
                 dead.append(url)
-                # Said at once, so a run cut off by its time limit still says it.
                 print(
                     f"-> remove from app/model_catalog.json once it stays down: {url}"
                 )
+            elif isinstance(error, ModelError) and not isinstance(error, CutShortError):
+                # Other bytes under this name may be the ones an older app pins.
+                clashes.append(url)
+                unknown = True
+                print(f"-> the mirror holds other bytes under {name}")
+            elif not empty:
+                # Neither empty nor other bytes: whether it holds the model is unknown.
+                unread.append(url)
+                unknown = True
         if failed and not mirrored and not unknown:
             missing.append(name)
             print(f"-> upload: {_upload(folder / name)}")
-    return missing, dead, unread
+    return missing, dead, unread, clashes
 
 
 def _upload(path: Path) -> str:
-    return f"gh release upload {RELEASE} --clobber {shlex.quote(str(path))}"
+    # No --clobber: a file already in the release under this name is never replaced.
+    return f"gh release upload {RELEASE} {shlex.quote(str(path))}"
 
 
 def main(folder: Path) -> int:
-    missing, dead, unread = check(folder)
+    missing, dead, unread, clashes = check(folder)
     if missing:
         print(
             "\nA source has lost these models and the mirror does not hold them yet."
@@ -127,7 +134,15 @@ def main(folder: Path) -> int:
         print("\nThe mirror could not be read; look at it before uploading anything:")
         for url in unread:
             print(f"  {url}")
-    return 1 if missing or dead or unread else 0
+    if clashes:
+        print(
+            "\nThe mirror holds other bytes under these names than the catalog pins. An"
+            " installed app may still need them: give the new version of the model a"
+            " new file name in app/model_catalog.json instead of replacing them:"
+        )
+        for url in clashes:
+            print(f"  {url}")
+    return 1 if missing or dead or unread or clashes else 0
 
 
 if __name__ == "__main__":
