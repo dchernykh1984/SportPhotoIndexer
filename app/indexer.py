@@ -42,6 +42,7 @@ from app.index_format import (
     photo_problems,
     problems,
 )
+from app.model_cache import check_cancel
 
 PREVIEW_DIR = "_previews"
 PREVIEW_SIDE = 1024
@@ -156,11 +157,13 @@ def scan(
     *,
     previews: bool = False,
     progress: Callable[[int, int], None] | None = None,
+    cancel: Callable[[], bool] | None = None,
 ) -> tuple[dict, ScanReport]:
     """The folder's index brought up to date with the files in it.
 
     ``previews`` makes a preview for every photo; one is always made for an original
-    Dropbox cannot thumbnail (over 20 MB).
+    Dropbox cannot thumbnail (over 20 MB). ``cancel``, asked before each photo, stops
+    the scan with CancelledError.
     """
     index = json.loads(json.dumps(index)) if index else new_index()
     report = ScanReport()
@@ -170,6 +173,8 @@ def scan(
     files = photo_files(folder)
     photos = []
     for n, path in enumerate(files, 1):
+        if cancel:
+            check_cancel(cancel)
         if progress:
             progress(n, len(files))
         sha = sha256_of(path)

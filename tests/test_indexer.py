@@ -8,6 +8,7 @@ import pytest
 
 from app import indexer
 from app.index_format import INDEX_FILE, problems
+from app.model_cache import CancelledError
 from tests.conftest import make_photo
 
 
@@ -162,6 +163,18 @@ def test_a_spreadsheet_protocol_loses_its_quotes_and_its_header(tmp_path):
     assert indexer.read_starters(protocol) == {"12"}
     protocol.write_text("Ivanov;12\nPetrov;14\n", encoding="utf-8")
     assert indexer.read_starters(protocol) == set()  # names first: no bibs
+
+
+def test_a_scan_stops_when_asked_before_the_next_photo(album):
+    asked = []
+
+    def cancel():
+        asked.append(1)
+        return len(asked) > 1
+
+    with pytest.raises(CancelledError):
+        indexer.scan(album, cancel=cancel)
+    assert len(asked) == 2 and not (album / INDEX_FILE).exists()
 
 
 def test_an_unreadable_index_is_reported_not_overwritten(album):

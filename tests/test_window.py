@@ -462,13 +462,15 @@ def test_closing_the_window_stops_a_scan_and_keeps_the_open_album(
 
     from PySide6.QtCore import QTimer
 
+    from app.model_cache import check_cancel
     from tests.conftest import make_photo
 
     win.open_folder(album)
 
-    def endless(folder, index=None, *, previews=False, progress=None):
+    def endless(folder, index=None, *, previews=False, progress=None, cancel=None):
         for _ in range(1000):
-            progress(1, 2)  # raises once the window asks the scan to stop
+            check_cancel(cancel)  # raises once the window asks the scan to stop
+            progress(1, 2)
             time.sleep(0.01)
         raise AssertionError("the scan was never stopped")
 
