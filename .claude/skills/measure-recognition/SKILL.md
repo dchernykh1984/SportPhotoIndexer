@@ -12,8 +12,11 @@ with `photos.csv` and `labels.txt`.
 ## Run
 
 ```bash
-uv run python -m tools.album.measure ALBUM WORK COPY [MODELS]
+uv run python -m tools.album.measure ALBUM WORK COPY [MODELS] [SIZE] [faces]
 ```
+
+`SIZE` is a model size from `app.model_cache.SIZES` (`small` by default); `faces`
+runs the appearance mode that compares faces too.
 
 `COPY` is a new folder outside the album: it gets symbolic links to the photos, and
 the app's own scan and recognition (appearance included) run there, exactly as the
@@ -24,8 +27,9 @@ starter's bib -- only those reach a participant's album; a car plate matches nob
 
 Compare a change with the base branch on the same machine: run the base in a
 `git worktree` with the same `MODELS`, and the branch, each with its own `COPY`
-(a second run in the same `COPY` reuses saved OCR, which is how to try new
-thresholds quickly). Record both in `docs/recognition-benchmark.md` and the PR.
+(a second run in the same `COPY` reuses saved OCR read with the same size, which is
+how to try new thresholds or appearance rules quickly: copy a measured `COPY`
+first). Record both in `docs/recognition-benchmark.md` and the PR.
 
 ## What the first measurements taught
 
@@ -51,6 +55,27 @@ Check a change on both kinds; one album hides regressions on the other.
   people, but race faces under helmets and sunglasses make poor references, so a
   face match alone is right only about a third of the time. Printed people on
   banners are detected as people.
-- A bib on a seat post or handlebar lies outside the person's box: give the person a
-  zone wider than the body when deciding whose bib it is.
+- A bib on a seat post or handlebar lies outside the person's box: read it in a zone
+  wider than the body. As appearance references, though, bibs inside the body box
+  gave fewer wrong suggestions than bibs in that zone, where riders overlap.
 - Speed matters: record recognition time with the numbers.
+
+## What the larger models taught
+
+- Florence-2 (OCR with regions) reads plates the small reader misses and misreads
+  far less, but its lowest token probability is on another scale: its 0.2, 0.5 and
+  0.9 behave like the small reader's 0.80, 0.95 and 0.99. Keep the small reader's
+  unsure reads only when Florence read the same value.
+- Its greedy decoding changes with a one-pixel shift of the crop ("11" at 0.48 in
+  one crop, nothing in the next). Measure with exactly the crops the app reads;
+  reading every zone twice gained almost nothing for double the time.
+- int8 costs about three points of found bibs against fp32 of the same model.
+- Florence-2 large (fp32, 3.3 GB) found about as many as base fp32 end to end, at three
+  times the time and 5.7 GB per worker: that was the plateau. An offline score of
+  torch Florence-2 large promised more than its ONNX export delivered in the app, so
+  decide on a size only from `tools.album.measure`.
+- Bigger appearance models (CLIP-L/14, DINOv2-L, AuraFace) did not beat the small
+  ReID and SFace pair. What helped was a face and the body agreeing on one bib.
+- Appearance can only spread the references OCR gives it: where many accepted
+  bibs are wrong (lone digits from stickers on the time trial), faces spread those
+  too. Check that album separately before tuning appearance on the other.
