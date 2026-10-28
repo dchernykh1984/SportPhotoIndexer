@@ -479,3 +479,18 @@ def test_closing_the_window_stops_a_scan_and_keeps_the_open_album(
     QTimer.singleShot(50, win.close)
     win.open_folder(other)
     assert win._folder == album and win._closing
+
+
+def test_a_larger_window_shows_a_larger_photo_and_keeps_the_list_width(win, album):
+    win.open_folder(album)
+    win.resize(900, 700)
+    win.show()
+    _app.processEvents()
+    photo, listed = win._image.pixmap().width(), win._list.width()
+    win.resize(1800, 1300)
+    _app.processEvents()
+    assert win._image.pixmap().width() > 1.5 * photo
+    assert win._list.width() == listed
+    win.resize(900, 700)  # and back: the photo must not hold the window wide
+    _app.processEvents()
+    assert win._image.pixmap().width() == photo
