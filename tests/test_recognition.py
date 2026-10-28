@@ -305,6 +305,15 @@ def test_a_bib_outside_the_start_protocol_is_rejected_until_the_protocol_goes(al
     assert green["bibs"][0]["value"] == "012"
 
 
+def test_a_protocol_matches_bibs_whatever_their_leading_zeroes_and_case(album):
+    data = prepared(album)
+    engine = FakeVision()
+    engine.readings[1] = [Reading("A7", 0.99, BIB_BOX)]
+    run(album, data, engine, appearance=False, starters=frozenset({"12", "a07"}))
+    assert indexer.bibs_of(data["photos"][0]) == ["012"]
+    assert indexer.bibs_of(data["photos"][1]) == ["A7"]
+
+
 def test_an_unavailable_cached_photo_does_not_abort_the_other_photos(album):
     data = prepared(album)
     run(album, data, FakeVision(), appearance=False)
