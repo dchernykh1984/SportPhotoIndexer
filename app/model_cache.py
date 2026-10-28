@@ -125,6 +125,9 @@ def _open(url: str) -> _Response:
     try:
         # URLs are fixed HTTPS entries in the committed catalog.
         return opener.open(url, timeout=CONNECT_TIMEOUT)
+    except urllib.error.HTTPError as exc:
+        exc.close()  # its response would hold the connection until collected
+        raise
     except urllib.error.URLError:
         raise
     except OSError as exc:  # urllib leaves a failure awaiting the headers bare
@@ -215,8 +218,6 @@ def _download_any(key, path, progress, cancel) -> None:
             download_from(key, url, path, progress, cancel)
             return
         except SOURCE_ERRORS as exc:
-            if isinstance(exc, urllib.error.HTTPError):
-                exc.close()  # its response would hold the connection until collected
             failed.append(f"{urllib.parse.urlsplit(url).netloc}: {exc}")
     raise ModelError("\n".join([f"{key}: every source failed; retry", *failed]))
 

@@ -196,23 +196,18 @@ def test_an_http_error_reaches_the_caller_as_itself(monkeypatch):
     assert failure.value is missing
 
 
-def test_a_source_answering_with_an_error_has_its_response_closed(
-    tmp_path, monkeypatch, catalog
-):
+def test_a_source_answering_with_an_error_has_its_response_closed(monkeypatch):
     body = io.BytesIO(b"<html>Not Found</html>")
     missing = urllib.error.HTTPError(
         "https://example.test", 404, "Not Found", email.message.Message(), body
     )
-    answers = iter([missing])
 
-    def open_url(url):
-        error = next(answers, None)
-        if error:
-            raise error
-        return io.BytesIO(catalog)
+    def fail(self, url, timeout):
+        raise missing
 
-    monkeypatch.setattr(cache, "_open", open_url)
-    cache.ensure_models(False, lambda *a: None, lambda: False, tmp_path)
+    monkeypatch.setattr(urllib.request.OpenerDirector, "open", fail)
+    with pytest.raises(urllib.error.HTTPError):
+        cache._open("https://example.test/a.onnx")
     assert body.closed
 
 
