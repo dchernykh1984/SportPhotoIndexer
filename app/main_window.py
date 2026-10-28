@@ -13,7 +13,7 @@ from pathlib import Path
 
 from PIL import Image
 from PySide6.QtCore import QEventLoop, Qt, QThread, QTimer, Signal
-from PySide6.QtGui import QImageReader, QPixmap
+from PySide6.QtGui import QGuiApplication, QImageReader, QPixmap
 from PySide6.QtWidgets import (
     QCheckBox,
     QComboBox,
@@ -103,9 +103,14 @@ class _Photo(QLabel):
         self.setSizePolicy(QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Ignored)
 
     def longest(self) -> int:
-        """The longest side worth keeping of a photo: the screen's, in device pixels."""
-        screen = self.screen().availableGeometry().size() * self.devicePixelRatioF()
-        return max(screen.width(), screen.height())
+        """The longest side worth keeping of a photo, in device pixels: that of the
+        sharpest screen, so the window can move to it without the photo blurring."""
+        sides = (
+            max(s.availableGeometry().width(), s.availableGeometry().height())
+            * s.devicePixelRatio()
+            for s in QGuiApplication.screens()
+        )
+        return round(max(sides))
 
     def show_photo(self, pixmap: QPixmap) -> None:
         # Never more than a screenful: a 50 MP original scaled again on every resize
