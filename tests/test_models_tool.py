@@ -25,6 +25,7 @@ def pauses(monkeypatch):
         ({TWO}, "empty", True),
         ({ONE, TWO}, "ok", False),
         (set(), "wrong", True),
+        ({ONE, TWO}, "down", False),
     ],
 )
 def test_the_check_asks_for_an_upload_only_when_the_mirror_lacks_a_lost_model(
@@ -39,6 +40,10 @@ def test_the_check_asks_for_an_upload_only_when_the_mirror_lacks_a_lost_model(
             raise urllib.error.HTTPError(
                 url, 404, "Not Found", email.message.Message(), None
             )
+        if url.startswith(models.MIRROR) and mirror == "down":
+            raise urllib.error.HTTPError(
+                url, 503, "Unavailable", email.message.Message(), None
+            )
         if url in gone or (url.startswith(models.MIRROR) and mirror == "wrong"):
             raise model_cache.ModelError("download checksum does not match")
 
@@ -48,8 +53,10 @@ def test_the_check_asks_for_an_upload_only_when_the_mirror_lacks_a_lost_model(
     out = capsys.readouterr().out
     command = f"gh release upload models-v1 --clobber {tmp_path / 'a.onnx'}"
     assert (command in out) == upload
-    assert out.count("FAILED") == len(gone) + (mirror == "wrong")
+    assert out.count("FAILED") == len(gone) + (mirror in ("wrong", "down"))
     assert all(f"\n  {url}\n" in out for url in gone)
+    # A mirror that cannot be read may hold the model: no upload, but a look.
+    assert ("could not be read" in out) == (mirror == "down")
 
 
 def test_a_source_that_fails_twice_is_tried_again_before_it_counts_as_lost(
