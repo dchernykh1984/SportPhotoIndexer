@@ -1,6 +1,7 @@
 """Measure the app's recognition on a labelled album without touching the album.
 
     uv run python -m tools.album.measure ALBUM WORKDIR COPYDIR [MODELS] [SIZE] [faces]
+        [PROTOCOL]
 
 COPYDIR gets symbolic links to the album's photos, then the app's own scan and
 recognition (appearance included) run there, exactly as the window runs them. The
@@ -10,7 +11,8 @@ belong to nobody on the photo -- also counting those that are some starter's bib
 (only those reach a participant's album on the site). Run it on the main branch and
 on a change to compare. COPYDIR keeps its index, so a second run reuses saved OCR
 read with the same model SIZE (small by default; see app.model_cache.SIZES).
-A last argument "faces" matches riders by face as well as by body.
+An argument "faces" matches riders by face as well as by body; a PROTOCOL file
+(see app.indexer.read_starters) rejects read bibs that are not in it.
 """
 
 from __future__ import annotations
@@ -26,7 +28,12 @@ from tools.album.labels import read
 
 
 def run(
-    album: Path, copy: Path, models: Path, size: str = "small", faces: bool = False
+    album: Path,
+    copy: Path,
+    models: Path,
+    size: str = "small",
+    faces: bool = False,
+    starters: frozenset[str] = frozenset(),
 ) -> dict:
     copy.mkdir(parents=True, exist_ok=True)
     for photo in indexer.photo_files(album):
@@ -48,6 +55,7 @@ def run(
             cancel=lambda: False,
             size=size,
             faces=faces,
+            starters=starters,
         )
     print(f"recognition took {time.time() - started:.0f} s, {report}")
     return index
@@ -86,4 +94,7 @@ if __name__ == "__main__":
     album, work, copy = map(Path, sys.argv[1:4])
     models = Path(sys.argv[4]) if len(sys.argv) > 4 else Path("data/models")
     size = sys.argv[5] if len(sys.argv) > 5 else "small"
-    score(work, run(album, copy, models, size, sys.argv[6:] == ["faces"]))
+    rest = sys.argv[6:]
+    protocols = [indexer.read_starters(Path(a)) for a in rest if a != "faces"]
+    starters = protocols[0] if protocols else frozenset()
+    score(work, run(album, copy, models, size, "faces" in rest, starters))
