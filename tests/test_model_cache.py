@@ -1,7 +1,10 @@
 """Only verified pinned models reach the cache; cancellation leaves no partial file."""
 
+import email.message
 import hashlib
+import http.client
 import io
+import urllib.error
 
 import pytest
 
@@ -13,7 +16,7 @@ def catalog(monkeypatch):
     payload = b"verified model"
     model = {
         "path": "models/test.onnx",
-        "url": "https://example.test/test.onnx",
+        "urls": ["https://example.test/test.onnx", "https://copy.test/test.onnx"],
         "bytes": len(payload),
         "sha256": hashlib.sha256(payload).hexdigest(),
     }
@@ -74,14 +77,55 @@ def test_cancel_interrupts_download_and_cleans_up(tmp_path, monkeypatch, catalog
     assert list(tmp_path.iterdir()) == []
 
 
-def test_offline_failure_cleans_up(tmp_path, monkeypatch, catalog):
+def test_offline_failure_names_every_source_and_cleans_up(
+    tmp_path, monkeypatch, catalog
+):
     def offline(*args, **kwargs):
         raise OSError("offline")
 
     monkeypatch.setattr(cache.urllib.request, "urlopen", offline)
-    with pytest.raises(OSError, match="offline"):
+    with pytest.raises(cache.ModelError) as failure:
         cache.ensure_models(False, lambda *a: None, lambda: False, tmp_path)
+    assert "example.test: offline" in str(failure.value)
+    assert "copy.test: offline" in str(failure.value)
     assert list(tmp_path.iterdir()) == []
+
+
+class _Dropped(io.BytesIO):
+    def read(self, *args):
+        raise http.client.IncompleteRead(b"")
+
+
+@pytest.mark.parametrize(
+    "first",
+    [
+        urllib.error.HTTPError(
+            "https://example.test", 404, "Not Found", email.message.Message(), None
+        ),
+        urllib.error.URLError("host not found"),
+        TimeoutError("timed out"),
+        io.BytesIO(b"wrong model!!!"),
+        _Dropped(),
+    ],
+)
+def test_a_failing_source_falls_back_to_the_next_copy(
+    tmp_path, monkeypatch, catalog, first
+):
+    calls = []
+
+    def open_url(url, **kwargs):
+        calls.append(url)
+        if len(calls) == 1:
+            if isinstance(first, Exception):
+                raise first
+            return first
+        return io.BytesIO(catalog)
+
+    monkeypatch.setattr(cache.urllib.request, "urlopen", open_url)
+    files = cache.ensure_models(False, lambda *a: None, lambda: False, tmp_path)
+    assert calls == ["https://example.test/test.onnx", "https://copy.test/test.onnx"]
+    assert files["text_reader"].read_bytes() == catalog
+    assert list(tmp_path.iterdir()) == [files["text_reader"]]
 
 
 def test_a_larger_size_adds_its_own_models_to_the_small_set(
@@ -118,4 +162,7 @@ def test_every_size_downloads_more_and_keeps_its_files_apart():
         name = model["path"].rsplit("/", 1)[-1]
         assert names.setdefault(name, model["sha256"]) == model["sha256"]
     for key in (k for size in cache.SIZES.values() for k in size):
-        assert real[key]["url"].startswith("https://huggingface.co/")
+        assert real[key]["urls"][0].startswith("https://huggingface.co/")
+    # HTTPS only; a copy is trusted for its hash, not for its host.
+    for model in real.values():
+        assert model["urls"] and all(u.startswith("https://") for u in model["urls"])
