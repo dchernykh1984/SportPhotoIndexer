@@ -76,14 +76,7 @@ def _merge(photo, method, observations, starters=None):
     manual = [b for b in photo["bibs"] if b["method"] == "manual"]
     reviewed = {b["value"] for b in manual}
     lock = photo.get("manual_review", {}).get("lock_accepted_set", False)
-    # An earlier run may have spread a bib the protocol now rejects; a run with
-    # appearance suggests the right ones again.
-    retained = [
-        b
-        for b in photo["bibs"]
-        if b["method"] not in (method, "manual")
-        and not (starters and _loose(b["value"]) not in starters)
-    ]
+    retained = [b for b in photo["bibs"] if b["method"] not in (method, "manual")]
     accepted = {b["value"] for b in retained if b["state"] == "accepted"}
     choices = {}
     for observation in observations:
@@ -108,6 +101,24 @@ def _merge(photo, method, observations, starters=None):
 def _checkpoint(folder, index):
     indexer.update_counts(index)
     indexer.save(folder, index)
+
+
+def _without_orphans(folder, index):
+    """Drop suggestions of bibs no longer accepted anywhere, such as one the start
+    protocol now rejects; a run with appearance recomputes them all anyway."""
+    known = {
+        b["value"]
+        for p in index["photos"]
+        for b in p["bibs"]
+        if b["state"] == "accepted"
+    }
+    for photo in index["photos"]:
+        photo["bibs"] = [
+            b
+            for b in photo["bibs"]
+            if b["method"] != "appearance" or b["value"] in known
+        ]
+    _checkpoint(folder, index)
 
 
 def _ocr(folder, index, engine, appearance, size, starters, progress, cancel, report):
@@ -354,6 +365,8 @@ def run(
                     _appearance(
                         folder, index, engine, db, faces, progress, cancel, report
                     )
+        elif spelling:
+            _without_orphans(folder, index)
     except CancelledError:
         report.cancelled = True
     return report

@@ -337,6 +337,17 @@ def test_a_numbers_only_run_drops_older_suggestions_outside_the_protocol(album):
     assert green["bibs"] == []
 
 
+def test_a_numbers_only_run_keeps_suggestions_of_a_bib_a_person_typed(album):
+    data = prepared(album)
+    red, green, _ = data["photos"]
+    indexer.set_bibs(data, red["id"], ["99"])  # a late entrant, not in the protocol
+    indexer.save(album, data)
+    run(album, data, FakeVision())
+    assert [b["value"] for b in green["bibs"]] == ["99"]
+    run(album, data, FakeVision(), appearance=False, starters=frozenset({"7"}))
+    assert [b["value"] for b in green["bibs"]] == ["99"]
+
+
 def test_an_unavailable_cached_photo_does_not_abort_the_other_photos(album):
     data = prepared(album)
     run(album, data, FakeVision(), appearance=False)
