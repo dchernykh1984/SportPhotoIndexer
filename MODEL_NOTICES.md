@@ -19,7 +19,8 @@ version an installed app may ask for, and no upload replaces a file there.
 The weekly `models` workflow runs `tools/models.py`, which downloads every model from
 each source. The run fails when a source fails, or when the release cannot be read or
 holds other bytes under a model's name, and says what to do: the commands that upload
-a model the release lacks from a verified local copy in `data/models`, and the dead
+a model the release lacks from a verified local copy in `data/models` (a failed run
+keeps the copies its sources still gave as its `models` artifact), and the dead
 sources to remove from the catalog once they stay down.
 
 | Stage | Model | Download |
