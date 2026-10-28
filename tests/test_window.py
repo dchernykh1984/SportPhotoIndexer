@@ -723,3 +723,18 @@ def test_a_photo_is_kept_sharp_enough_for_the_sharpest_screen(win, monkeypatch):
     laptop, studio = screen(1920, 1080, 1.0), screen(2560, 1440, 2.0)
     monkeypatch.setattr(mw.QGuiApplication, "screens", lambda: [laptop, studio])
     assert win._image.longest() == 5120  # moved to the 5K display, still sharp
+
+
+def test_the_scan_progress_stays_readable_while_the_controls_are_off(win, album):
+    during = []
+    show = win._show_progress
+
+    def record(phase, done, total):
+        show(phase, done, total)
+        states = (win._progress, win._lbl_status, win._btn_open, win._list)
+        during.append(tuple(w.isEnabled() for w in states))
+
+    win._show_progress = record  # connected when the scan starts
+    win.open_folder(album)
+    assert during and set(during) == {(True, True, False, False)}
+    assert win._btn_open.isEnabled() and win._list.isEnabled()
