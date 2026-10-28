@@ -35,6 +35,10 @@ FLORENCE_SCALE = ([0.2, 0.5, 0.9, 1.0], [MIN_OCR, ACCEPT_OCR, ACCEPT_LONE_DIGIT,
 # small reader's unsure reads; without it they added more wrong values than bibs.
 WINDOWS = 0.4
 FINER_WINDOWS = 0.25
+# What the finer windows read counts only at this share of the height of a person
+# whose zone holds it: bib digits were 3 to 9 percent of their rider on the labelled
+# races, while the smaller reads were mostly stickers and logos.
+BIB_DIGITS = 0.025
 # What saved bibs were read with, without and with Florence-2: a change to the windows
 # of either kind needs a new one, so that albums read before are read again.
 READ_VERSIONS = {False: "people-v2", True: "people-v3"}
@@ -247,6 +251,17 @@ def _related(a, b):
     )
 
 
+def _bib_sized(reading, people):
+    """Tall enough for a bib's digits on a person whose zone holds the read."""
+    x, y, w, h = reading.region
+    for person in people:
+        left, top, right, bottom = _zone(person)
+        inside = left <= x + w / 2 <= right and top <= y + h / 2 <= bottom
+        if inside and h >= BIB_DIGITS * person[3]:
+            return True
+    return False
+
+
 def _bib_like(text):
     return bool(re.fullmatch(r"[A-Za-z0-9-]{1,32}", text)) and any(
         c.isdigit() for c in text
@@ -424,8 +439,8 @@ class CpuVision:
             return small
         read = _read_florence(self.florence, image, people)
         # The finer windows see the same pixels many times over: one vote per spot,
-        # and only for bibs that neither cut nor extend a read already made, so they
-        # add bibs without taking any away.
+        # only for digits a bib's size, and only for bibs that neither cut nor extend
+        # a read already made, so they add bibs without taking any away.
         finer = [
             b for p in people for b in _person_windows(p, image.size, FINER_WINDOWS)
         ]
@@ -433,7 +448,8 @@ class CpuVision:
         extra = [
             best
             for best, *_ in _clusters(self._read_windows(image, finer))
-            if not any(_related(best, other) for other in settled)
+            if _bib_sized(best, people)
+            and not any(_related(best, other) for other in settled)
         ]
         small = _combined([*small, *extra])
         # Florence-2 misreads far less: an unsure small read stays only when it agrees.
