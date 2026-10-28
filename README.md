@@ -22,9 +22,10 @@ their photos by bib, and in their own race album.
    on Windows ARM64 as well as x64, macOS and Linux.
 3. **Recognize automatically**: by default with the *Large* models and the mode that
    reads bibs first, then uses riders with accepted bibs as appearance and face
-   references for other photos of this album. Choose *Small models* for a quicker run
-   with a 15 MB download, and *Bib numbers only* to skip the second phase. Inspect the
-   list's `check:` suggestions.
+   references for other photos of this album; its first run downloads 1249 MB. Choose
+   *Small models* for a run about six times quicker (160 MB to download in this mode,
+   15 MB with *Bib numbers only*), and *Bib numbers only* to skip the second phase.
+   Inspect the list's `check:` suggestions.
    Type the accepted bibs and press **Enter** to confirm/correct a photo and move on;
    Enter with an empty field explicitly accepts no bibs. Manual entry and CSV also
    work without downloading any models.
