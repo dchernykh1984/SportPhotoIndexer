@@ -95,6 +95,15 @@ class _Photo(QLabel):
         self.setSizePolicy(QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Ignored)
 
     def show_photo(self, pixmap: QPixmap) -> None:
+        # Never more than a screenful: a 50 MP original scaled again on every resize
+        # makes dragging the window edge stutter.
+        screen = self.screen().availableGeometry().size() * self.devicePixelRatioF()
+        if pixmap.width() > screen.width() or pixmap.height() > screen.height():
+            pixmap = pixmap.scaled(
+                screen,
+                Qt.AspectRatioMode.KeepAspectRatio,
+                Qt.TransformationMode.SmoothTransformation,
+            )
         self._original = pixmap
         self._fit()
 
