@@ -12,7 +12,7 @@ from copy import deepcopy
 from pathlib import Path
 
 from PIL import Image
-from PySide6.QtCore import Qt
+from PySide6.QtCore import QEventLoop, Qt, QThread, QTimer, Signal
 from PySide6.QtGui import QPixmap
 from PySide6.QtWidgets import (
     QCheckBox,
@@ -47,6 +47,35 @@ _SIZES = {
 }
 
 
+class _ScanStoppedError(Exception):
+    """The window was closed while the folder was being scanned."""
+
+
+class _ScanWorker(QThread):
+    """indexer.scan off the window's thread: hashing a large album takes minutes."""
+
+    progress = Signal(int, int)
+
+    def __init__(self, folder: Path, index: dict | None, previews: bool, parent=None):
+        super().__init__(parent)
+        self.folder, self.index, self.previews = folder, index, previews
+        self.result: tuple[dict, indexer.ScanReport] | None = None
+        self.error: Exception | None = None
+
+    def run(self) -> None:
+        try:
+            self.result = indexer.scan(
+                self.folder, self.index, previews=self.previews, progress=self._step
+            )
+        except Exception as exc:  # raised again on the window's thread
+            self.error = exc
+
+    def _step(self, done: int, total: int) -> None:
+        if self.isInterruptionRequested():
+            raise _ScanStoppedError
+        self.progress.emit(done, total)
+
+
 class MainWindow(QMainWindow):
     def __init__(self) -> None:
         super().__init__()
@@ -54,9 +83,14 @@ class MainWindow(QMainWindow):
         self._folder: Path | None = None
         self._index: dict | None = None
         self._worker: RecognitionWorker | None = None
+        self._scanner: _ScanWorker | None = None
         self._protocol: Path | None = None
         self._closing = False
         self._setup_ui()
+        # After the window is shown, so a large album scans in view.
+        QTimer.singleShot(0, self._reopen_last)
+
+    def _reopen_last(self) -> None:
         last = settings.load().get("folder")
         if last and Path(last).is_dir():
             self.open_folder(Path(last))
@@ -64,9 +98,9 @@ class MainWindow(QMainWindow):
     # -- layout --------------------------------------------------------------------
 
     def _setup_ui(self) -> None:
-        central = QWidget()
-        self.setCentralWidget(central)
-        root = QVBoxLayout(central)
+        self._central = QWidget()
+        self.setCentralWidget(self._central)
+        root = QVBoxLayout(self._central)
 
         bar = QHBoxLayout()
         self._btn_open = QPushButton("Open folder...")
@@ -289,9 +323,7 @@ class MainWindow(QMainWindow):
         if self._folder is None:
             return False
         try:
-            index, report = indexer.scan(
-                self._folder, self._index, previews=self._chk_previews.isChecked()
-            )
+            scanned = self._scan(self._folder)
         except (
             indexer.IndexError_,
             OSError,
@@ -300,6 +332,9 @@ class MainWindow(QMainWindow):
         ) as exc:
             QMessageBox.warning(self, "Scan folder", str(exc))
             return False
+        if scanned is None:
+            return False
+        index, report = scanned
         if not self._write(index):
             return False
         self._index = index
@@ -314,6 +349,34 @@ class MainWindow(QMainWindow):
         self._lbl_status.setText(self._summary() + " | " + "; ".join(notes))
         self._list.setCurrentRow(self._first_unchecked())
         return True
+
+    def _scan(self, folder: Path) -> tuple[dict, indexer.ScanReport] | None:
+        """The folder scanned on a worker thread while the window keeps drawing; None
+        when closing the window stopped it."""
+        worker = _ScanWorker(folder, self._index, self._chk_previews.isChecked(), self)
+        loop = QEventLoop()
+        worker.finished.connect(loop.quit)
+        worker.progress.connect(self._scan_progress)
+        self._scanner = worker
+        self._central.setEnabled(False)  # the index must not change meanwhile
+        worker.start()
+        loop.exec()
+        worker.wait()
+        self._scanner = None
+        self._central.setEnabled(True)
+        worker.deleteLater()
+        if self._closing:
+            QTimer.singleShot(0, self.close)
+        if isinstance(worker.error, _ScanStoppedError):
+            return None
+        if worker.error is not None:
+            raise worker.error
+        return worker.result
+
+    def _scan_progress(self, done: int, total: int) -> None:
+        self._progress.setRange(0, max(1, total))
+        self._progress.setValue(done)
+        self._lbl_status.setText(f"Checking photos: {done} / {total}")
 
     def _on_import_csv(self) -> None:
         if self._index is None or self._folder is None:
@@ -497,7 +560,11 @@ class MainWindow(QMainWindow):
             self.close()
 
     def closeEvent(self, event) -> None:  # noqa: N802 -- Qt virtual method
-        if self._worker is not None and self._worker.isRunning():
+        if self._scanner is not None:
+            self._closing = True
+            self._scanner.requestInterruption()
+            event.ignore()
+        elif self._worker is not None and self._worker.isRunning():
             self._closing = True
             self._on_stop()
             event.ignore()

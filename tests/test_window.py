@@ -65,6 +65,7 @@ def test_the_last_folder_is_reopened(monkeypatch, album):
     monkeypatch.setattr(settings, "load", lambda: {"folder": str(album)})
     monkeypatch.setattr(settings, "save", lambda values: None)
     w = mw.MainWindow()
+    _app.processEvents()  # the last album opens once the window is up
     assert w._list.count() == 3
     w.deleteLater()
 
@@ -100,6 +101,7 @@ def test_an_unreadable_last_folder_does_not_prevent_starting(monkeypatch, album)
         mw.QMessageBox, "warning", lambda *args: warnings.append(str(args[-1]))
     )
     w = mw.MainWindow()
+    _app.processEvents()
     assert warnings and "offline file" in warnings[0]
     assert w._folder is None
     assert w._list.count() == 0
@@ -369,6 +371,7 @@ def test_a_start_protocol_is_optional_used_and_remembered_for_its_album_only(
     red = indexer.load(album)["photos"][0]
     assert [(b["value"], b["state"]) for b in red["bibs"]] == [("012", "rejected")]
     again = mw.MainWindow()  # reopens the last album with its protocol
+    _app.processEvents()
     assert again._protocol == protocol
     again.deleteLater()
     other = tmp_path / "other"
@@ -432,3 +435,48 @@ def test_no_signal_is_connected_to_a_lambda():
     # widget's destructor then touches it: the packaged app crashed on close.
     source = Path(mw.__file__).read_text(encoding="utf-8")
     assert "connect(lambda" not in source
+
+
+def test_an_album_is_scanned_off_the_window_thread_with_progress(
+    win, album, monkeypatch
+):
+    import threading
+
+    on_window_thread = []
+    real = indexer.scan
+
+    def scan(*args, **kwargs):
+        on_window_thread.append(threading.current_thread() is threading.main_thread())
+        return real(*args, **kwargs)
+
+    monkeypatch.setattr(indexer, "scan", scan)
+    win.open_folder(album)
+    assert on_window_thread == [False] and win._list.count() == 3
+    assert win._progress.value() == win._progress.maximum() == 3
+    assert win._central.isEnabled()
+
+
+def test_closing_the_window_stops_a_scan_and_keeps_the_open_album(
+    win, album, tmp_path, monkeypatch
+):
+    import time
+
+    from PySide6.QtCore import QTimer
+
+    from tests.conftest import make_photo
+
+    win.open_folder(album)
+
+    def endless(folder, index=None, *, previews=False, progress=None):
+        for _ in range(1000):
+            progress(1, 2)  # raises once the window asks the scan to stop
+            time.sleep(0.01)
+        raise AssertionError("the scan was never stopped")
+
+    monkeypatch.setattr(indexer, "scan", endless)
+    other = tmp_path / "other"
+    other.mkdir()
+    make_photo(other, "IMG_0001.jpg")
+    QTimer.singleShot(50, win.close)
+    win.open_folder(other)
+    assert win._folder == album and win._closing
