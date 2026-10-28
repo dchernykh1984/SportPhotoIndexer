@@ -51,15 +51,16 @@ def _fetch(key: str, url: str, path: Path) -> Exception | None:
     return error
 
 
-def check(folder: Path) -> tuple[list[str], list[str]]:
-    """Report every source; the file names of the models the mirror must get, and
-    the catalog's sources that failed."""
+def check(folder: Path) -> tuple[list[str], list[str], list[str]]:
+    """Report every source; the file names of the models the mirror must get, the
+    catalog's sources that failed, and the mirror's files that could not be read."""
     folder.mkdir(parents=True, exist_ok=True)
     missing: list[str] = []
     dead: list[str] = []
+    unread: list[str] = []
     for key in CATALOG:
         name = file_name(key)
-        failed = mirrored = False
+        failed = mirrored = unknown = False
         for url in sources(key):
             ours = url.startswith(MIRROR)
             error = _fetch(key, url, folder / name)
@@ -69,16 +70,21 @@ def check(folder: Path) -> tuple[list[str], list[str]]:
                 continue
             empty = isinstance(error, urllib.error.HTTPError) and error.code == 404
             print(f"{'empty ' if ours and empty else 'FAILED'} {url}: {error}")
+            if ours and not empty and not isinstance(error, ModelError):
+                # Neither empty nor a wrong file: whether it holds the model is unknown.
+                unread.append(url)
+                unknown = True
+                continue
             failed |= not (ours and empty)
             if not ours:
                 dead.append(url)
-        if failed and not mirrored:
+        if failed and not mirrored and not unknown:
             missing.append(name)
-    return missing, dead
+    return missing, dead, unread
 
 
 def main(folder: Path) -> int:
-    missing, dead = check(folder)
+    missing, dead, unread = check(folder)
     if missing:
         print(
             "\nA source has lost these models and the mirror does not hold them yet."
@@ -97,7 +103,11 @@ def main(folder: Path) -> int:
         )
         for url in dead:
             print(f"  {url}")
-    return 1 if missing or dead else 0
+    if unread:
+        print("\nThe mirror could not be read; look at it before uploading anything:")
+        for url in unread:
+            print(f"  {url}")
+    return 1 if missing or dead or unread else 0
 
 
 if __name__ == "__main__":
