@@ -82,9 +82,10 @@ class CutShortError(ModelError):
 SOURCE_ERRORS = (urllib.error.URLError, http.client.HTTPException, ModelError)
 
 
-# A host gets 15 seconds to answer, a source a minute without data: ModelScope pauses
-# longer than 15 seconds in the middle of a file when it is far away, while a host that
-# drops packets must not hold every source for a minute.
+# A host gets 15 seconds to connect; once connected, a source gets a minute without
+# data, its headers included: ModelScope pauses longer than 15 seconds in the middle of
+# a file when it is far away, while a host that drops packets must not hold every
+# source for a minute.
 CONNECT_TIMEOUT = 15
 READ_TIMEOUT = 60
 
@@ -97,7 +98,8 @@ class _Connection(http.client.HTTPSConnection):
 
 class _Handler(urllib.request.HTTPSHandler):
     def __init__(self, context: ssl.SSLContext) -> None:
-        super().__init__()
+        # Given the context, the base class builds no default one of its own.
+        super().__init__(context=context)
         self.ssl_context = context
 
     def https_open(self, req: urllib.request.Request) -> http.client.HTTPResponse:

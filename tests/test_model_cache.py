@@ -93,7 +93,7 @@ def test_cancel_interrupts_download_and_cleans_up(tmp_path, monkeypatch, catalog
     assert list(tmp_path.iterdir()) == []
 
 
-def test_a_host_gets_15_seconds_to_answer_and_a_minute_between_data(monkeypatch):
+def test_a_host_gets_15_seconds_to_connect_and_a_minute_between_data(monkeypatch):
     timeouts = []
 
     class Socket:
@@ -118,7 +118,11 @@ def test_sources_open_over_verified_tls_with_the_connect_timeout(monkeypatch):
         )
         raise urllib.error.URLError("stop here")
 
+    def no_default_context(*args):
+        raise AssertionError("a TLS context nobody uses was built")
+
     monkeypatch.setattr(urllib.request.AbstractHTTPHandler, "do_open", do_open)
+    monkeypatch.setattr(http.client, "_create_https_context", no_default_context)
     with pytest.raises(urllib.error.URLError):
         cache._open("https://example.test/a.onnx")
     assert seen == {
