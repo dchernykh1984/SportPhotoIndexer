@@ -219,14 +219,14 @@ def test_with_florence_finer_windows_read_a_plate_too_small_for_the_body_windows
         # 0.4 of this rider's height gives it; a window of 0.25 does.
         green = (tensor[0, 1] > 0.5) & (tensor[0, 0] < 0) & (tensor[0, 2] < 0)
         probability = np.zeros((736, 736), dtype=np.float32)
-        if green.sum() >= 1000:
+        if green.sum() >= 1500:
             probability[green] = 0.99
         return [probability]
 
     engine._run = infer
     monkeypatch.setattr(vision, "person_boxes", lambda output: [(0.4, 0.3, 0.1, 0.5)])
     image = Image.new("RGB", (2400, 1800), "white")
-    ImageDraw.Draw(image).rectangle((1100, 1200, 1120, 1210), fill=(0, 255, 0))
+    ImageDraw.Draw(image).rectangle((1100, 1200, 1111, 1231), fill=(0, 255, 0))
     assert engine.ocr(image) == []  # the small models alone keep to the 0.4 windows
     engine.florence = FakeFlorence({})
     assert {r.value for r in engine.ocr(image)} == {"10"}
@@ -345,10 +345,10 @@ def test_finer_windows_give_one_vote_per_spot_and_never_displace_a_read():
         if tile.size == (100, 100):
             return [
                 # The same spot in two overlapping windows: one view, not two.
-                Reading("44", 0.9, (0.2, 0.2, 0.1, 0.1)),
-                Reading("44", 0.9, (0.8, 0.2, 0.1, 0.1)),
+                Reading("44", 0.9, (0.2, 0.2, 0.1, 0.2)),
+                Reading("44", 0.9, (0.8, 0.2, 0.1, 0.2)),
                 # Longer than the 16 read before, on the same plate.
-                Reading("160", 0.99, (0.8, 0.5, 0.1, 0.1)),
+                Reading("160", 0.99, (0.8, 0.5, 0.1, 0.2)),
             ]
         return []
 
@@ -360,3 +360,22 @@ def test_finer_windows_give_one_vote_per_spot_and_never_displace_a_read():
     assert not any(
         r.value == "160" and _overlap(r.region, whole[0].region) for r in found
     )
+
+
+def test_finer_windows_skip_digits_too_small_for_a_bib_on_the_rider():
+    engine = CpuVision.__new__(CpuVision)
+    person = (0.4, 0.25, 0.1, 0.5)  # 400 px tall: a bib's digits from 10 px
+    engine._people = lambda image: [person]
+
+    def read(tile):
+        if tile.size == (100, 100):
+            return [
+                Reading("3", 0.999, (0.2, 0.6, 0.05, 0.05)),  # 5 px: a sticker
+                Reading("4", 0.999, (0.6, 0.6, 0.2, 0.2)),  # 20 px: a plate
+            ]
+        return []
+
+    engine._read_crop = read
+    engine.florence = FakeFlorence({})
+    found = engine.ocr(Image.new("RGB", (1000, 800), "white"))
+    assert {r.value for r in found} == {"4"}
