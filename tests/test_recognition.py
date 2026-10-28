@@ -283,7 +283,8 @@ def test_cached_ocr_reapplies_calibration_without_repeating_inference(
 
 
 def test_small_keeps_its_saved_bibs_and_florence_sizes_read_with_finer_windows():
-    assert recognition.engine_id() == "people-v2:6ae18a6bda95baec"
+    # The version, not the model hashes: those move whenever a model is re-pinned.
+    assert recognition.engine_id().startswith("people-v2:")
     for size in ("florence-2-base-int8", "florence-2-base"):
         assert recognition.engine_id(size).startswith("people-v3:")
 

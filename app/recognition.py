@@ -20,7 +20,7 @@ from app.model_cache import CATALOG, SIZES, CancelledError, check_cancel, ocr_mo
 from app.parallel import ChangedPhotoError as ChangedPhotoError
 from app.parallel import results
 from app.parallel import verify as _verify
-from app.vision import ACCEPT_LONE_DIGIT, ACCEPT_OCR, contains
+from app.vision import ACCEPT_LONE_DIGIT, ACCEPT_OCR, READ_VERSIONS, contains
 
 APPEARANCE_THRESHOLD = 0.8
 # With faces: SFace's own same-person threshold is 0.363; agreeing with the body,
@@ -33,8 +33,7 @@ BODY_LEAD = 0.05
 def engine_id(size: str = "small") -> str:
     """Saved bibs are reused only from the same models: another size reads again."""
     models = ",".join(CATALOG[k]["sha256"] for k in ocr_models(size))
-    # v3: the Florence-2 sizes read finer person windows too, so they read again.
-    version = "people-v3" if SIZES[size] else "people-v2"
+    version = READ_VERSIONS[bool(SIZES[size])]
     return f"{version}:" + hashlib.sha256(models.encode()).hexdigest()[:16]
 
 
