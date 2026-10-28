@@ -38,8 +38,9 @@ jobs:
           python-version: "3.14"
       - name: Download every model from each source
         # The default folder, data/models, is where a checkout keeps the local copy, so
-        # the upload commands printed on a failure name the right files.
-        run: uv run --locked python -u -m tools.models
+        # the upload commands printed on a failure name the right files. --frozen: a
+        # lock that a release left behind its version must not stop the check.
+        run: uv run --frozen python -u -m tools.models
       - name: Keep the verified copies of a failed run
         # Unpacked into data/models, the copies some source still gave can be
         # uploaded to the mirror with the printed commands, without a local copy.
