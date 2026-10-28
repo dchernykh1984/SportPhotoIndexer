@@ -80,6 +80,13 @@ Check a change on both kinds; one album hides regressions on the other.
 - Appearance can only spread the references OCR gives it: where many accepted
   bibs are wrong (lone digits from stickers on the time trial), faces spread those
   too. Check that album separately before tuning appearance on the other.
+- Finer person windows (0.25 of the height) read plates too small for the 0.4 ones,
+  but only Florence-2's vetting makes them pay: with the small models alone they added
+  more wrong values than bibs. Their wrong values were lone digits on stickers, as tall
+  in the photo as a bib's; what separated them was the height against the rider (bib
+  digits 3-9% of the tallest person whose zone holds them). Score such a change per
+  photo-bib pair against the code before it (lost, gained, new wrong), not only in
+  totals, and keep every rule that can drop a read away from the reads made before.
 - A start protocol only removes values that match no starter; the harmful wrong
   values (a starter's number on a sticker) stay. Keeping weaker reads of starters'
   bibs found a few more pairs for many more of those, so it was not kept.
