@@ -1,6 +1,6 @@
 [project]
 name = "sport-photo-indexer"
-version = "0.3.0"
+version = "0.4.0"
 description = "Index a folder of race photos by bib for the cycling site"
 authors = [{ name = "Denis Chernykh", email = "education03@mail.ru" }]
 requires-python = ">=3.14,<3.15"
