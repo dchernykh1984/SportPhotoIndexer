@@ -35,6 +35,54 @@ settings. On UBT TT this accepts 12 lettered values that are not bibs at all (a 
 Speed is unchanged: 500 Alatau photos, appearance included, on six workers of a ten-core
 Mac took 399 s with 0.3.0 and 399 s and 427 s in two runs with people windows.
 
+## Model sizes
+
+The same photos with each model size the window offers, appearance included, one run
+at a time on the ten-core Mac. Medium and Large add Florence-2 base (8-bit or full
+precision) to the small models; Florence-2 large is shown for comparison and is not
+offered. *Without a bib* counts identified photo-starter pairs with no readable bib
+that the index suggests.
+
+| Album | Size | Download | Time | Accepted: found | Accepted: wrong | All: found | All: wrong | Without a bib |
+| --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| Alatau XCO | Small | 15 MB | 291 s | 62.0% | 29 of 303 (24) | 72.7% | 123 of 460 (109) | 23 of 378 |
+| Alatau XCO | Medium | 292 MB | 907 s | 65.7% | 27 of 317 (23) | 72.9% | 62 of 401 (55) | 24 of 378 |
+| Alatau XCO | Large | 1103 MB | 1636 s | **68.5%** | 29 of 331 (24) | 76.2% | 70 of 425 (61) | 26 of 378 |
+| Alatau XCO | Florence-2 large | 3312 MB | 5153 s | 66.0% | 25 of 316 (20) | 76.9% | 60 of 416 (51) | 24 of 378 |
+| UBT TT | Small | 15 MB | 146 s | 48.9% | 25 of 47 (6) | 57.8% | 64 of 91 (28) | 1 of 141 |
+| UBT TT | Medium | 292 MB | 435 s | 55.6% | 28 of 53 (9) | 62.2% | 32 of 61 (12) | 1 of 141 |
+| UBT TT | Large | 1103 MB | 929 s | **57.8%** | 28 of 54 (9) | 62.2% | 36 of 65 (14) | 1 of 141 |
+| UBT TT | Florence-2 large | 3312 MB | 2068 s | 55.6% | 27 of 52 (8) | 60.0% | 32 of 60 (11) | 1 of 141 |
+
+Florence-2 reads plates the small reader misses and rarely reads a logo as a number,
+so both larger sizes find more and halve the wrong suggestions. Florence-2 large found
+three more pairs than Florence-2 base among all values on Alatau XCO, fewer accepted
+ones, and fewer on UBT TT, at three times the time and 5.7 GB of RAM per photo worker:
+that is where a bigger model stopped helping. Its 8-bit export (850 MB) scored below
+full-precision base on Alatau XCO and level with it on UBT TT, and was dropped too.
+
+## Faces
+
+The mode *Bib numbers, then rider appearance and faces* with the small models, against
+the plain appearance mode (all values, accepted and candidates):
+
+| Album | Mode | All: found | All: wrong | Without a bib |
+| --- | --- | ---: | ---: | ---: |
+| Alatau XCO | appearance | 72.7% | 123 of 460 (109) | 23 of 378 |
+| Alatau XCO | appearance and faces | 73.6% | 118 of 481 (104) | **45 of 378** |
+| UBT TT | appearance | 57.8% | 64 of 91 (28) | 1 of 141 |
+| UBT TT | appearance and faces | 60.0% | 77 of 105 (41) | 1 of 141 |
+
+Faces double the people found out of view of their bib on Alatau XCO, where most
+accepted bibs are right. On UBT TT appearance can only spread its references, and many
+of them are lone digits from stickers and bottles, so faces mostly spread those. With
+Medium models faces find 8 of 141 there, with 47 wrong values (27 bibs).
+
+Tried and not kept: larger appearance models (CLIP ViT-L/14, DINOv2-L, AuraFace) did
+not beat the Youtu ReID and SFace pair; reading every zone twice with a shifted crop
+found one more bib for double the time; keeping Florence-2 reads below 0.2 added more
+wrong values than bibs.
+
 ## What was wrong before
 
 - The text detector is the OpenCV Zoo PP-OCRv3 export, which takes

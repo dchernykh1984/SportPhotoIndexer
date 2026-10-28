@@ -39,8 +39,9 @@ file is replaced, old observations no longer apply: manual decisions are archive
 ### Automatic recognition and stopping
 
 Recognition runs on this computer's CPU; photos are not uploaded to a recognition service.
-There are no recognition API fees. First use needs internet to download up to **15 MB**
-of OCR models, or **121 MB** including appearance models. Progress names the download;
+There are no recognition API fees. First use needs internet to download the OCR models
+of the chosen size -- **15 MB** small, **292 MB** medium, **1103 MB** large -- plus
+**106 MB** for appearance and 39 MB more for faces. Progress names the download;
 verified models stay in `data/models` next to the portable app and work offline afterwards.
 Give that folder enough writable disk space. [Models and licenses](MODEL_NOTICES.md)
 list the pinned sources and hashes; failed downloads can be retried.
@@ -63,6 +64,15 @@ with confidence of at least 0.95 is accepted, a single digit from 0.99 (agreeing
 one spot combine); other reads from 0.80 up are candidates.
 Other bib scripts can be typed or imported from CSV.
 The scores are not calibrated race accuracy.
+The model size next to the mode is remembered. *Small models* read with PaddleOCR
+alone. *Medium* and *Large* read every person's zone and the whole frame again with
+Florence-2 base (8-bit or full precision), and keep a small-model read only when it is
+sure or Florence-2 read the same value. On the labelled races, Large found 76% of the
+visible handlebar plates instead of 73% and 62% of the seat-post plates instead of
+58%, with about half as many wrong suggestions, but took 5.6 times as long (27 minutes
+for 500 photos on a ten-core Mac); Medium sits between them at about three times.
+Florence-2 large (3.3 GB) found about as many as Large and is not offered. Each photo worker
+needs about 1 GB of RAM plus the models, so larger sizes run fewer photos at once.
 The appearance phase uses whole-person crops (kit, helmet and build, plus bike pixels
 inside the crop). It searches **only this album**: put one
 event in a folder. It needs unambiguous accepted bib references; overlapping riders
@@ -77,8 +87,8 @@ to 45 of 378) with fewer wrong suggestions; on the second, where few references 
 right, it added wrong suggestions (64 to 77). Face vectors, like body vectors, last one
 run.
 Similar kit and riding poses can produce wrong suggestions. On two hand-labelled races
-([recognition benchmark](docs/recognition-benchmark.md)) it found 62-73% of visible
-handlebar plates and about half of side-on seat-post plates. About one accepted value in
+([recognition benchmark](docs/recognition-benchmark.md)) the small models found 62-73%
+of visible handlebar plates and about half of side-on seat-post plates. About one accepted value in
 ten was wrong on the first race and half on the second, most of those there matching no
 starter (a car plate, a display), so review suggestions before relying on them. Cross-album appearance search is not implemented.
 
