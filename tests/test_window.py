@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import os
+from pathlib import Path
 
 import pytest
 
@@ -424,3 +425,10 @@ def test_the_bibs_a_protocol_gave_are_shown_so_a_wrong_column_is_noticed(
     win.open_folder(album)
     win._on_protocol()
     assert win._lbl_status.text() == "Start protocol start.csv, 30 bibs: 1, 2, 3 ... 30"
+
+
+def test_no_signal_is_connected_to_a_lambda():
+    # PySide frees a lambda's receiver before the widgets when Python exits, and the
+    # widget's destructor then touches it: the packaged app crashed on close.
+    source = Path(mw.__file__).read_text(encoding="utf-8")
+    assert "connect(lambda" not in source

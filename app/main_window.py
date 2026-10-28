@@ -88,7 +88,7 @@ class MainWindow(QMainWindow):
         bar.addWidget(self._btn_protocol)
         self._btn_no_protocol = QPushButton("Clear")
         self._btn_no_protocol.setToolTip("Look for any bib, without a start protocol")
-        self._btn_no_protocol.clicked.connect(lambda: self._use_protocol(None))
+        self._btn_no_protocol.clicked.connect(self._on_no_protocol)
         bar.addWidget(self._btn_no_protocol)
         self._chk_previews = QCheckBox("Make a preview of every photo")
         self._chk_previews.setToolTip(
@@ -201,6 +201,9 @@ class MainWindow(QMainWindow):
         self._btn_no_protocol.setEnabled(
             self._btn_protocol.isEnabled() and self._protocol is not None
         )
+
+    def _on_no_protocol(self) -> None:
+        self._use_protocol(None)
 
     def _on_protocol(self) -> None:
         chosen, _ = QFileDialog.getOpenFileName(
