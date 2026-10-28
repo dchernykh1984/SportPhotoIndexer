@@ -451,7 +451,7 @@ class CpuVision:
             if _bib_sized(best, people)
             and not any(_related(best, other) for other in settled)
         ]
-        small = _combined([*small, *extra])
+        small = _combined(_whole_bibs([*small, *extra]))
         # Florence-2 misreads far less: an unsure small read stays only when it agrees.
         seen = {r.value for r in read}
         kept = [r for r in small if _sure(r) or r.value in seen]
