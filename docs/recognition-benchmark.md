@@ -61,6 +61,29 @@ ones, and fewer on UBT TT, at three times the time and 5.7 GB of RAM per photo w
 that is where a bigger model stopped helping. Its 8-bit export (850 MB) scored below
 full-precision base on Alatau XCO and level with it on UBT TT, and was dropped too.
 
+## Start protocol
+
+The same runs with each race's start protocol (30 and 25 starters), reusing the saved
+reads; only appearance ran again (81 s and 18 s with Large).
+
+| Album | Size | Protocol | Accepted: found | Accepted: wrong | All: found | All: wrong |
+| --- | --- | --- | ---: | ---: | ---: | ---: |
+| Alatau XCO | Small | no | 62.0% | 29 of 303 (24) | 72.7% | 123 of 460 (109) |
+| Alatau XCO | Small | yes | 62.0% | 24 of 298 (24) | 72.7% | 109 of 446 (109) |
+| Alatau XCO | Large | no | 68.5% | 29 of 331 (24) | 76.2% | 70 of 425 (61) |
+| Alatau XCO | Large | yes | 68.5% | 24 of 326 (24) | 76.2% | 61 of 416 (61) |
+| UBT TT | Small | no | 48.9% | 25 of 47 (6) | 57.8% | 64 of 91 (28) |
+| UBT TT | Small | yes | 48.9% | 6 of 28 (6) | 57.8% | 28 of 55 (28) |
+| UBT TT | Large | no | 57.8% | 28 of 54 (9) | 62.2% | 36 of 65 (14) |
+| UBT TT | Large | yes | 57.8% | 9 of 35 (9) | 62.2% | 14 of 43 (14) |
+
+The protocol removes exactly the wrong values that match no starter and loses no bib,
+since every labelled bib was in it. It cannot remove what the site would show to a
+starter, the numbers in brackets: lone digits from stickers and bottles are starters'
+bibs too. Keeping weaker reads of starters' bibs (small reader from 0.5, Florence-2
+from 0.02) was scored offline and not kept: one to six more pairs for up to thirty
+more wrong ones, all of them starters' bibs.
+
 ## Faces
 
 The mode *Bib numbers, then rider appearance and faces* with the small models, against

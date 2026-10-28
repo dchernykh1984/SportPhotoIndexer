@@ -12,11 +12,12 @@ with `photos.csv` and `labels.txt`.
 ## Run
 
 ```bash
-uv run python -m tools.album.measure ALBUM WORK COPY [MODELS] [SIZE] [faces]
+uv run python -m tools.album.measure ALBUM WORK COPY [MODELS] [SIZE] [faces] [PROTOCOL]
 ```
 
 `SIZE` is a model size from `app.model_cache.SIZES` (`small` by default); `faces`
-runs the appearance mode that compares faces too.
+runs the appearance mode that compares faces too; `PROTOCOL` is the race's start
+protocol, which rejects read bibs that are not in it.
 
 `COPY` is a new folder outside the album: it gets symbolic links to the photos, and
 the app's own scan and recognition (appearance included) run there, exactly as the
@@ -79,3 +80,6 @@ Check a change on both kinds; one album hides regressions on the other.
 - Appearance can only spread the references OCR gives it: where many accepted
   bibs are wrong (lone digits from stickers on the time trial), faces spread those
   too. Check that album separately before tuning appearance on the other.
+- A start protocol only removes values that match no starter; the harmful wrong
+  values (a starter's number on a sticker) stay. Keeping weaker reads of starters'
+  bibs found a few more pairs for many more of those, so it was not kept.
