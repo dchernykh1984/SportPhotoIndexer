@@ -35,6 +35,9 @@ FLORENCE_SCALE = ([0.2, 0.5, 0.9, 1.0], [MIN_OCR, ACCEPT_OCR, ACCEPT_LONE_DIGIT,
 # small reader's unsure reads; without it they added more wrong values than bibs.
 WINDOWS = 0.4
 FINER_WINDOWS = 0.25
+# What saved bibs were read with, without and with Florence-2: a change to the windows
+# of either kind needs a new one, so that albums read before are read again.
+READ_VERSIONS = {False: "people-v2", True: "people-v3"}
 
 
 @dataclass(frozen=True)
