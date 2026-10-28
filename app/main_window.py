@@ -239,13 +239,18 @@ class MainWindow(QMainWindow):
         protocols = self._protocols()
         if path is None:
             protocols.pop(str(self._folder), None)
+            self._lbl_status.setText("No start protocol: any read bib is suggested")
         else:
             starters = self._starters(path)
             if not starters:
                 return
             protocols[str(self._folder)] = str(path)
+            # The bibs themselves, so a wrong column (row numbers 1..30) stands out.
+            bibs = sorted(starters, key=lambda bib: (len(bib), bib))
+            shown = ", ".join(bibs[:3]) + (f" ... {bibs[-1]}" if len(bibs) > 3 else "")
+            plural = "s" if len(bibs) > 1 else ""
             self._lbl_status.setText(
-                f"Start protocol {path.name}: {len(starters)} bibs"
+                f"Start protocol {path.name}, {len(bibs)} bib{plural}: {shown}"
             )
         self._protocol = path
         settings.save({**settings.load(), "start_protocols": protocols})

@@ -360,7 +360,7 @@ def test_a_start_protocol_is_optional_used_and_remembered_for_its_album_only(
     assert not win._btn_no_protocol.isEnabled()
     win._on_protocol()
     assert win._btn_protocol.text() == "Start protocol: start.txt"
-    assert "1 bibs" in win._lbl_status.text()
+    assert win._lbl_status.text() == "Start protocol start.txt, 1 bib: 7"
     win._on_recognize()
     assert not win._btn_protocol.isEnabled() and not win._btn_no_protocol.isEnabled()
     assert win._worker.wait(10000)
@@ -382,6 +382,7 @@ def test_a_start_protocol_is_optional_used_and_remembered_for_its_album_only(
     assert win._protocol == protocol and "has no bibs" in warnings[-1]
     win._btn_no_protocol.click()
     assert win._protocol is None and not win._btn_no_protocol.isEnabled()
+    assert win._lbl_status.text().startswith("No start protocol")
     win.open_folder(album)
     assert win._protocol is None
 
@@ -409,3 +410,17 @@ def test_a_protocol_that_cannot_be_read_stops_recognition_instead_of_dropping_ou
     win._on_recognize()
     assert win._worker is None and "start.txt" in warnings[-1]
     assert win._btn_auto.isEnabled() and win._btn_no_protocol.isEnabled()
+
+
+def test_the_bibs_a_protocol_gave_are_shown_so_a_wrong_column_is_noticed(
+    win, album, tmp_path, monkeypatch
+):
+    table = tmp_path / "start.csv"
+    rows = [f"{n};{100 + n};Rider {n}" for n in range(1, 31)]
+    table.write_text("No;Bib;Name\n" + "\n".join(rows) + "\n", encoding="utf-8")
+    monkeypatch.setattr(
+        mw.QFileDialog, "getOpenFileName", lambda *a, **k: (str(table), "")
+    )
+    win.open_folder(album)
+    win._on_protocol()
+    assert win._lbl_status.text() == "Start protocol start.csv, 30 bibs: 1, 2, 3 ... 30"
