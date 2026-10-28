@@ -414,3 +414,17 @@ def test_finer_windows_read_a_bib_where_only_a_discarded_guess_was():
     found = engine.ocr(Image.new("RGB", (1000, 800), "white"))
     assert "1" not in {r.value for r in found}
     assert any(r.value == "16" and _overlap(r.region, guess.region) for r in found)
+
+
+def test_a_rider_behind_does_not_let_a_sticker_in_front_pass_for_a_bib():
+    engine = CpuVision.__new__(CpuVision)
+    near = (0.3, 0.1, 0.3, 0.8)  # 640 px tall: a bib's digits from 16 px
+    far = (0.45, 0.4, 0.05, 0.25)  # 200 px: finer windows of 64 px, body ones of 80
+    engine._people = lambda image: [near, far]
+    engine._read_crop = lambda tile: (
+        [Reading("3", 0.999, (0.4, 0.4, 0.15, 0.15))]  # 10 px: a sticker
+        if tile.size == (64, 64)
+        else []
+    )
+    engine.florence = FakeFlorence({})
+    assert engine.ocr(Image.new("RGB", (1000, 800), "white")) == []

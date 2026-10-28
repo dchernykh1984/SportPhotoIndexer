@@ -252,14 +252,15 @@ def _related(a, b):
 
 
 def _bib_sized(reading, people):
-    """Tall enough for a bib's digits on a person whose zone holds the read."""
+    """Tall enough for a bib's digits on the tallest person whose zone holds the read:
+    a smaller rider behind must not let a sticker on the one in front pass."""
     x, y, w, h = reading.region
+    heights = []
     for person in people:
         left, top, right, bottom = _zone(person)
-        inside = left <= x + w / 2 <= right and top <= y + h / 2 <= bottom
-        if inside and h >= BIB_DIGITS * person[3]:
-            return True
-    return False
+        if left <= x + w / 2 <= right and top <= y + h / 2 <= bottom:
+            heights.append(person[3])
+    return bool(heights) and h >= BIB_DIGITS * max(heights)
 
 
 def _vetted(small, florence):
