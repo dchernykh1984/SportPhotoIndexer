@@ -60,3 +60,39 @@ def test_a_source_that_fails_once_is_tried_again_before_it_counts_as_lost(
     assert models.main(tmp_path) == 0
     assert "FAILED" not in capsys.readouterr().out
     assert calls.count(ONE) == 2
+
+
+@pytest.mark.parametrize(
+    ("error", "tries"),
+    [
+        (
+            urllib.error.HTTPError(
+                ONE, 404, "Not Found", email.message.Message(), None
+            ),
+            1,
+        ),
+        (model_cache.ModelError("download checksum does not match"), 1),
+        (
+            urllib.error.HTTPError(
+                ONE, 503, "Unavailable", email.message.Message(), None
+            ),
+            2,
+        ),
+        (urllib.error.URLError(TimeoutError("The read operation timed out")), 2),
+    ],
+)
+def test_only_a_failure_that_may_pass_is_tried_again(
+    tmp_path, monkeypatch, capsys, error, tries
+):
+    catalog = {"a": {"path": "dir/a.onnx", "urls": [ONE]}}
+    monkeypatch.setattr(model_cache, "CATALOG", catalog)
+    monkeypatch.setattr(models, "CATALOG", catalog)
+    calls = []
+
+    def download(key, url, path, progress, cancel):
+        calls.append(url)
+        raise error
+
+    monkeypatch.setattr(models, "download", download)
+    models.main(tmp_path)
+    assert calls.count(ONE) == tries

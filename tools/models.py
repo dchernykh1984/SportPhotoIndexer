@@ -16,14 +16,22 @@ import sys
 import urllib.error
 from pathlib import Path
 
-from app.model_cache import CATALOG, MIRROR, download, file_name, sources
+from app.model_cache import CATALOG, MIRROR, ModelError, download, file_name, sources
 
 RELEASE = MIRROR.rstrip("/").rsplit("/", 1)[1]
 
 
+def _lasting(error: Exception) -> bool:
+    """A failure another try would repeat: the source sent other bytes, or answered
+    that it does not have the file."""
+    if isinstance(error, urllib.error.HTTPError):
+        return error.code < 500
+    return isinstance(error, ModelError)
+
+
 def _fetch(key: str, url: str, path: Path) -> Exception | None:
-    """One source, once more after a failure: a connection dropped in a weekly run
-    must not read as a lost model."""
+    """One source, once more after a failure that may pass: a connection dropped in a
+    weekly run must not read as a lost model."""
     error: Exception | None = None
     for _ in range(2):
         try:
@@ -31,6 +39,8 @@ def _fetch(key: str, url: str, path: Path) -> Exception | None:
             return None
         except Exception as exc:  # every source is reported, whatever went wrong
             error = exc
+            if _lasting(exc):
+                break
     return error
 
 
