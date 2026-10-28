@@ -16,7 +16,7 @@ import numpy as np
 
 from app import indexer
 from app.index_format import MAX_BIBS_PER_PHOTO
-from app.model_cache import CATALOG, CancelledError, check_cancel, ocr_models
+from app.model_cache import CATALOG, SIZES, CancelledError, check_cancel, ocr_models
 from app.parallel import ChangedPhotoError as ChangedPhotoError
 from app.parallel import results
 from app.parallel import verify as _verify
@@ -33,7 +33,9 @@ BODY_LEAD = 0.05
 def engine_id(size: str = "small") -> str:
     """Saved bibs are reused only from the same models: another size reads again."""
     models = ",".join(CATALOG[k]["sha256"] for k in ocr_models(size))
-    return "people-v2:" + hashlib.sha256(models.encode()).hexdigest()[:16]
+    # v3: the Florence-2 sizes read finer person windows too, so they read again.
+    version = "people-v3" if SIZES[size] else "people-v2"
+    return f"{version}:" + hashlib.sha256(models.encode()).hexdigest()[:16]
 
 
 @dataclass

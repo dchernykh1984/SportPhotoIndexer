@@ -282,6 +282,12 @@ def test_cached_ocr_reapplies_calibration_without_repeating_inference(
     assert data["photos"][0]["bibs"][0]["state"] == "candidate"
 
 
+def test_small_keeps_its_saved_bibs_and_florence_sizes_read_with_finer_windows():
+    assert recognition.engine_id() == "people-v2:6ae18a6bda95baec"
+    for size in ("florence-2-base-int8", "florence-2-base"):
+        assert recognition.engine_id(size).startswith("people-v3:")
+
+
 def test_bibs_saved_by_one_model_size_are_read_again_by_another(album):
     data = prepared(album)
     run(album, data, FakeVision(), appearance=False)

@@ -29,6 +29,12 @@ ACCEPT_LONE_DIGIT = 0.99
 # races its 0.2 kept as much as the small reader's MIN_OCR, its 0.5 was as right as
 # ACCEPT_OCR and a lone digit at 0.9 as right as ACCEPT_LONE_DIGIT.
 FLORENCE_SCALE = ([0.2, 0.5, 0.9, 1.0], [MIN_OCR, ACCEPT_OCR, ACCEPT_LONE_DIGIT, 1.0])
+# Person windows as a share of the person's height: the text detector finds digits once
+# they fill about a tenth of a window. The finer windows catch digits smaller than that
+# (a rider near the camera, a small plate) and run only with Florence-2, which vets the
+# small reader's unsure reads; without it they added more wrong values than bibs.
+WINDOWS = 0.4
+FINER_WINDOWS = 0.25
 
 
 @dataclass(frozen=True)
@@ -158,8 +164,8 @@ def _zone(region):
     )
 
 
-def _person_windows(region, size):
-    """Overlapping squares, 0.4 of a person's height, over a person's zone.
+def _person_windows(region, size, share=WINDOWS):
+    """Overlapping squares, ``share`` of a person's height, over a person's zone.
 
     A bib on a chest, arm, belt, handlebar or seat post is too small for the text
     detector in the whole frame or a native-resolution tile: it finds plate digits
@@ -169,7 +175,7 @@ def _person_windows(region, size):
     left, top, right, bottom = _zone(region)
     left, right = left * width, right * width
     top, bottom = top * height, bottom * height
-    side = max(64, 0.4 * region[3] * height)
+    side = max(64, share * region[3] * height)
 
     def starts(start, end):
         count = max(1, math.ceil((end - start - side) / (0.75 * side)) + 1)
@@ -394,8 +400,10 @@ class CpuVision:
     def ocr(self, image: Image.Image) -> list[Reading]:
         people = self._people(image)
         boxes = [(0, 0, image.width, image.height)]
+        shares = (WINDOWS,) if self.florence is None else (WINDOWS, FINER_WINDOWS)
         for person in people:
-            boxes.extend(_person_windows(person, image.size))
+            for share in shares:
+                boxes.extend(_person_windows(person, image.size, share))
         found = []
         for box in boxes:
             with image.crop(box) as tile:
