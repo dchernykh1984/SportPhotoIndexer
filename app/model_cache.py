@@ -92,7 +92,7 @@ class _Connection(http.client.HTTPSConnection):
 
 class _Handler(urllib.request.HTTPSHandler):
     def __init__(self, context: ssl.SSLContext) -> None:
-        super().__init__(context=context)
+        super().__init__()
         self.ssl_context = context
 
     def https_open(self, req: urllib.request.Request) -> http.client.HTTPResponse:
@@ -102,8 +102,13 @@ class _Handler(urllib.request.HTTPSHandler):
 def _open(url: str) -> http.client.HTTPResponse:
     context = ssl.create_default_context(cafile=certifi.where())
     opener = urllib.request.build_opener(_Handler(context))
-    # URLs are fixed HTTPS entries in the committed catalog.
-    return opener.open(url, timeout=CONNECT_TIMEOUT)
+    try:
+        # URLs are fixed HTTPS entries in the committed catalog.
+        return opener.open(url, timeout=CONNECT_TIMEOUT)
+    except urllib.error.URLError:
+        raise
+    except OSError as exc:  # urllib leaves a failure awaiting the headers bare
+        raise urllib.error.URLError(exc) from exc
 
 
 def _read(response: http.client.HTTPResponse) -> bytes:
