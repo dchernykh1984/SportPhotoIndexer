@@ -96,6 +96,12 @@ def test_a_source_that_fails_twice_is_tried_again_before_it_counts_as_lost(
             3,
         ),
         (urllib.error.URLError(TimeoutError("The read operation timed out")), 3),
+        (
+            urllib.error.HTTPError(
+                ONE, 429, "Too Many Requests", email.message.Message(), None
+            ),
+            3,
+        ),
     ],
 )
 def test_only_a_failure_that_may_pass_is_tried_again(
