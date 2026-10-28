@@ -7,8 +7,9 @@ description: How to index a folder of race photos by eye -- read every bib, get 
 
 "Index this folder" means: every photo gets the bibs of every starter on it -- the
 ones whose bib is readable and the ones recognised without it -- and the folder gets
-a `photo-index.v1.json` the site accepts. The app's OCR finds roughly two thirds of
-visible bibs and almost nobody without one; a careful pass by eye finds nearly all.
+a `photo-index.v1.json` the site accepts. The app finds about 70 to 80 percent of
+visible bibs with its Large models, fewer with the smaller ones, and almost nobody
+without one; a careful pass by eye finds nearly all.
 The person asking cares more about missing nobody than about an extra suggestion,
 but a wrong *accepted* bib puts a stranger's photo in someone's album: when unsure,
 mark the bib probable instead (see below).
