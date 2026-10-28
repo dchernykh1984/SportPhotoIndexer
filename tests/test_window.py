@@ -540,7 +540,11 @@ def test_a_scan_wait_cut_short_stops_the_scan_instead_of_freezing(
             time.sleep(0.01)
         raise AssertionError("the scan was never stopped")
 
-    class CutShort:  # a nested loop that QApplication.quit() ended at once
+    from PySide6.QtCore import QObject
+
+    # A nested loop that QApplication.quit() ended at once. A QObject, because a
+    # signal connected to a plain Python object crashes PySide when it is torn down.
+    class CutShort(QObject):
         def exec(self):
             return 0
 
