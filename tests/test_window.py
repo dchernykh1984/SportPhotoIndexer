@@ -431,11 +431,15 @@ def test_the_bibs_a_protocol_gave_are_shown_so_a_wrong_column_is_noticed(
     assert win._lbl_status.text() == "Start protocol start.csv, 30 bibs: 1, 2, 3 ... 30"
 
 
-def test_no_signal_is_connected_to_a_lambda():
-    # PySide frees a lambda's receiver before the widgets when Python exits, and the
-    # widget's destructor then touches it: the packaged app crashed on close.
-    source = Path(mw.__file__).read_text(encoding="utf-8")
-    assert "connect(lambda" not in source
+def test_no_signal_is_connected_to_a_lambda_or_a_partial():
+    # PySide frees such a receiver before the widgets when Python exits, and the
+    # widget's destructor then touches it: the packaged app crashed on close. main()
+    # now destroys the window first; this keeps the receivers out as well.
+    import re
+
+    for module in Path(mw.__file__).parent.glob("*.py"):
+        source = module.read_text(encoding="utf-8")
+        assert not re.search(r"connect\(\s*(lambda|partial)\b", source), module.name
 
 
 def test_an_album_is_scanned_off_the_window_thread_with_progress(
