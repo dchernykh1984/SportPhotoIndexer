@@ -184,6 +184,11 @@ def test_one_button_runs_the_selected_automatic_stages_and_reloads_saved_results
     assert "Recognition finished" in win._lbl_status.text()
 
 
+def test_the_search_mode_and_model_size_can_be_chosen_before_an_album(win):
+    assert win._mode.isEnabled() and win._size.isEnabled()
+    assert not win._btn_auto.isEnabled()
+
+
 def test_the_chosen_model_size_is_downloaded_used_and_remembered(
     win, album, monkeypatch
 ):
@@ -203,9 +208,10 @@ def test_the_chosen_model_size_is_downloaded_used_and_remembered(
     assert "MB" in win._size.currentText()
     win._size.setCurrentIndex(win._size.findData("florence-2-base"))
     win._on_recognize()
-    assert not win._size.isEnabled()
+    assert not win._size.isEnabled() and not win._mode.isEnabled()
     assert win._worker.wait(10000)
     _app.processEvents()
+    assert win._size.isEnabled() and win._mode.isEnabled()
     assert asked == ["florence-2-base"]
     stamp = indexer.load(album)["photos"][0]["recognition"]["ocr"]["engine"]
     assert stamp == recognition.engine_id("florence-2-base")
