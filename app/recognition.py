@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import re
 import sqlite3
 import tempfile
 from collections.abc import Callable
@@ -42,11 +43,16 @@ class Report:
     seeds: int = 0
 
 
+def _loose(bib):
+    """A protocol may pad or case a bib differently from the plate ("007", "a12")."""
+    return re.sub(r"(?<!\d)0+(?=\d)", "", bib.upper())
+
+
 def _classified(observation, method, lock, starters):
     state = observation.get("state", "candidate")
     if method == "ocr":
         # Derived again on every run, so a changed start protocol needs no new read.
-        if starters and observation["value"] not in starters:
+        if starters and _loose(observation["value"]) not in starters:
             return {**observation, "state": "rejected"}
         # Any bib format is accepted alike: races use letters too ("A12").
         needed = ACCEPT_LONE_DIGIT if len(observation["value"]) == 1 else ACCEPT_OCR
@@ -318,6 +324,7 @@ def run(
     ``starters`` (the start protocol, when given) are kept as rejected.
     """
     report = Report()
+    starters = frozenset(map(_loose, starters))
     try:
         _ocr(
             folder, index, engine, appearance, size, starters, progress, cancel, report
