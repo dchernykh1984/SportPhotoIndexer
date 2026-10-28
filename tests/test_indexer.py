@@ -140,6 +140,20 @@ def test_a_csv_sets_bibs_and_names_unknown_files(album, tmp_path):
     assert indexer.bibs_of(index["photos"][0]) == ["12", "7"]
 
 
+def test_a_start_protocol_gives_the_first_field_of_each_line(tmp_path):
+    protocol = tmp_path / "start.txt"
+    protocol.write_text(
+        "1#Name One#Men 2011-1991#2#1#2010##City#Road#0 00:00:00.000#\n"
+        "\n"
+        " A12 #Name Two#Women#\n"
+        "007;Name Three\n"
+        "40,Name Four\n"
+        "#no bib on this line\n",
+        encoding="utf-8",
+    )
+    assert indexer.read_starters(protocol) == {"1", "A12", "007", "40"}
+
+
 def test_an_unreadable_index_is_reported_not_overwritten(album):
     (album / INDEX_FILE).write_text("{oops", encoding="utf-8")
     with pytest.raises(indexer.IndexError_):
