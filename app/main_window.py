@@ -399,8 +399,8 @@ class MainWindow(QMainWindow):
         self._protocol = Path(remembered) if remembered else None
         self._show_protocol()
 
-    def rescan(self, keep_place: bool = False) -> bool:
-        # Rescan folder's clicked signal passes False here.
+    def rescan(self, *, keep_place: bool = False) -> bool:
+        # Keyword only: the button's clicked signal passes its checked state, not this.
         try:
             return self._rescan(keep_place)
         finally:

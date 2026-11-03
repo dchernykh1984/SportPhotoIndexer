@@ -372,6 +372,16 @@ def test_ticking_previews_does_not_show_the_first_unchecked_photo_on_the_way(
     assert win._list.currentRow() == 2
 
 
+def test_the_rescan_button_goes_to_the_first_unchecked_photo_whatever_it_passes(
+    win, album
+):
+    win.open_folder(album)
+    win._list.setCurrentRow(2)
+    win._btn_rescan.setCheckable(True)  # clicked then passes True
+    win._btn_rescan.click()
+    assert win._list.currentRow() == 0
+
+
 def test_ticking_previews_shows_no_other_photo_when_one_is_added_above(
     win, album, monkeypatch
 ):
