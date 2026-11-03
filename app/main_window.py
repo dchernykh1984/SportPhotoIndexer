@@ -303,8 +303,9 @@ class MainWindow(QMainWindow):
         # The folder check makes the previews, so ticking the box runs it at once
         # instead of waiting for the next Open folder or Rescan folder. The box is off
         # while a check runs.
-        if on and self._folder is not None:
-            self.rescan(keep_place=True)
+        if on and self._folder is not None and not self.rescan(keep_place=True):
+            # Stopped or failed: no previews were made, and ticking again retries.
+            self._chk_previews.setChecked(False)
 
     def _on_size(self) -> None:
         settings.save({**settings.load(), "model_size": self._size.currentData()})

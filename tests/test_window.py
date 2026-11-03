@@ -74,10 +74,10 @@ def test_the_last_folder_is_reopened(monkeypatch, album):
 def test_a_broken_photo_does_not_escape_rescan_or_replace_the_open_album(
     win, album, monkeypatch
 ):
+    win._chk_previews.setChecked(True)  # before a folder is open: nothing to check
     win.open_folder(album)
     before = indexer.load(album)
     (album / "broken.jpg").write_text("not an image", encoding="utf-8")
-    win._chk_previews.setChecked(True)
     warnings = []
     monkeypatch.setattr(
         mw.QMessageBox, "warning", lambda *args: warnings.append(str(args[-1]))
@@ -380,6 +380,14 @@ def test_the_rescan_button_goes_to_the_first_unchecked_photo_whatever_it_passes(
     win._btn_rescan.setCheckable(True)  # clicked then passes True
     win._btn_rescan.click()
     assert win._list.currentRow() == 0
+
+
+def test_ticking_previews_is_undone_when_the_folder_check_does_not_finish(win, album):
+    win.open_folder(album)
+    (album / "broken.jpg").write_text("not an image", encoding="utf-8")
+    win._chk_previews.setChecked(True)
+    assert not win._chk_previews.isChecked()
+    assert win._list.count() == 3
 
 
 def test_ticking_previews_shows_no_other_photo_when_one_is_added_above(
