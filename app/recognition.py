@@ -203,11 +203,7 @@ def _merge(photo, method, observations, starters=None):
     # ahead of reads the protocol rejected, which then may not survive a cleared one.
     automatic = sorted(
         [*retained, *choices.values()],
-        key=lambda b: (
-            b["state"] != "rejected",
-            b["state"] == "accepted",
-            b.get("confidence") or 0,
-        ),
+        key=lambda b: (b["state"] != "rejected", *_rank(b)),
         reverse=True,
     )
     photo["bibs"] = manual + automatic[: max(0, MAX_BIBS_PER_PHOTO - len(manual))]
