@@ -272,6 +272,20 @@ def test_a_face_is_compared_with_every_reference_in_one_product():
     assert list(recognition._likeness(table, shown, faces[3])) == [-2.0, -2.0]
 
 
+def test_stop_while_matching_keeps_the_photos_matched_so_far(album):
+    data = prepared(album)
+    stopped = False
+
+    def progress(phase, n, total):
+        nonlocal stopped
+        stopped = phase == "Matching rider appearance" and n == 2
+
+    report = run(album, data, FakeVision(), progress=progress, cancel=lambda: stopped)
+    assert report.cancelled
+    states = [p["processing_state"] for p in indexer.load(album)["photos"]]
+    assert states == ["processed", "processed", "pending"]
+
+
 def test_appearance_respects_the_bib_already_known_for_the_same_rider_crop(album):
     data = prepared(album)
     engine = FakeVision()
