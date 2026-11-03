@@ -610,6 +610,10 @@ class MainWindow(QMainWindow):
         starters = self._starters(self._protocol) if self._protocol else frozenset()
         if self._protocol and not starters:
             return
+        # The folder check makes the previews: with the box ticked a search starts
+        # with one, as Rescan folder does, and goes on with the album as it now is.
+        if self._chk_previews.isChecked() and not self.rescan(keep_place=True):
+            return
         self._set_enabled(False)
         self._set_running(True)
         self._worker = RecognitionWorker(
