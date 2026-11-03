@@ -1,5 +1,62 @@
 # Changelog
 
+## [0.9.0](https://github.com/dchernykh1984/SportPhotoIndexer/compare/sport-photo-indexer-v0.8.2...sport-photo-indexer-v0.9.0) (2026-11-03)
+
+
+### Features
+
+* make the previews at once when Make a preview of every photo is ticked ([acbd090](https://github.com/dchernykh1984/SportPhotoIndexer/commit/acbd090dbab8c0506c0563b8a40e9f12f813d035))
+
+
+### Bug Fixes
+
+* go straight to the photo to show after a folder check, without showing the one now in its old row ([15dbfa7](https://github.com/dchernykh1984/SportPhotoIndexer/commit/15dbfa72e542a3bc2feb77dfda1ccfe262d8d801))
+* hold back only reads of the print's own size, not of riders with following bibs beside it ([9261404](https://github.com/dchernykh1984/SportPhotoIndexer/commit/9261404a9e8080f8b363f527ae4758cbaa96e018))
+* judge a lone digit as one even when the protocol spells it longer ([ed17628](https://github.com/dchernykh1984/SportPhotoIndexer/commit/ed176288a35dc5dc93d6c7eaa3bb48d8afaaf360))
+* keep a board's numbers held back on reruns from saved reads, where its pairs may be gone ([02af709](https://github.com/dchernykh1984/SportPhotoIndexer/commit/02af7091e74011e61a4c98fdf05b29daadb78cbf))
+* keep a podium's steps from being accepted on a rerun when the protocol pads them ([492d985](https://github.com/dchernykh1984/SportPhotoIndexer/commit/492d985a9b686ff0949a9e2b8038420014be3519))
+* keep a rider's accepted bib among a photo's twenty ahead of a board's numbers held back ([087d6e7](https://github.com/dchernykh1984/SportPhotoIndexer/commit/087d6e7b74a42dcb1b0dfe989175c080d9e99b51))
+* keep a rider's plate bib accepted when a board beside shows the same number ([2f6396f](https://github.com/dchernykh1984/SportPhotoIndexer/commit/2f6396f71b64d5133a462af2c57855e7232e12c2))
+* keep previews that still match their photo instead of making them all again on every rescan ([669dd6a](https://github.com/dchernykh1984/SportPhotoIndexer/commit/669dd6a20727fbf29ea043704829cbe8948f8358))
+* keep riders with following lone-digit bibs side by side accepted; only 2 and 3 are a podium ([5f30bac](https://github.com/dchernykh1984/SportPhotoIndexer/commit/5f30bac4280e0349d6284a9a07879f707fa691e8))
+* keep the photo shown and bibs typed but not saved when previews are ticked ([a8803d3](https://github.com/dchernykh1984/SportPhotoIndexer/commit/a8803d3bc826f34f92244ea51db65f4c036729ba))
+* keep three teammates with following bibs in one row accepted; a board has two rows ([2cc891b](https://github.com/dchernykh1984/SportPhotoIndexer/commit/2cc891bad81fda84133c30221fdd704aef09ecc2))
+* keep two riders' following bibs and a rider's own plate accepted beside printed rows of numbers ([3bc481b](https://github.com/dchernykh1984/SportPhotoIndexer/commit/3bc481b8086a92766e7766ed97585545cae1caa8))
+* let a digit written small in an edited index stop no rerun from saved reads ([ae5e726](https://github.com/dchernykh1984/SportPhotoIndexer/commit/ae5e726541567191c53a5c6a2159973e3b592da3))
+* let a stray lone digit beside a rider's bib not stop it naming the rider elsewhere ([699cd1a](https://github.com/dchernykh1984/SportPhotoIndexer/commit/699cd1a9af2e6b10acea0582b067bd12ae825a8c))
+* let no lone digit read by OCR name riders on other photos ([babf408](https://github.com/dchernykh1984/SportPhotoIndexer/commit/babf408a3ed8ec9aeea4ef2ae4745b663841c39f))
+* let no rider with two bibs in the box name riders on other photos ([6f8d03c](https://github.com/dchernykh1984/SportPhotoIndexer/commit/6f8d03c9fd6c3f2339d4c26ba9f970338e9df010))
+* let no weak misread beside a bib make a row of printed numbers ([a324ccd](https://github.com/dchernykh1984/SportPhotoIndexer/commit/a324ccd9e13d4b344a0261238a7d8f04d5ed4a39))
+* measure the gap between printed numbers in their widths, whatever the photo's shape ([8f05388](https://github.com/dchernykh1984/SportPhotoIndexer/commit/8f05388f1b4d86852a67d77ccfff5b3d1fc2072a))
+* put back no bibs typed for a photo that changed on disk while previews are ticked ([6b214d1](https://github.com/dchernykh1984/SportPhotoIndexer/commit/6b214d122f8f748f6c0a28a9b75008cd729341ca))
+* rank a rider's bibs among those still free on the photo, so a teammate's accepted bib takes no suggestion away ([87db8e3](https://github.com/dchernykh1984/SportPhotoIndexer/commit/87db8e3e0c3e9d1f689cd8627d7dfcc0614e2417))
+* record which reads are print instead of guessing it from a saved candidate's confidence ([0f6cb88](https://github.com/dchernykh1984/SportPhotoIndexer/commit/0f6cb888434be9ae952dbfa691fc9158b1f7f384))
+* remember print by its values, not full-precision boxes, to keep the published index small ([b774ba4](https://github.com/dchernykh1984/SportPhotoIndexer/commit/b774ba46cba922c7b3f8bae5c9aa0cf60762a2d6))
+* stay on the photo shown while ticking previews checks the folder, without a detour to the first unchecked ([a277a98](https://github.com/dchernykh1984/SportPhotoIndexer/commit/a277a98431bd218cb8f10bcc52615435a7053630))
+* stop accepting numbers that follow each other in a row, as on a sign-in board or a podium ([b259e1e](https://github.com/dchernykh1984/SportPhotoIndexer/commit/b259e1ed90454fa6ee84457ff51efb260656ab4d))
+* suggest bibs for a rider named only by a lone digit read by OCR, as for one without a bib ([91a9814](https://github.com/dchernykh1984/SportPhotoIndexer/commit/91a9814dfda54436ce6afe177cbd8de3888f256f))
+* suggest no other bib for a rider whose accepted lone digit already names them ([57a986a](https://github.com/dchernykh1984/SportPhotoIndexer/commit/57a986aed3f19aaadecd522746a75ce05bfd9ff5))
+* suggest without faces only the bib that leads the next one, not every bib above the threshold ([7e31e93](https://github.com/dchernykh1984/SportPhotoIndexer/commit/7e31e93fcbb0450585baaa748456d930661ee36f))
+* take no riders 2 and 3 among other riders on a start line for a podium's steps ([35d548c](https://github.com/dchernykh1984/SportPhotoIndexer/commit/35d548c62ff2406f77a96770a854767ba00dce21))
+* take no start grid of riders with following bibs for a sign-in board ([353bc83](https://github.com/dchernykh1984/SportPhotoIndexer/commit/353bc83cfaf4b2314be1464e5c1318f4e05f914c))
+* take no start line of riders 1, 2, 3 and 4 for a podium's steps ([39ef71c](https://github.com/dchernykh1984/SportPhotoIndexer/commit/39ef71c62605ff11b835da4a4688731fc0070013))
+* take no two rows of different sizes, near and far, for a sign-in board ([89896af](https://github.com/dchernykh1984/SportPhotoIndexer/commit/89896af97d068029a297191863086112e93c3786))
+* take no two touching halves of one bib for a row of printed numbers ([ee84c23](https://github.com/dchernykh1984/SportPhotoIndexer/commit/ee84c234769c74b2b2135304e34833a812429b69))
+* untick Make a preview of every photo when the folder check it started does not finish ([3b2e4a8](https://github.com/dchernykh1984/SportPhotoIndexer/commit/3b2e4a808d24b534167387cdd88b7a96bd1de839))
+
+
+### Documentation
+
+* describe a board as rows of one size, spare a start line, and name the team photo it still takes for one ([939160b](https://github.com/dchernykh1984/SportPhotoIndexer/commit/939160b4556a006095019bbe6044e495b8da1c66))
+* describe the row rule as it now is and give its final effect on the labelled races ([497b479](https://github.com/dchernykh1984/SportPhotoIndexer/commit/497b4796ebff3b738b93181daf3c8581b94269fc))
+* give the effect of the row rule and the cleaner references on the labelled races ([7fcd864](https://github.com/dchernykh1984/SportPhotoIndexer/commit/7fcd86401d170ac66d6a5f18db87c791dc2eabdf))
+* give the final rules' numbers on Sokol, with the suggestions the last two added ([844ffbf](https://github.com/dchernykh1984/SportPhotoIndexer/commit/844ffbf04523473d55483437fb41a635e975fa98))
+* name riders 2 and 3 alone side by side among the photos held back as print ([2c8af5d](https://github.com/dchernykh1984/SportPhotoIndexer/commit/2c8af5dda31d9873d2eb964866c9f47ecc7f8034))
+* say in _printed how far apart rows of riders must stand to be spared ([38a2405](https://github.com/dchernykh1984/SportPhotoIndexer/commit/38a2405926302311438eca5fe300e2dfd4ce2adc))
+* say that a board's numbers are close together and stay held back on later runs ([e47620f](https://github.com/dchernykh1984/SportPhotoIndexer/commit/e47620f3c5c75b04a8727e9b64c6ad38b696d8aa))
+* say why vision judges a lone digit as read, before any start protocol ([aa0f263](https://github.com/dchernykh1984/SportPhotoIndexer/commit/aa0f263aa3af6ad35e2a296b74283922c5548802))
+* tell how to make the previews again now that matching ones are kept ([b687e3c](https://github.com/dchernykh1984/SportPhotoIndexer/commit/b687e3c10fa786041fe29b3b81ec89c4f8741d52))
+
 ## [0.8.2](https://github.com/dchernykh1984/SportPhotoIndexer/compare/sport-photo-indexer-v0.8.1...sport-photo-indexer-v0.8.2) (2026-11-03)
 
 
