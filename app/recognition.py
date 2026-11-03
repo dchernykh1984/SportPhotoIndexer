@@ -8,7 +8,7 @@ import re
 import sqlite3
 import tempfile
 from collections.abc import Callable
-from contextlib import closing
+from contextlib import closing, contextmanager, suppress
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -104,6 +104,20 @@ def _checkpoint(folder, index):
     indexer.save(folder, index)
 
 
+@contextmanager
+def _saved_once(folder, index):
+    """Save the index once when a pass ends, also when it is stopped: each save
+    rewrites the whole index. An error that ends the pass wins over one the save
+    raises then, so a Stop still reads as a Stop."""
+    try:
+        yield
+    except BaseException:
+        with suppress(indexer.IndexError_, OSError):
+            _checkpoint(folder, index)
+        raise
+    _checkpoint(folder, index)
+
+
 def _without_orphans(folder, index):
     """Drop suggestions of bibs no longer accepted anywhere, such as one the start
     protocol now rejects; a run with appearance recomputes them all anyway."""
@@ -127,7 +141,7 @@ def _ocr(folder, index, engine, appearance, size, starters, progress, cancel, re
     total = len(index["photos"])
     pending = []
     cached = 0
-    try:
+    with _saved_once(folder, index):  # before the new reads, too
         for photo in index["photos"]:
             check_cancel(cancel)
             stamp = {"sha256": photo["original"]["sha256"], "engine": engine_name}
@@ -147,10 +161,6 @@ def _ocr(folder, index, engine, appearance, size, starters, progress, cancel, re
                     photo["processing_state"] = "failed"
                     photo["recognition_error"] = str(exc)[:500]
                     report.errors.append(f"{photo['original']['path']}: {exc}")
-    finally:
-        # Once, also when stopped, and before the new reads: each save rewrites the
-        # whole index.
-        _checkpoint(folder, index)
     completed = total - len(pending)
     with closing(results(folder, pending, engine, "ocr", cancel)) as computed:
         for photo, (readings, error) in computed:
@@ -302,7 +312,7 @@ def _face_matches(body, likeness, values, owners, photo_id):
 
 
 def _appearance(folder, index, engine, db, faces, progress, cancel, report):
-    try:
+    with _saved_once(folder, index):
         values, owners, seeds, references = _references(
             folder, index, engine, db, progress, cancel, report
         )
@@ -356,9 +366,6 @@ def _appearance(folder, index, engine, db, faces, progress, cancel, report):
                     )
             _merge(photo, "appearance", observations)
             photo["processing_state"] = "processed"
-    finally:
-        # Once, also when stopped: each save rewrites the whole index.
-        _checkpoint(folder, index)
 
 
 def run(
