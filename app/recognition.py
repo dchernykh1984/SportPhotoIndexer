@@ -183,11 +183,16 @@ def _merge(photo, method, observations, starters=None):
         # board's 54 must not take the place of the 54 on a rider's plate.
         if value not in choices or _rank(observation) > _rank(choices[value]):
             choices[value] = observation
-    # The site takes at most MAX_BIBS_PER_PHOTO: bibs still in play keep their place
+    # The site takes at most MAX_BIBS_PER_PHOTO: accepted bibs keep their place ahead
+    # of candidates, such as a board's surer numbers held back, and bibs still in play
     # ahead of reads the protocol rejected, which then may not survive a cleared one.
     automatic = sorted(
         [*retained, *choices.values()],
-        key=lambda b: (b["state"] != "rejected", b.get("confidence") or 0),
+        key=lambda b: (
+            b["state"] != "rejected",
+            b["state"] == "accepted",
+            b.get("confidence") or 0,
+        ),
         reverse=True,
     )
     photo["bibs"] = manual + automatic[: max(0, MAX_BIBS_PER_PHOTO - len(manual))]
