@@ -184,12 +184,15 @@ What was wrong:
 | Album | Rules | Accepted: visible | Accepted: wrong | All: visible | All: without a bib | All: wrong |
 | --- | --- | ---: | ---: | ---: | ---: | ---: |
 | Sokol | before | 515 of 643 | 1251 of 1927 | 569 of 643 | 243 of 1104 | 2048 of 2860 |
-| Sokol | after | 512 of 643 | **587 of 1247** | 570 of 643 | **280 of 1104** | 1979 of 2829 |
+| Sokol | after | 512 of 643 | **587 of 1247** | 571 of 643 | **288 of 1104** | 2001 of 2860 |
 | UBT TT | before | 31 of 45 | 12 of 43 | 33 of 45 | 8 of 141 | 34 of 75 |
 | UBT TT | after | 31 of 45 | 12 of 43 | 33 of 45 | 8 of 141 | **20 of 61** |
 
 The 3 visible bibs Sokol lost from the accepted ones, riders' own numbers read on the
-sign-in board, stay candidates. By eye (on the first version of the rules): of 16
+sign-in board, stay candidates. The last two rules there, suggestions for a rider named
+only by a lone digit read by OCR and a lead counted among the bibs still free on the
+photo, added 31 suggestions: 8 more riders without a readable bib and 1 more visible
+bib, 22 the labels lack. By eye (on the first version of the rules): of 16
 suggestions the rules removed there, most showed the right person with a bib misread on
 the reference (a lone digit); of 16 they added, about 12 showed the right person.
 Neither rule flagged any saved read of Alatau XCO (500 photos, no longer available to
