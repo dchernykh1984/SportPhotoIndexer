@@ -269,9 +269,9 @@ def _face_table(references):
     shown = np.array([f is not None for f in references], dtype=bool)
     if not shown.any():
         return None
-    table = np.zeros((len(references), len(references[shown.argmax()])), np.float32)
-    for i in np.flatnonzero(shown):
-        table[i] = references[i]
+    faces = np.stack([f for f in references if f is not None])
+    table = np.zeros((len(references), faces.shape[1]), np.float32)
+    table[shown] = faces
     return table, shown
 
 
