@@ -310,14 +310,16 @@ def _references(folder, index, engine, db, progress, cancel, report):
             "SELECT vector, face, known_bibs FROM crops WHERE photo_id=?",
             (photo["id"],),
         ):
-            bibs = json.loads(known)
-            # Two bibs in one rider's box name neither of them for sure. A lone digit
-            # read by OCR is too often a logo, a finger or a piece of a longer bib to
-            # name anybody (7% right on the Sokol race); a typed one is sure.
-            if len(bibs) == 1 and not any(
-                _lone(value) and method != "manual" for value, method in bibs.items()
-            ):
-                values.extend(bibs)
+            # A lone digit read by OCR is too often a logo, a finger or a piece of a
+            # longer bib to name anybody (7% right on the Sokol race); a typed one is
+            # sure. Two bibs left in one rider's box name neither of them for sure.
+            trusted = [
+                value
+                for value, method in json.loads(known).items()
+                if method == "manual" or not _lone(value)
+            ]
+            if len(trusted) == 1:
+                values.extend(trusted)
                 owners.append(photo["id"])
                 seeds.append(np.frombuffer(vector, dtype=np.float32))
                 references.append(_vector(face))

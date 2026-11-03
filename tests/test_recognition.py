@@ -179,6 +179,14 @@ def test_a_rider_with_an_accepted_lone_digit_gets_no_other_bib_suggested(album):
     assert [b["value"] for b in data["photos"][1]["bibs"]] == ["7"]
 
 
+def test_a_stray_lone_digit_beside_a_rider_s_bib_does_not_stop_it_seeding(album):
+    data = prepared(album)
+    engine = FakeVision()
+    engine.readings[0].append(Reading("1", 0.999, (0.5, 0.6, 0.05, 0.1)))  # a logo
+    assert run(album, data, engine).seeds == 1
+    assert [b["value"] for b in data["photos"][1]["bibs"]] == ["012"]
+
+
 def test_a_typed_lone_digit_still_seeds_the_same_rider_elsewhere(album):
     data = prepared(album)
     indexer.set_bibs(data, data["photos"][0]["id"], ["7"])
