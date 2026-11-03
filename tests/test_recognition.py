@@ -231,7 +231,9 @@ def test_checking_saved_bib_numbers_saves_the_index_once(album, monkeypatch):
     assert saves == ["Checking saved bib numbers"]
 
 
-def test_each_photo_is_hashed_once_for_appearance(album, monkeypatch):
+def test_appearance_hashes_each_photo_once_where_its_bibs_are_written(
+    album, monkeypatch
+):
     data = prepared(album)
     phases, hashed = [None], []
     real = recognition._verify
@@ -242,8 +244,21 @@ def test_each_photo_is_hashed_once_for_appearance(album, monkeypatch):
 
     monkeypatch.setattr(recognition, "_verify", counted)
     run(album, data, FakeVision(), progress=lambda p, n, t: phases.append(p))
-    assert "Matching rider appearance" not in hashed
-    assert hashed.count("Finding rider references") == len(data["photos"])
+    assert "Finding rider references" not in hashed
+    assert hashed.count("Matching rider appearance") == len(data["photos"])
+
+
+def test_a_photo_changed_before_its_appearance_is_written_is_not_published(album):
+    data = prepared(album)
+
+    def progress(phase, n, total):
+        if phase == "Matching rider appearance" and n == 1:
+            make_photo(album, "IMG_0002.jpg", "black")
+
+    with pytest.raises(recognition.ChangedPhotoError):
+        run(album, data, FakeVision(), progress=progress)
+    saved = indexer.load(album)["photos"][1]["bibs"]
+    assert all(b["method"] != "appearance" for b in saved)
 
 
 def test_a_face_is_compared_with_every_reference_in_one_product():
