@@ -298,52 +298,59 @@ def _face_matches(body, likeness, values, owners, photo_id):
 
 
 def _appearance(folder, index, engine, db, faces, progress, cancel, report):
-    values, owners, seeds, references = _references(
-        folder, index, engine, db, progress, cancel, report
-    )
-    table, shown = _face_table(references)
-    for n, photo in enumerate(index["photos"], 1):
-        check_cancel(cancel)
-        progress("Matching rider appearance", n, len(index["photos"]))
-        if photo["processing_state"] == "failed":
-            continue
-        _verify(folder, photo)
-        observations = []
-        for region, vector, face, known in db.execute(
-            "SELECT region, vector, face, known_bibs FROM crops WHERE photo_id=?",
-            (photo["id"],),
-        ):
-            if not len(seeds):
-                break
-            if json.loads(known):
-                continue  # an unambiguous accepted bib already identifies this crop
-            scores = seeds @ np.frombuffer(vector, dtype=np.float32)
-            if faces:
-                query = _vector(face)
-                likeness = None if query is None else _likeness(table, shown, query)
-                matches = _face_matches(scores, likeness, values, owners, photo["id"])
-            else:
-                matches = [
-                    (values[i], scores[i])
-                    for i in np.flatnonzero(scores >= APPEARANCE_THRESHOLD)
-                ]
-            for value, score in matches:
-                observations.append(
-                    {
-                        "value": value,
-                        "method": "appearance",
-                        "state": "candidate",
-                        "confidence": float(np.clip(score, 0, 1)),
-                        "region": dict(
-                            zip(("x", "y", "w", "h"), json.loads(region), strict=True)
-                        ),
-                    }
-                )
-        _merge(photo, "appearance", observations)
-        photo["processing_state"] = "processed"
-    # Once: each save rewrites the whole index, and a stopped run recomputes
-    # appearance anyway.
-    _checkpoint(folder, index)
+    try:
+        values, owners, seeds, references = _references(
+            folder, index, engine, db, progress, cancel, report
+        )
+        table, shown = _face_table(references)
+        for n, photo in enumerate(index["photos"], 1):
+            check_cancel(cancel)
+            progress("Matching rider appearance", n, len(index["photos"]))
+            if photo["processing_state"] == "failed":
+                continue
+            _verify(folder, photo)
+            observations = []
+            for region, vector, face, known in db.execute(
+                "SELECT region, vector, face, known_bibs FROM crops WHERE photo_id=?",
+                (photo["id"],),
+            ):
+                if not len(seeds):
+                    break
+                if json.loads(known):
+                    continue  # an unambiguous accepted bib already identifies this crop
+                scores = seeds @ np.frombuffer(vector, dtype=np.float32)
+                if faces:
+                    query = _vector(face)
+                    likeness = None if query is None else _likeness(table, shown, query)
+                    matches = _face_matches(
+                        scores, likeness, values, owners, photo["id"]
+                    )
+                else:
+                    matches = [
+                        (values[i], scores[i])
+                        for i in np.flatnonzero(scores >= APPEARANCE_THRESHOLD)
+                    ]
+                for value, score in matches:
+                    observations.append(
+                        {
+                            "value": value,
+                            "method": "appearance",
+                            "state": "candidate",
+                            "confidence": float(np.clip(score, 0, 1)),
+                            "region": dict(
+                                zip(
+                                    ("x", "y", "w", "h"),
+                                    json.loads(region),
+                                    strict=True,
+                                )
+                            ),
+                        }
+                    )
+            _merge(photo, "appearance", observations)
+            photo["processing_state"] = "processed"
+    finally:
+        # Once, also when stopped: each save rewrites the whole index.
+        _checkpoint(folder, index)
 
 
 def run(
