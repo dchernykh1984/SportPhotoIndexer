@@ -134,10 +134,14 @@ def _merge(photo, method, observations, starters=None):
     retained = [b for b in photo["bibs"] if b["method"] not in (method, "manual")]
     accepted = {b["value"] for b in retained if b["state"] == "accepted"}
     choices = {}
-    printed = _printed(observations) if method == "ocr" else []
+    printed = {id(o) for o in _printed(observations)} if method == "ocr" else set()
     for read in observations:
         observation = _classified(read, method, lock, starters)
-        if any(read is p for p in printed) and observation["state"] == "accepted":
+        # A sure read saved as a candidate was held back as print, and stays so: a
+        # rerun sees the saved reads only, one per value and twenty at most, where the
+        # board's pairs may be gone.
+        held = method == "ocr" and read.get("state") == "candidate" and _sure(read)
+        if (id(read) in printed or held) and observation["state"] == "accepted":
             observation = {**observation, "state": "candidate"}  # for review only
         value = observation["value"]
         if value in reviewed or value in accepted:

@@ -132,6 +132,30 @@ def test_a_rider_s_plate_keeps_its_bib_when_the_board_shows_the_same_number(albu
     assert indexer.bibs_of(data["photos"][0]) == ["054"]
 
 
+BOARD = [("053", BIB_BOX), ("054", ROW), ("073", BELOW), ("074", BELOW_RIGHT)]
+
+
+@pytest.mark.parametrize(
+    ("reads", "accepted"),
+    [
+        # The plate's 054 takes the board's place among the saved reads.
+        ([*BOARD, ("054", (0.6, 0.75, 0.1, 0.2), 0.99)], ["054"]),
+        # 054 printed in both rows is saved once.
+        ([("053", BIB_BOX), ("054", ROW), ("054", BELOW), ("055", BELOW_RIGHT)], []),
+    ],
+)
+def test_a_board_held_back_once_stays_held_back_on_a_rerun(album, reads, accepted):
+    data = prepared(album)
+    engine = FakeVision()
+    engine.readings[0] = [
+        Reading(r[0], r[2] if len(r) > 2 else 0.999, r[1]) for r in reads
+    ]
+    run(album, data, engine, appearance=False)
+    assert indexer.bibs_of(data["photos"][0]) == accepted
+    run(album, data, engine, appearance=False)  # from the saved reads
+    assert indexer.bibs_of(data["photos"][0]) == accepted
+
+
 def test_a_weak_misread_beside_a_bib_makes_no_podium(album):
     data = prepared(album)
     engine = FakeVision()
