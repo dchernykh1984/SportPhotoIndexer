@@ -125,6 +125,32 @@ BELOW_RIGHT = (0.45, 0.605, 0.1, 0.11)
             ],
             {"2", "3", "4"},
         ),
+        # Riders 2 and 3 on a start line among other riders, beside or between them.
+        (
+            [
+                ("17", (0.1, 0.4, 0.05, 0.1)),
+                ("2", (0.3, 0.4, 0.03, 0.1)),
+                ("3", (0.5, 0.4, 0.03, 0.1)),
+            ],
+            {"17", "2", "3"},
+        ),
+        (
+            [
+                ("2", (0.1, 0.4, 0.03, 0.1)),
+                ("24", (0.3, 0.4, 0.05, 0.1)),
+                ("3", (0.5, 0.4, 0.03, 0.1)),
+            ],
+            {"2", "24", "3"},
+        ),
+        # A podium with the winner's 1 read between the steps 2 and 3.
+        (
+            [
+                ("2", (0.1, 0.5, 0.05, 0.1)),
+                ("1", (0.3, 0.45, 0.05, 0.1)),
+                ("3", (0.5, 0.5, 0.05, 0.1)),
+            ],
+            set(),
+        ),
         # Two teammates close together in front, two more far behind: no board.
         (
             [
