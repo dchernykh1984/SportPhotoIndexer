@@ -18,6 +18,12 @@ def load() -> dict:
 
 
 def save(values: dict) -> None:
+    """Kept when it can be: a program where it may not write forgets its settings
+    instead of failing what was asked (opening a folder, ticking a box)."""
     path = app_path(*_FILE)
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(json.dumps(values, ensure_ascii=False, indent=2), encoding="utf-8")
+    text = json.dumps(values, ensure_ascii=False, indent=2)
+    try:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(text, encoding="utf-8")
+    except OSError:
+        return
