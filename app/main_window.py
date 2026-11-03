@@ -620,7 +620,10 @@ class MainWindow(QMainWindow):
             return
         # The folder check makes the previews: with the box ticked a search starts
         # with one, as Rescan folder does, and goes on with the album as it now is.
-        if self._chk_previews.isChecked() and not self.rescan(keep_place=True):
+        # A close asked for meanwhile wins.
+        if self._chk_previews.isChecked() and (
+            not self.rescan(keep_place=True) or self._closing
+        ):
             return
         self._set_enabled(False)
         self._set_running(True)
