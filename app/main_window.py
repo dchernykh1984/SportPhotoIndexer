@@ -302,7 +302,7 @@ class MainWindow(QMainWindow):
     def _on_previews(self, on: bool) -> None:
         # The folder check makes the previews, so ticking the box runs it at once
         # instead of waiting for the next Open folder or Rescan folder.
-        if on and self._folder is not None and self._scanner is None:
+        if on and self._folder is not None:  # unclickable while a check runs
             self.rescan()
 
     def _on_size(self) -> None:
