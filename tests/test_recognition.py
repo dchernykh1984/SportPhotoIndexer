@@ -222,6 +222,21 @@ def test_a_rider_s_own_plate_of_another_size_stays_accepted_on_a_board(album):
     assert indexer.bibs_of(data["photos"][0]) == ["41"]
 
 
+def test_a_rider_s_bib_keeps_its_place_beside_twenty_numbers_of_a_board(album):
+    data = prepared(album)
+    engine = FakeVision()
+    board = [
+        Reading(str(first + i), 0.999, (0.02 + 0.09 * i, y, 0.05, 0.05))
+        for first, y in ((11, 0.1), (21, 0.2))
+        for i in range(10)
+    ]
+    plate = Reading("54", 0.96, (0.4, 0.6, 0.1, 0.2))
+    engine.readings[0] = [*board, plate]
+    run(album, data, engine, appearance=False)
+    assert len(data["photos"][0]["bibs"]) == 20
+    assert indexer.bibs_of(data["photos"][0]) == ["54"]
+
+
 def test_a_superscript_digit_in_an_edited_index_stops_no_rerun(album):
     data = prepared(album)
     engine = FakeVision()
