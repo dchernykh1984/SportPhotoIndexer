@@ -104,6 +104,18 @@ def test_a_remembered_previews_box_makes_them_as_the_last_album_reopens(
         w.deleteLater()
 
 
+@pytest.mark.parametrize("stored", ["false", "0", 1, None])
+def test_only_a_stored_true_ticks_the_previews_box(monkeypatch, stored):
+    monkeypatch.setattr(settings, "load", lambda: {"previews": stored})
+    monkeypatch.setattr(settings, "save", lambda values: None)
+    w = mw.MainWindow()
+    _app.processEvents()  # its reopen of the last album runs here, not in a later test
+    try:
+        assert not w._chk_previews.isChecked()
+    finally:
+        w.deleteLater()
+
+
 def test_an_unreadable_last_folder_does_not_prevent_starting(monkeypatch, album):
     monkeypatch.setattr(settings, "load", lambda: {"folder": str(album)})
     monkeypatch.setattr(settings, "save", lambda values: None)
