@@ -89,6 +89,21 @@ def test_a_broken_photo_does_not_escape_rescan_or_replace_the_open_album(
     assert win._list.count() == 3
 
 
+def test_a_remembered_previews_box_makes_them_as_the_last_album_reopens(
+    monkeypatch, album
+):
+    remembered = {"folder": str(album), "previews": True}
+    monkeypatch.setattr(settings, "load", lambda: dict(remembered))
+    monkeypatch.setattr(settings, "save", lambda values: None)
+    w = mw.MainWindow()
+    _app.processEvents()
+    try:
+        assert w._chk_previews.isChecked()
+        assert all("preview" in photo for photo in indexer.load(album)["photos"])
+    finally:
+        w.deleteLater()
+
+
 def test_an_unreadable_last_folder_does_not_prevent_starting(monkeypatch, album):
     monkeypatch.setattr(settings, "load", lambda: {"folder": str(album)})
     monkeypatch.setattr(settings, "save", lambda values: None)
@@ -407,12 +422,26 @@ def test_the_rescan_button_goes_to_the_first_unchecked_photo_whatever_it_passes(
     assert win._list.currentRow() == 0
 
 
-def test_ticking_previews_is_undone_when_the_folder_check_does_not_finish(win, album):
+def test_a_failed_folder_check_leaves_the_previews_box_ticked_for_the_next_one(
+    win, album
+):
     win.open_folder(album)
-    (album / "broken.heic").write_text("not an image", encoding="utf-8")
+    broken = album / "broken.heic"
+    broken.write_text("not an image", encoding="utf-8")
     win._chk_previews.setChecked(True)
-    assert not win._chk_previews.isChecked()
-    assert win._list.count() == 3
+    assert win._chk_previews.isChecked()
+    broken.unlink()
+    win.rescan()
+    assert all("preview" in photo for photo in indexer.load(album)["photos"])
+
+
+def test_the_previews_box_is_remembered_between_runs(win):
+    win._chk_previews.setChecked(True)
+    again = mw.MainWindow()
+    try:
+        assert again._chk_previews.isChecked()
+    finally:
+        again.deleteLater()
 
 
 def test_ticking_previews_shows_no_other_photo_when_one_is_added_above(
