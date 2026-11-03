@@ -144,6 +144,14 @@ def test_a_lone_digit_spelled_longer_by_the_protocol_is_judged_as_one(
     assert report.seeds == 0  # sure or not, a lone digit names nobody else
 
 
+def test_a_rider_with_an_accepted_lone_digit_gets_no_other_bib_suggested(album):
+    data = prepared(album)
+    engine = FakeVision()
+    engine.readings[1] = [Reading("7", 0.999, BIB_BOX)]  # green wears red's kit
+    run(album, data, engine)
+    assert [b["value"] for b in data["photos"][1]["bibs"]] == ["7"]
+
+
 def test_a_typed_lone_digit_still_seeds_the_same_rider_elsewhere(album):
     data = prepared(album)
     indexer.set_bibs(data, data["photos"][0]["id"], ["7"])
