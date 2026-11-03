@@ -127,6 +127,10 @@ def _printed(observations):
     return [o for o in numbers if low <= o["region"]["h"] <= high]
 
 
+def _rank(observation):
+    return (observation["state"] == "accepted", observation.get("confidence") or 0)
+
+
 def _merge(photo, method, observations, starters=None):
     manual = [b for b in photo["bibs"] if b["method"] == "manual"]
     reviewed = {b["value"] for b in manual}
@@ -142,9 +146,9 @@ def _merge(photo, method, observations, starters=None):
         value = observation["value"]
         if value in reviewed or value in accepted:
             continue
-        if value not in choices or (observation.get("confidence") or 0) > (
-            choices[value].get("confidence") or 0
-        ):
+        # An accepted read of a value wins over a surer one demoted as print: the
+        # board's 54 must not take the place of the 54 on a rider's plate.
+        if value not in choices or _rank(observation) > _rank(choices[value]):
             choices[value] = observation
     # The site takes at most MAX_BIBS_PER_PHOTO: bibs still in play keep their place
     # ahead of reads the protocol rejected, which then may not survive a cleared one.
