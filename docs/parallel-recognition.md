@@ -15,9 +15,10 @@ saved reads and the appearance pass save once, at the end of the pass or when it
 stopped; a crash loses only those passes, which are quick to redo, and appearance is
 recomputed after a restart anyway. Saving after every photo made the comparison of
 3049 photos take about 10 minutes on a test album and much longer on a real one, where
-the index had grown. It now takes about 3 seconds, 19 with faces, where each face is
-compared with all references in one matrix product, plus one hash of each photo that
-gets suggestions (3 ms for a 4 MB photo already in the cache).
+the index had grown. It now takes about 13 seconds, 30 with faces: each face is
+compared with all references in one matrix product, and each photo is hashed once
+before its result is written (3 ms for a 4 MB photo already in the cache), so that one
+changed since its references stops the run.
 
 The initial budget is the smaller of physical cores and `os.process_cpu_count()`.
 Hyperthreads do not count as additional physical cores. `psutil` supplies the physical
