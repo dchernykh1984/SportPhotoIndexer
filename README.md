@@ -18,7 +18,7 @@ their photos by bib, and in their own race album.
    separate JPEG preview for the app and site. Originals keep their format and bytes.
    *Make a preview of every photo* gives every photo one; ticking it checks the open
    folder again at once, and *Rescan folder* then keeps the previews coming for new
-   photos.
+   photos. A preview that still matches its photo is kept, not made again.
    A multi-image file contributes its primary image (HEIF) or first frame/page.
    AVIF needs Pillow's native AVIF codec, unavailable on Windows ARM64; an explicit
    error is shown there rather than silently leaving AVIF files out. HEIC/HEIF works
@@ -112,12 +112,15 @@ it found as many bibs and cut the wrong values from 36 to 14 (seat-post plates, 
 and from 70 to 61 (handlebar plates).
 
 Numbers printed in rows are not accepted: following numbers printed close together in
-two rows (a sign-in board) or the steps 2 and 3 of a podium make every read of that
-print's size a candidate for review, which names nobody for appearance, on later runs
-too. One row of following bibs, as riders side by side, and rows spaced like riders on
-a start grid stay accepted. On a 3049-photo road race with a sign-in
-board this cut the accepted values nobody wore from 1251 to 587; 3 visible bibs, the
-riders' own numbers read on the board, went from accepted to candidates.
+two rows of one size (a sign-in board) or the steps 2 and 3 of a podium make every read
+of that print's size a candidate for review, which names nobody for appearance, on
+later runs too. One row of following bibs, as riders side by side, rows spaced like
+riders on a start grid, and riders 1, 2, 3 and 4 side by side on a start line stay
+accepted. A team with following bibs posing close together in two rows looks like a
+board and is held back too: look for such photos among the candidates. On a 3049-photo
+road race with a sign-in board this cut the accepted values nobody wore from 1251 to
+587; 3 visible bibs, the riders' own numbers read on the board, went from accepted to
+candidates.
 
 The appearance phase uses whole-person crops (kit, helmet and build, plus bike pixels
 inside the crop). It searches **only this album**: put one
