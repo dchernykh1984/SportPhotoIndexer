@@ -317,7 +317,9 @@ def test_a_photo_failing_its_references_is_saved_with_the_pass(album, monkeypatc
     progress, saves = saves_by_phase(monkeypatch)
     run(album, data, Unreadable(), progress=progress)
     assert "Finding rider references" not in saves
-    assert indexer.load(album)["photos"][1]["processing_state"] == "failed"
+    failed = indexer.load(album)["photos"][1]
+    assert failed["processing_state"] == "failed"
+    assert failed["recognition_error"] == "unreadable"
 
 
 def test_stop_while_checking_saved_reads_keeps_what_was_checked(album):
