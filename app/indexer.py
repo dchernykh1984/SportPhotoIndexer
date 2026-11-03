@@ -141,15 +141,20 @@ def check_decoder(path: Path) -> None:
         )
 
 
-def _make_preview(folder: Path, original: Path) -> Path:
+def _preview_image(original: Path) -> Image.Image:
+    """The photo upright and shrunk for its preview."""
     check_decoder(original)
+    with Image.open(original) as source:
+        img = ImageOps.exif_transpose(source).convert("RGB")
+    img.thumbnail((PREVIEW_SIDE, PREVIEW_SIDE))
+    return img
+
+
+def _make_preview(folder: Path, original: Path, img: Image.Image) -> Path:
     # The full name, so same.jpg and same.png do not share one preview.
     target = folder / PREVIEW_DIR / f"{original.name}.jpg"
     target.parent.mkdir(exist_ok=True)
-    with Image.open(original) as source:
-        img = ImageOps.exif_transpose(source).convert("RGB")
-        img.thumbnail((PREVIEW_SIDE, PREVIEW_SIDE))
-        img.save(target, "JPEG", quality=82, optimize=True)  # no EXIF: none is copied
+    img.save(target, "JPEG", quality=82, optimize=True)  # no EXIF: none is copied
     return target
 
 
@@ -250,7 +255,7 @@ def _refresh_preview(
     folder: Path, path: Path, photo: dict, needed: bool, report: ScanReport
 ) -> None:
     try:
-        preview = _make_preview(folder, path)
+        img = _preview_image(path)
     except (OSError, Image.DecompressionBombError) as exc:
         if needed:
             raise
@@ -259,6 +264,8 @@ def _refresh_preview(
         photo.pop("preview", None)
         report.no_preview.append(f"{path.name} ({exc})")
         return
+    # Writing it is another matter: a full disk or a read-only folder stops the check.
+    preview = _make_preview(folder, path, img)
     photo["preview"] = _asset(folder, preview, sha256_of(preview))
     report.previews += 1
 
