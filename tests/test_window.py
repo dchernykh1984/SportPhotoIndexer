@@ -372,6 +372,24 @@ def test_ticking_previews_does_not_show_the_first_unchecked_photo_on_the_way(
     assert win._list.currentRow() == 2
 
 
+def test_ticking_previews_shows_no_other_photo_when_one_is_added_above(
+    win, album, monkeypatch
+):
+    from tests.conftest import make_photo
+
+    win.open_folder(album)
+    win._list.setCurrentRow(2)
+    make_photo(album, "IMG_0000.jpg", "black")
+    shown = []
+    real = win._show_photo
+    monkeypatch.setattr(win, "_show_photo", lambda row: (shown.append(row), real(row)))
+    win._list.currentRowChanged.disconnect()
+    win._list.currentRowChanged.connect(win._show_photo)
+    win._chk_previews.setChecked(True)
+    assert shown == [3]
+    assert win._photo(3)["original"]["path"] == "IMG_0003.jpg"
+
+
 def test_ticking_previews_drops_bibs_typed_for_a_photo_that_changed_on_disk(win, album):
     from tests.conftest import make_photo
 

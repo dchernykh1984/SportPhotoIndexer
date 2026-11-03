@@ -431,27 +431,27 @@ class MainWindow(QMainWindow):
             return False
         self._index = index
         self._lbl_folder.setText(str(self._folder))
-        self._fill_list()
         self._set_enabled(bool(index["photos"]))
+        ids = [photo["id"] for photo in index["photos"]]
+        row = self._first_unchecked()
+        if shown is not None and shown["id"] in ids:
+            row = ids.index(shown["id"])
+        else:
+            shown = None
+        # Straight to the photo to show: the row shown before may hold another by now.
+        self._fill_list(row)
         notes = [
             f"{report.added} new, {report.changed} changed, {report.removed} gone,"
             f" {report.previews} previews",
             *report.messages,
         ]
         self._lbl_status.setText(self._summary() + " | " + "; ".join(notes))
-        ids = [photo["id"] for photo in index["photos"]]
-        if shown is not None and shown["id"] in ids:
-            row = ids.index(shown["id"])
-            self._list.setCurrentRow(row)
-            # A photo changed on disk lost its bibs in the check: what was typed for
-            # the old picture is not put back.
-            if (
-                index["photos"][row]["original"]["sha256"]
-                == shown["original"]["sha256"]
-            ):
-                self._edit_bibs.setText(typed)
-        else:
-            self._list.setCurrentRow(self._first_unchecked())
+        # A photo changed on disk lost its bibs in the check: what was typed for the
+        # old picture is not put back.
+        if shown is not None and (
+            index["photos"][row]["original"]["sha256"] == shown["original"]["sha256"]
+        ):
+            self._edit_bibs.setText(typed)
         return True
 
     def _scan(self, folder: Path) -> tuple[dict, indexer.ScanReport] | None:
@@ -525,8 +525,10 @@ class MainWindow(QMainWindow):
             f"  | check: {', '.join(dict.fromkeys(candidates))}" if candidates else ""
         )
 
-    def _fill_list(self) -> None:
-        row = self._list.currentRow()
+    def _fill_list(self, row: int | None = None) -> None:
+        """The list made again, on ``row`` or else on the row shown before."""
+        if row is None:
+            row = self._list.currentRow()
         self._list.blockSignals(True)
         self._list.clear()
         for photo in (self._index or {}).get("photos", []):
