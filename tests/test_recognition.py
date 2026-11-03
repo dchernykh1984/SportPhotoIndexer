@@ -231,9 +231,7 @@ def test_checking_saved_bib_numbers_saves_the_index_once(album, monkeypatch):
     assert saves == ["Checking saved bib numbers"]
 
 
-def test_appearance_hashes_each_photo_once_where_its_bibs_are_written(
-    album, monkeypatch
-):
+def test_appearance_hashes_only_the_photos_it_adds_suggestions_to(album, monkeypatch):
     data = prepared(album)
     phases, hashed = [None], []
     real = recognition._verify
@@ -245,7 +243,13 @@ def test_appearance_hashes_each_photo_once_where_its_bibs_are_written(
     monkeypatch.setattr(recognition, "_verify", counted)
     run(album, data, FakeVision(), progress=lambda p, n, t: phases.append(p))
     assert "Finding rider references" not in hashed
-    assert hashed.count("Matching rider appearance") == len(data["photos"])
+    suggested = [
+        p
+        for p in indexer.load(album)["photos"]
+        if any(b["method"] == "appearance" for b in p["bibs"])
+    ]
+    assert 0 < len(suggested) < len(data["photos"])
+    assert hashed.count("Matching rider appearance") == len(suggested)
 
 
 def test_a_photo_changed_before_its_appearance_is_written_is_not_published(album):

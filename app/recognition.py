@@ -322,7 +322,6 @@ def _appearance(folder, index, engine, db, faces, progress, cancel, report):
             progress("Matching rider appearance", n, len(index["photos"]))
             if photo["processing_state"] == "failed":
                 continue
-            _verify(folder, photo)
             observations = []
             for region, vector, face, known in db.execute(
                 "SELECT region, vector, face, known_bibs FROM crops WHERE photo_id=?",
@@ -364,6 +363,8 @@ def _appearance(folder, index, engine, db, faces, progress, cancel, report):
                             ),
                         }
                     )
+            if observations:  # only a photo that gets suggestions must be unchanged
+                _verify(folder, photo)
             _merge(photo, "appearance", observations)
             photo["processing_state"] = "processed"
 
