@@ -242,13 +242,10 @@ def _ocr(folder, index, engine, appearance, size, starters, progress, cancel, re
 
 
 def _known_bibs(photo, riders):
-    known = [set() for _ in riders]
+    """Each rider's accepted bibs, with the method that gave them."""
+    known: list[dict[str, str]] = [{} for _ in riders]
     for bib in photo["bibs"]:
         if bib["state"] != "accepted" or bib["method"] == "appearance":
-            continue
-        # A lone digit read by OCR is too often a logo, a finger or a piece of a
-        # longer bib to name anybody (7% right on the Sokol race); a typed one is sure.
-        if _lone(bib["value"]) and bib["method"] != "manual":
             continue
         region = bib.get("region")
         if region:
@@ -261,7 +258,7 @@ def _known_bibs(photo, riders):
         else:
             owners = []
         if len(owners) == 1:
-            known[owners[0]].add(bib["value"])
+            known[owners[0]].setdefault(bib["value"], bib["method"])
     return known
 
 
@@ -288,7 +285,7 @@ def _references(folder, index, engine, db, progress, cancel, report):
                         json.dumps(rider.region),
                         rider.vector.astype(np.float32).tobytes(),
                         _blob(rider.face),
-                        json.dumps(sorted(bibs)),
+                        json.dumps(bibs, sort_keys=True),
                     ),
                 )
     # Stable input order keeps equal-score suggestions deterministic across schedules.
@@ -298,9 +295,13 @@ def _references(folder, index, engine, db, progress, cancel, report):
             (photo["id"],),
         ):
             bibs = json.loads(known)
-            # Two bibs in one rider's box name neither of them for sure.
-            if len(bibs) == 1:
-                values.append(bibs[0])
+            # Two bibs in one rider's box name neither of them for sure. A lone digit
+            # read by OCR is too often a logo, a finger or a piece of a longer bib to
+            # name anybody (7% right on the Sokol race); a typed one is sure.
+            if len(bibs) == 1 and not any(
+                _lone(value) and method != "manual" for value, method in bibs.items()
+            ):
+                values.extend(bibs)
                 owners.append(photo["id"])
                 seeds.append(np.frombuffer(vector, dtype=np.float32))
                 references.append(_vector(face))
@@ -393,7 +394,7 @@ def _appearance(folder, index, engine, db, faces, progress, cancel, report):
             )
             for region, vector, face, known in crops:
                 if json.loads(known):
-                    continue  # an unambiguous accepted bib already identifies this crop
+                    continue  # an accepted bib already names this rider
                 scores = seeds @ np.frombuffer(vector, dtype=np.float32)
                 query = _vector(face)
                 likeness = (
