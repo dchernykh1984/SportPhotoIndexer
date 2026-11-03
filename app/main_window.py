@@ -301,20 +301,10 @@ class MainWindow(QMainWindow):
 
     def _on_previews(self, on: bool) -> None:
         # The folder check makes the previews, so ticking the box runs it at once
-        # instead of waiting for the next Open folder or Rescan folder; the photo
-        # shown and bibs typed but not saved stay. The box is off while a check runs.
-        if not on or self._folder is None:
-            return
-        shown = self._photo(self._list.currentRow())
-        typed = self._edit_bibs.text()
-        if self.rescan(keep_place=True) and shown is not None:
-            current = self._photo(self._list.currentRow())
-            # A photo changed on disk lost its bibs in the check: what was typed for
-            # the old picture is not put back.
-            if current is not None:
-                same = current["original"] == shown["original"]
-                saved = " ".join(indexer.bibs_of(current))
-                self._edit_bibs.setText(typed if same else saved)
+        # instead of waiting for the next Open folder or Rescan folder. The box is off
+        # while a check runs.
+        if on and self._folder is not None:
+            self.rescan(keep_place=True)
 
     def _on_size(self) -> None:
         settings.save({**settings.load(), "model_size": self._size.currentData()})
@@ -419,9 +409,11 @@ class MainWindow(QMainWindow):
                 QTimer.singleShot(0, self, self.close)
 
     def _rescan(self, keep_place: bool = False) -> bool:
+        """``keep_place``: the photo shown and bibs typed for it but not saved stay."""
         if self._folder is None:
             return False
         shown = self._photo(self._list.currentRow()) if keep_place else None
+        typed = self._edit_bibs.text()
         try:
             scanned = self._scan(self._folder)
         except (
@@ -449,7 +441,12 @@ class MainWindow(QMainWindow):
         self._lbl_status.setText(self._summary() + " | " + "; ".join(notes))
         ids = [photo["id"] for photo in index["photos"]]
         if shown is not None and shown["id"] in ids:
-            self._list.setCurrentRow(ids.index(shown["id"]))
+            row = ids.index(shown["id"])
+            self._list.setCurrentRow(row)
+            # A photo changed on disk lost its bibs in the check: what was typed for
+            # the old picture is not put back.
+            if index["photos"][row]["original"] == shown["original"]:
+                self._edit_bibs.setText(typed)
         else:
             self._list.setCurrentRow(self._first_unchecked())
         return True
