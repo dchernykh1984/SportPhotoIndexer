@@ -127,6 +127,21 @@ def test_previews_that_still_match_are_not_made_again(album, monkeypatch):
     assert report.previews == 0
 
 
+def test_a_photo_that_will_not_open_goes_without_the_preview_asked_for(album):
+    (album / "broken.jpg").write_text("not an image", encoding="utf-8")
+    index, report = indexer.scan(album, None, previews=True)
+    broken = next(p for p in index["photos"] if p["original"]["path"] == "broken.jpg")
+    assert "preview" not in broken
+    assert report.previews == 3
+    assert any("broken.jpg" in message for message in report.messages)
+
+
+def test_a_photo_that_needs_a_preview_and_will_not_open_stops_the_scan(album):
+    (album / "broken.heic").write_text("not an image", encoding="utf-8")
+    with pytest.raises(OSError, match=r"broken\.heic"):
+        indexer.scan(album, None)
+
+
 def test_a_bib_the_site_would_refuse_is_refused_when_typed():
     with pytest.raises(indexer.IndexError_, match="1 to 32"):
         indexer.parse_bibs("x" * 33)

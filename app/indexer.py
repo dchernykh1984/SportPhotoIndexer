@@ -62,6 +62,8 @@ class ScanReport:
     changed: int = 0
     stale_bibs: int = 0
     previews: int = 0
+    # Photos that would not open for a preview they could do without, and why.
+    no_preview: list[str] = field(default_factory=list)
     messages: list[str] = field(default_factory=list)
 
 
@@ -196,11 +198,11 @@ def scan(
             photo.pop("recognition_error", None)
             photo["processing_state"] = "pending"
         photo["original"] = _asset(folder, path, sha)
-        wanted = (
-            previews
-            or MEDIA_TYPES[path.suffix.lower()] not in PREVIEW_MEDIA_TYPES
+        needed = (
+            MEDIA_TYPES[path.suffix.lower()] not in PREVIEW_MEDIA_TYPES
             or path.stat().st_size > THUMBNAIL_LIMIT_BYTES
         )
+        wanted = previews or needed
         # A preview made from the old file would show the old picture: remake it.
         # One that still matches is kept, so a rescan does not make them all again.
         if (wanted and "preview" not in photo) or (
@@ -212,9 +214,7 @@ def scan(
                 != photo["preview"]["sha256"]
             )
         ):
-            preview = _make_preview(folder, path)
-            photo["preview"] = _asset(folder, preview, sha256_of(preview))
-            report.previews += 1
+            _refresh_preview(folder, path, photo, needed, report)
         photos.append(photo)
     gone = list(by_path.values())
     report.removed = len(gone)
@@ -238,7 +238,29 @@ def scan(
         report.messages.append(
             f"{report.stale_bibs} typed bib(s) dropped: their photo file changed"
         )
+    if report.no_preview:
+        report.messages.append(
+            f"no preview for {len(report.no_preview)} photo(s) that would not open: "
+            + "; ".join(report.no_preview[:3])
+        )
     return index, report
+
+
+def _refresh_preview(
+    folder: Path, path: Path, photo: dict, needed: bool, report: ScanReport
+) -> None:
+    try:
+        preview = _make_preview(folder, path)
+    except (OSError, Image.DecompressionBombError) as exc:
+        if needed:
+            raise
+        # Only asked for: Dropbox shrinks such a photo for the site, so one that
+        # will not open does not stop the check.
+        photo.pop("preview", None)
+        report.no_preview.append(f"{path.name} ({exc})")
+        return
+    photo["preview"] = _asset(folder, preview, sha256_of(preview))
+    report.previews += 1
 
 
 def _removed_records(index):
