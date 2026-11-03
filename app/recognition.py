@@ -328,10 +328,12 @@ def _best(scores, values, owners, photo_id):
     return ranked[0][0], ranked[0][1], ranked[0][1] - second
 
 
-def _face_matches(body, likeness, values, owners, photo_id):
+def _matches(body, likeness, values, owners, photo_id):
     """A face and the body agree on one bib, or the body alone is sure and well
-    ahead of any other bib: on the labelled races this found more people, at
-    awards too, and suggested fewer wrong bibs than the body alone."""
+    ahead of any other bib; ``likeness`` is None without faces. On the labelled races
+    this found more people, at awards too, and suggested fewer wrong bibs than every
+    bib above the body's threshold, which gave riders in one team's kit each other's
+    bibs (the Sokol race)."""
     value, score, lead = _best(body, values, owners, photo_id)
     if likeness is not None:
         known, face, _ = _best(likeness, values, owners, photo_id)
@@ -370,21 +372,13 @@ def _appearance(folder, index, engine, db, faces, progress, cancel, report):
                 if json.loads(known):
                     continue  # an unambiguous accepted bib already identifies this crop
                 scores = seeds @ np.frombuffer(vector, dtype=np.float32)
-                if faces:
-                    query = _vector(face)
-                    likeness = (
-                        None
-                        if query is None or known_faces is None
-                        else _likeness(known_faces, query)
-                    )
-                    matches = _face_matches(
-                        scores, likeness, values, owners, photo["id"]
-                    )
-                else:
-                    matches = [
-                        (values[i], scores[i])
-                        for i in np.flatnonzero(scores >= APPEARANCE_THRESHOLD)
-                    ]
+                query = _vector(face)
+                likeness = (
+                    None
+                    if query is None or known_faces is None
+                    else _likeness(known_faces, query)
+                )
+                matches = _matches(scores, likeness, values, owners, photo["id"])
                 for value, score in matches:
                     observations.append(
                         {
