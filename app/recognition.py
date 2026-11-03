@@ -74,22 +74,32 @@ def _classified(observation, method, lock, starters):
     return {**observation, "state": state}
 
 
-def _in_a_row(observations):
-    """Two reads of one height side by side, the right one the next number: a sign-in
-    board, a podium's steps or prize cheques, not riders' bibs. On the Sokol race such
-    photos held over half of the accepted reads nobody wore."""
+def _follows(a, b):
+    """b is the number after a, printed right of it in one row at one height."""
+    ra, rb = a["region"], b["region"]
+    low, high = sorted((ra["h"], rb["h"]))
+    return (
+        int(b["value"]) == int(a["value"]) + 1
+        and rb["x"] > ra["x"]
+        and 0 < high <= 1.5 * low
+        and abs(ra["y"] + ra["h"] / 2 - rb["y"] - rb["h"] / 2) <= high / 2
+    )
+
+
+def _printed(observations):
+    """The reads that are print in rows of numbers, not riders' bibs: two pairs of
+    following numbers make a sign-in board, a pair of lone digits a podium's steps;
+    one pair of longer numbers may be two riders side by side. Every read of that
+    print's size counts. On the Sokol race such photos held over half of the accepted
+    reads nobody wore."""
     numbers = [o for o in observations if o["value"].isdigit() and o.get("region")]
-    for a, b in itertools.permutations(numbers, 2):
-        ra, rb = a["region"], b["region"]
-        low, high = sorted((ra["h"], rb["h"]))
-        if (
-            int(b["value"]) == int(a["value"]) + 1
-            and rb["x"] > ra["x"]
-            and 0 < high <= 1.5 * low
-            and abs(ra["y"] + ra["h"] / 2 - rb["y"] - rb["h"] / 2) <= high / 2
-        ):
-            return True
-    return False
+    pairs = [(a, b) for a, b in itertools.permutations(numbers, 2) if _follows(a, b)]
+    lone = any(len(a["value"]) == len(b["value"]) == 1 for a, b in pairs)
+    if len(pairs) < 2 and not lone:
+        return []
+    heights = [r["region"]["h"] for pair in pairs for r in pair]
+    low, high = min(heights) / 1.5, max(heights) * 1.5
+    return [o for o in numbers if low <= o["region"]["h"] <= high]
 
 
 def _merge(photo, method, observations, starters=None):
@@ -99,10 +109,10 @@ def _merge(photo, method, observations, starters=None):
     retained = [b for b in photo["bibs"] if b["method"] not in (method, "manual")]
     accepted = {b["value"] for b in retained if b["state"] == "accepted"}
     choices = {}
-    board = method == "ocr" and _in_a_row(observations)
-    for observation in observations:
-        observation = _classified(observation, method, lock, starters)
-        if board and observation["state"] == "accepted":
+    printed = _printed(observations) if method == "ocr" else []
+    for read in observations:
+        observation = _classified(read, method, lock, starters)
+        if any(read is p for p in printed) and observation["state"] == "accepted":
             observation = {**observation, "state": "candidate"}  # for review only
         value = observation["value"]
         if value in reviewed or value in accepted:

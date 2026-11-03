@@ -74,23 +74,43 @@ def test_bibs_run_first_and_seed_only_candidates_for_other_photos(album):
     assert not list(album.glob("*.sqlite3"))
 
 
+ROW = (0.42, 0.405, 0.1, 0.11)  # right of BIB_BOX, one height, one row
+BELOW = (0.3, 0.6, 0.1, 0.1)  # BIB_BOX's row moved down
+BELOW_RIGHT = (0.42, 0.605, 0.1, 0.11)
+
+
 @pytest.mark.parametrize(
-    ("right", "accepted"),
+    ("reads", "accepted"),
     [
-        ((0.42, 0.405, 0.1, 0.11), False),  # 053 054 on one board row
-        ((0.42, 0.7, 0.1, 0.11), True),  # below: two riders' plates
-        ((0.42, 0.405, 0.1, 0.3), True),  # three times taller: not one row of print
+        # A board: two pairs of following numbers.
+        ([("053", BIB_BOX), ("054", ROW), ("073", BELOW), ("074", BELOW_RIGHT)], set()),
+        # A podium: the steps 2 and 3.
+        ([("2", BIB_BOX), ("3", ROW)], set()),
+        # Two riders side by side with following bibs.
+        ([("065", BIB_BOX), ("066", ROW)], {"065", "066"}),
+        # A board's pair below each other, and three times taller: no row of print.
+        (
+            [("053", BIB_BOX), ("054", BELOW), ("073", (0.5, 0.1, 0.1, 0.3))],
+            {"053", "054", "073"},
+        ),
     ],
 )
-def test_numbers_in_a_row_are_not_accepted_as_bibs(album, right, accepted):
+def test_numbers_printed_in_rows_are_not_accepted_as_bibs(album, reads, accepted):
     data = prepared(album)
     engine = FakeVision()
-    engine.readings[0] = [Reading("053", 0.99, BIB_BOX), Reading("054", 0.99, right)]
+    engine.readings[0] = [Reading(value, 0.999, box) for value, box in reads]
     run(album, data, engine, appearance=False)
-    states = {b["value"]: b["state"] for b in data["photos"][0]["bibs"]}
-    assert states == dict.fromkeys(
-        ("053", "054"), "accepted" if accepted else "candidate"
-    )
+    assert set(indexer.bibs_of(data["photos"][0])) == accepted
+
+
+def test_a_rider_s_own_plate_of_another_size_stays_accepted_on_a_board(album):
+    data = prepared(album)
+    engine = FakeVision()
+    board = [("053", BIB_BOX), ("054", ROW), ("073", BELOW), ("074", BELOW_RIGHT)]
+    plate = Reading("41", 0.999, (0.6, 0.75, 0.1, 0.2))
+    engine.readings[0] = [*(Reading(v, 0.999, box) for v, box in board), plate]
+    run(album, data, engine, appearance=False)
+    assert indexer.bibs_of(data["photos"][0]) == ["41"]
 
 
 def test_a_lone_digit_read_seeds_nobody(album):
