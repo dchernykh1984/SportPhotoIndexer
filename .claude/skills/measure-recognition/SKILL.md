@@ -100,7 +100,8 @@ Check a change on both kinds; one album hides regressions on the other.
   removes and adds, each crop next to the reference it came from.
 - Numbers in a row (a sign-in board, podium steps, prize cheques) were over half of the
   accepted values nobody wore. Lone digits read by OCR were 7% right there and 75% on
-  Alatau XCO: they stay acceptable, but seed nobody for appearance.
+  Alatau XCO: they stay acceptable, but seed nobody for appearance, and a rider named
+  only by one still gets suggestions (as often right as the others on Sokol).
 - Compute every photo's riders once (`PhotoPool.results(folder, photos, "riders", ...)`)
   and replay the appearance pass offline on that cache: a rule is then compared in
   seconds, and a simulator that reproduces the real run's suggestions can be trusted.

@@ -316,6 +316,13 @@ def _known_bibs(photo, riders):
     return known
 
 
+def _trusted(known):
+    """The bibs that name a rider: a lone digit read by OCR is too often a logo, a
+    finger or a piece of a longer bib (7% right on the Sokol race); a typed one is
+    sure."""
+    return [v for v, method in known.items() if method == "manual" or not _lone(v)]
+
+
 def _references(folder, index, engine, db, progress, cancel, report):
     seeds, references, owners, values = [], [], [], []
     photos = [p for p in index["photos"] if p["processing_state"] != "failed"]
@@ -348,14 +355,8 @@ def _references(folder, index, engine, db, progress, cancel, report):
             "SELECT vector, face, known_bibs FROM crops WHERE photo_id=?",
             (photo["id"],),
         ):
-            # A lone digit read by OCR is too often a logo, a finger or a piece of a
-            # longer bib to name anybody (7% right on the Sokol race); a typed one is
-            # sure. Two bibs left in one rider's box name neither of them for sure.
-            trusted = [
-                value
-                for value, method in json.loads(known).items()
-                if method == "manual" or not _lone(value)
-            ]
+            # Two bibs left in one rider's box name neither of them for sure.
+            trusted = _trusted(json.loads(known))
             if len(trusted) == 1:
                 values.extend(trusted)
                 owners.append(photo["id"])
@@ -449,8 +450,10 @@ def _appearance(folder, index, engine, db, faces, progress, cancel, report):
                 else ()
             )
             for region, vector, face, known in crops:
-                if json.loads(known):
-                    continue  # an accepted bib already names this rider
+                # A rider named only by a lone digit read by OCR gets suggestions too:
+                # on the Sokol race they were as often right as the others.
+                if _trusted(json.loads(known)):
+                    continue
                 scores = seeds @ np.frombuffer(vector, dtype=np.float32)
                 query = _vector(face)
                 likeness = (
