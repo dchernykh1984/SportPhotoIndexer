@@ -127,27 +127,30 @@ def _ocr(folder, index, engine, appearance, size, starters, progress, cancel, re
     total = len(index["photos"])
     pending = []
     cached = 0
-    for photo in index["photos"]:
-        check_cancel(cancel)
-        stamp = {"sha256": photo["original"]["sha256"], "engine": engine_name}
-        if photo.get("recognition", {}).get("ocr") != stamp:
-            pending.append(photo)
-        else:
-            cached += 1
-            progress("Checking saved bib numbers", cached, total)
+    try:
+        for photo in index["photos"]:
             check_cancel(cancel)
-            try:
-                _verify(folder, photo)
-                saved = [b for b in photo["bibs"] if b["method"] == "ocr"]
-                _merge(photo, "ocr", saved, starters)
-                photo.pop("recognition_error", None)
-                photo["processing_state"] = "pending" if appearance else "processed"
-            except OSError as exc:
-                photo["processing_state"] = "failed"
-                photo["recognition_error"] = str(exc)[:500]
-                report.errors.append(f"{photo['original']['path']}: {exc}")
-    # Once, before the new reads: a saved read costs nothing to apply again.
-    _checkpoint(folder, index)
+            stamp = {"sha256": photo["original"]["sha256"], "engine": engine_name}
+            if photo.get("recognition", {}).get("ocr") != stamp:
+                pending.append(photo)
+            else:
+                cached += 1
+                progress("Checking saved bib numbers", cached, total)
+                check_cancel(cancel)
+                try:
+                    _verify(folder, photo)
+                    saved = [b for b in photo["bibs"] if b["method"] == "ocr"]
+                    _merge(photo, "ocr", saved, starters)
+                    photo.pop("recognition_error", None)
+                    photo["processing_state"] = "pending" if appearance else "processed"
+                except OSError as exc:
+                    photo["processing_state"] = "failed"
+                    photo["recognition_error"] = str(exc)[:500]
+                    report.errors.append(f"{photo['original']['path']}: {exc}")
+    finally:
+        # Once, also when stopped, and before the new reads: each save rewrites the
+        # whole index.
+        _checkpoint(folder, index)
     completed = total - len(pending)
     with closing(results(folder, pending, engine, "ocr", cancel)) as computed:
         for photo, (readings, error) in computed:
