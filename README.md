@@ -16,10 +16,13 @@ their photos by bib, and in their own race album.
    changed; photos over 20 MB get a small copy in `_previews/`, because Dropbox
    cannot shrink them for the site. HEIC/HEIF, TIFF, BMP, GIF and AVIF always get a
    separate JPEG preview for the app and site. Originals keep their format and bytes.
-   *Make a preview of every photo* gives every photo one; ticking it checks the open
-   folder again at once, and *Rescan folder* then keeps the previews coming for new
-   photos. A preview that still matches its photo is kept, not made again; to make
-   them all again, delete `_previews/` and press *Rescan folder*.
+   *Make a preview of every photo* gives every photo one, and the program remembers
+   it. Ticking it checks the open folder again at once; *Open folder*, *Rescan
+   folder* and *Recognize automatically* then make the previews of new photos first.
+   A preview that still matches its photo is kept, not made again; to make them all
+   again, delete `_previews/` and press *Rescan folder*. A photo that will not open
+   goes without the preview it would get only for the box, and the status line names
+   it; one that needs a preview stops the check.
    A multi-image file contributes its primary image (HEIF) or first frame/page.
    AVIF needs Pillow's native AVIF codec, unavailable on Windows ARM64; an explicit
    error is shown there rather than silently leaving AVIF files out. HEIC/HEIF works
