@@ -80,12 +80,18 @@ def _classified(observation, method, lock, starters):
     return {**observation, "state": state}
 
 
+def _one_size(ra, rb):
+    """Two boxes of one height."""
+    low, high = sorted((ra["h"], rb["h"]))
+    return 0 < high <= 1.5 * low
+
+
 def _one_row(ra, rb):
     """Two boxes of one height at one height."""
-    low, high = sorted((ra["h"], rb["h"]))
     return (
-        0 < high <= 1.5 * low
-        and abs(ra["y"] + ra["h"] / 2 - rb["y"] - rb["h"] / 2) <= high / 2
+        _one_size(ra, rb)
+        and abs(ra["y"] + ra["h"] / 2 - rb["y"] - rb["h"] / 2)
+        <= max(ra["h"], rb["h"]) / 2
     )
 
 
@@ -111,8 +117,9 @@ def _close(a, b):
 
 def _printed(observations):
     """The reads that are print in rows of numbers, not riders' bibs: following
-    numbers close together in two rows make a sign-in board, the pair 2 and 3 a
-    podium's steps; one row, or rows spaced like riders on a start grid, may be riders.
+    numbers close together in two rows of one size make a sign-in board, the pair 2
+    and 3 a podium's steps; one row, or rows spaced like riders on a start grid, may
+    be riders.
     Every read of that print's size counts. On the Sokol race such photos held over
     half of the accepted reads nobody wore."""
     numbers = [o for o in observations if o["value"].isdigit() and o.get("region")]
@@ -120,11 +127,17 @@ def _printed(observations):
     sure = [o for o in numbers if _sure(o)]
     pairs = [(a, b) for a, b in itertools.permutations(sure, 2) if _follows(a, b)]
     close = [(a, b) for a, b in pairs if _close(a, b)]
-    rows: list[dict] = []
-    for a, _ in close:
-        if not any(_one_row(a["region"], r["region"]) for r in rows):
-            rows.append(a)
-    board = close if len(rows) >= 2 else []
+    # Another row of the same print: two teammates close in front and two more far
+    # behind are rows of two sizes.
+    board = [
+        (a, b)
+        for a, b in close
+        if any(
+            _one_size(a["region"], c["region"])
+            and not _one_row(a["region"], c["region"])
+            for c, _ in close
+        )
+    ]
     podium = [
         (a, b)
         for a, b in pairs
