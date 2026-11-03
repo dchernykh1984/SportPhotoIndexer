@@ -30,6 +30,20 @@ def win(monkeypatch, tmp_path):
     w.deleteLater()
 
 
+@pytest.fixture
+def fake_models(monkeypatch):
+    """Recognition on FakeVision, with no model downloaded or loaded."""
+    from contextlib import nullcontext
+
+    from app import recognition_worker as worker_module
+    from tests.test_recognition import FakeVision
+
+    engine = FakeVision()
+    monkeypatch.setattr(worker_module, "ensure_models", lambda *args, **kwargs: {})
+    monkeypatch.setattr(worker_module, "PhotoPool", lambda *args: nullcontext(engine))
+    return engine
+
+
 def test_typing_bibs_and_enter_saves_and_moves_on(win, album):
     win.open_folder(album)
     assert win._list.count() == 3
@@ -219,18 +233,10 @@ def test_one_button_runs_the_selected_automatic_stages_and_reloads_saved_results
 
 
 def test_a_search_with_previews_ticked_first_checks_the_folder_and_makes_them(
-    win, album, monkeypatch
+    win, album, fake_models
 ):
-    from contextlib import nullcontext
-
-    from app import recognition_worker as worker_module
     from tests.conftest import make_photo
-    from tests.test_recognition import FakeVision
 
-    monkeypatch.setattr(worker_module, "ensure_models", lambda *args, **kwargs: {})
-    monkeypatch.setattr(
-        worker_module, "PhotoPool", lambda *args: nullcontext(FakeVision())
-    )
     win._chk_previews.setChecked(True)  # before a folder is open: nothing to check
     win.open_folder(album)
     make_photo(album, "IMG_0004.jpg", "black")
@@ -243,17 +249,11 @@ def test_a_search_with_previews_ticked_first_checks_the_folder_and_makes_them(
     assert all(photo["processing_state"] == "processed" for photo in photos)
 
 
-def test_stop_ends_the_folder_check_a_search_starts_with(win, album, monkeypatch):
+def test_stop_ends_the_folder_check_a_search_starts_with(
+    win, album, monkeypatch, fake_models
+):
     import time
-    from contextlib import nullcontext
 
-    from app import recognition_worker as worker_module
-    from tests.test_recognition import FakeVision
-
-    monkeypatch.setattr(worker_module, "ensure_models", lambda *args, **kwargs: {})
-    monkeypatch.setattr(
-        worker_module, "PhotoPool", lambda *args: nullcontext(FakeVision())
-    )
     win._chk_previews.setChecked(True)  # before a folder is open: nothing to check
     win.open_folder(album)
     real_hash = indexer.sha256_of
@@ -287,17 +287,8 @@ def test_stop_ends_the_folder_check_a_search_starts_with(win, album, monkeypatch
 
 
 def test_a_close_asked_for_during_a_search_s_folder_check_starts_no_search(
-    win, album, monkeypatch
+    win, album, monkeypatch, fake_models
 ):
-    from contextlib import nullcontext
-
-    from app import recognition_worker as worker_module
-    from tests.test_recognition import FakeVision
-
-    monkeypatch.setattr(worker_module, "ensure_models", lambda *args, **kwargs: {})
-    monkeypatch.setattr(
-        worker_module, "PhotoPool", lambda *args: nullcontext(FakeVision())
-    )
     win._chk_previews.setChecked(True)  # before a folder is open: nothing to check
     win.open_folder(album)
     check = win._scan
@@ -315,17 +306,8 @@ def test_a_close_asked_for_during_a_search_s_folder_check_starts_no_search(
 
 
 def test_a_search_whose_folder_check_leaves_no_photo_starts_nothing(
-    win, album, monkeypatch
+    win, album, fake_models
 ):
-    from contextlib import nullcontext
-
-    from app import recognition_worker as worker_module
-    from tests.test_recognition import FakeVision
-
-    monkeypatch.setattr(worker_module, "ensure_models", lambda *args, **kwargs: {})
-    monkeypatch.setattr(
-        worker_module, "PhotoPool", lambda *args: nullcontext(FakeVision())
-    )
     win._chk_previews.setChecked(True)  # before a folder is open: nothing to check
     win.open_folder(album)
     for photo in album.glob("IMG_*.jpg"):
