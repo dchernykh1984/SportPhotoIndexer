@@ -625,6 +625,8 @@ class MainWindow(QMainWindow):
             not self.rescan(keep_place=True) or self._closing
         ):
             return
+        if not self._index["photos"]:
+            return  # the check found no photo left to search
         self._set_enabled(False)
         self._set_running(True)
         self._worker = RecognitionWorker(

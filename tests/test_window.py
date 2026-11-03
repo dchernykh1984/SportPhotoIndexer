@@ -297,6 +297,30 @@ def test_a_close_asked_for_during_a_search_s_folder_check_starts_no_search(
     assert worker is None
 
 
+def test_a_search_whose_folder_check_leaves_no_photo_starts_nothing(
+    win, album, monkeypatch
+):
+    from contextlib import nullcontext
+
+    from app import recognition_worker as worker_module
+    from tests.test_recognition import FakeVision
+
+    monkeypatch.setattr(worker_module, "ensure_models", lambda *args, **kwargs: {})
+    monkeypatch.setattr(
+        worker_module, "PhotoPool", lambda *args: nullcontext(FakeVision())
+    )
+    win._chk_previews.setChecked(True)  # before a folder is open: nothing to check
+    win.open_folder(album)
+    for photo in album.glob("IMG_*.jpg"):
+        photo.unlink()
+    win._on_recognize()
+    worker = win._worker
+    if worker is not None:
+        worker.wait(10000)
+    assert worker is None
+    assert not win._btn_auto.isEnabled()
+
+
 def test_the_search_mode_and_model_size_can_be_chosen_before_an_album(win):
     # Out of the box the search that finds the most: Large models, faces too.
     assert win._mode.currentText() == "Bib numbers, then rider appearance and faces"
