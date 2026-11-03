@@ -286,6 +286,43 @@ def test_stop_ends_the_folder_check_a_search_starts_with(
     assert not win._btn_stop.isEnabled()
 
 
+def test_stop_pressed_as_the_last_photo_is_checked_still_starts_no_search(
+    win, album, monkeypatch, fake_models
+):
+    import time
+
+    win._chk_previews.setChecked(True)  # before a folder is open: nothing to check
+    win.open_folder(album)
+    real_hash = indexer.sha256_of
+    last = indexer.photo_files(album)[-1]
+
+    def slow_on_the_last(path):
+        # Past the check for Stop: the last photo waits until Stop, a second at most.
+        deadline = time.monotonic() + 1
+        scanner = win._scanner
+        while path == last and scanner and not scanner.isInterruptionRequested():
+            if time.monotonic() > deadline:
+                break
+            time.sleep(0.01)
+        return real_hash(path)
+
+    monkeypatch.setattr(indexer, "sha256_of", slow_on_the_last)
+    shown = win._show_progress
+
+    def press_stop_on_the_last(phase, done, total):
+        shown(phase, done, total)
+        if done == total and win._btn_stop.isEnabled():
+            win._btn_stop.click()
+
+    monkeypatch.setattr(win, "_show_progress", press_stop_on_the_last)
+    win._on_recognize()
+    worker = win._worker
+    if worker is not None:
+        worker.wait(10000)
+    assert worker is None
+    assert win._lbl_status.text() == "Folder check stopped"
+
+
 def test_a_close_asked_for_during_a_search_s_folder_check_starts_no_search(
     win, album, monkeypatch, fake_models
 ):

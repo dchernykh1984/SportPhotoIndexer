@@ -59,6 +59,8 @@ class _ScanWorker(QThread):
         self.folder, self.index, self.previews = folder, index, previews
         self.result: tuple[dict, indexer.ScanReport] | None = None
         self.error: Exception | None = None
+        # Stop was pressed: Qt forgets an interruption once the thread has ended.
+        self.stopped = False
 
     def run(self) -> None:
         try:
@@ -490,10 +492,12 @@ class MainWindow(QMainWindow):
         for widget in controls:
             widget.setEnabled(True)
         worker.deleteLater()
-        if worker.error is not None:  # no count of a check that did not finish
+        # Stop pressed as the last photo was checked stops it too.
+        stopped = worker.stopped or isinstance(worker.error, CancelledError)
+        if stopped or worker.error is not None:  # no count of a check not finished
             self._progress.setRange(0, 1)
             self._progress.setValue(0)
-        if isinstance(worker.error, CancelledError):
+        if stopped:
             self._lbl_status.setText("Folder check stopped")
             return None
         if worker.error is not None:
@@ -645,6 +649,7 @@ class MainWindow(QMainWindow):
 
     def _on_stop(self) -> None:
         if self._scanner is not None:
+            self._scanner.stopped = True
             self._scanner.requestInterruption()
             self._btn_stop.setEnabled(False)
             self._lbl_status.setText("Stopping the folder check...")
