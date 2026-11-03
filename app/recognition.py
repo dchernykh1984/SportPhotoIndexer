@@ -327,7 +327,9 @@ def _appearance(folder, index, engine, db, faces, progress, cancel, report):
                 )
         _merge(photo, "appearance", observations)
         photo["processing_state"] = "processed"
-        _checkpoint(folder, index)
+    # Once: each save rewrites the whole index, and a stopped run recomputes
+    # appearance anyway.
+    _checkpoint(folder, index)
 
 
 def run(

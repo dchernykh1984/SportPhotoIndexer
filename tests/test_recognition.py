@@ -202,6 +202,27 @@ def test_a_photo_changed_during_inference_is_not_published(album):
     assert indexer.load(album)["photos"][0]["bibs"] == []
 
 
+def saves_by_phase(monkeypatch):
+    """The phase shown when each checkpoint was written."""
+    phases, saves = [None], []
+    real = recognition._checkpoint
+
+    def counted(folder, index):
+        saves.append(phases[-1])
+        real(folder, index)
+
+    monkeypatch.setattr(recognition, "_checkpoint", counted)
+    return lambda phase, n, total: phases.append(phase), saves
+
+
+def test_matching_rider_appearance_saves_the_index_once(album, monkeypatch):
+    data = prepared(album)
+    progress, saves = saves_by_phase(monkeypatch)
+    run(album, data, FakeVision(), progress=progress)
+    assert saves.count("Matching rider appearance") == 1
+    assert indexer.load(album)["processing"]["complete"]
+
+
 def test_appearance_respects_the_bib_already_known_for_the_same_rider_crop(album):
     data = prepared(album)
     engine = FakeVision()
