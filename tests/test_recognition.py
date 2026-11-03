@@ -286,6 +286,21 @@ def test_stop_while_matching_keeps_the_photos_matched_so_far(album):
     assert states == ["processed", "processed", "pending"]
 
 
+def test_a_photo_failing_its_references_is_saved_with_the_pass(album, monkeypatch):
+    data = prepared(album)
+
+    class Unreadable(FakeVision):
+        def riders(self, image):
+            if self._color(image) == 1:
+                raise OSError("unreadable")
+            return super().riders(image)
+
+    progress, saves = saves_by_phase(monkeypatch)
+    run(album, data, Unreadable(), progress=progress)
+    assert "Finding rider references" not in saves
+    assert indexer.load(album)["photos"][1]["processing_state"] == "failed"
+
+
 def test_appearance_respects_the_bib_already_known_for_the_same_rider_crop(album):
     data = prepared(album)
     engine = FakeVision()

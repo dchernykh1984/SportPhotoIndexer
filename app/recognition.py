@@ -209,9 +209,9 @@ def _references(folder, index, engine, db, progress, cancel, report):
             progress("Finding rider references", n, len(photos))
             check_cancel(cancel)
             if error:
+                # Saved with the whole pass, once, by _appearance.
                 photo["processing_state"] = "failed"
                 report.errors.append(f"{photo['original']['path']}: {error}")
-                _checkpoint(folder, index)
                 continue
             # The worker checked the photo before and after; matching checks it again
             # when its suggestions are written.
