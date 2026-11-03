@@ -244,6 +244,15 @@ def test_a_board_stays_held_back_when_a_protocol_drops_its_numbers_and_takes_the
     assert indexer.bibs_of(data["photos"][0]) == []
 
 
+def test_the_print_found_is_remembered_by_its_values_only(album):
+    data = prepared(album)
+    engine = FakeVision()
+    engine.readings[0] = [Reading(v, 0.999, box) for v, box in BOARD]
+    run(album, data, engine, appearance=False)
+    printed = data["photos"][0]["recognition"]["printed"]
+    assert sorted(printed) == ["053", "054", "073", "074"]
+
+
 def test_a_weak_read_saved_before_is_accepted_once_the_threshold_lets_it_in(
     album, monkeypatch
 ):

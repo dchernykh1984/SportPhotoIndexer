@@ -175,11 +175,6 @@ def _rank(observation):
     return (observation["state"] == "accepted", observation.get("confidence") or 0)
 
 
-def _box(observation):
-    region = observation.get("region") or {}
-    return tuple(region.get(k) for k in ("x", "y", "w", "h"))
-
-
 def _merge(photo, method, observations, starters=None):
     manual = [b for b in photo["bibs"] if b["method"] == "manual"]
     reviewed = {b["value"] for b in manual}
@@ -187,16 +182,19 @@ def _merge(photo, method, observations, starters=None):
     retained = [b for b in photo["bibs"] if b["method"] not in (method, "manual")]
     accepted = {b["value"] for b in retained if b["state"] == "accepted"}
     choices = {}
-    printed = set()
+    printed, before = set(), set()
     if method == "ocr":
-        # The boxes of the reads found to be print stay print on later runs, whatever
-        # the protocol or thresholds then say: a rerun sees the saved reads only, one
-        # per value and twenty at most, where the board's pairs may be gone.
-        before = photo.get("recognition", {}).get("printed", [])
-        printed = {_box(o) for o in _printed(observations)} | set(map(tuple, before))
+        printed = {id(o) for o in _printed(observations)}
+        # The saved reads found to be print stay print on later runs, whatever the
+        # protocol or thresholds then say: a rerun sees the saved reads only, one per
+        # value and twenty at most, where the board's pairs may be gone. One per value
+        # also lets the value name the read.
+        before = set(photo.get("recognition", {}).get("printed", []))
+    print_values = {}
     for read in observations:
         observation = _classified(read, method, lock, starters)
-        if _box(read) in printed and observation["state"] == "accepted":
+        is_print = id(read) in printed or read["value"] in before
+        if is_print and observation["state"] == "accepted":
             observation = {**observation, "state": "candidate"}  # for review only
         value = observation["value"]
         if value in reviewed or value in accepted:
@@ -205,6 +203,7 @@ def _merge(photo, method, observations, starters=None):
         # board's 54 must not take the place of the 54 on a rider's plate.
         if value not in choices or _rank(observation) > _rank(choices[value]):
             choices[value] = observation
+            print_values[value] = is_print
     # The site takes at most MAX_BIBS_PER_PHOTO: accepted bibs keep their place ahead
     # of candidates, such as a board's surer numbers held back, and bibs still in play
     # ahead of reads the protocol rejected, which then may not survive a cleared one.
@@ -216,9 +215,9 @@ def _merge(photo, method, observations, starters=None):
     photo["bibs"] = manual + automatic[: max(0, MAX_BIBS_PER_PHOTO - len(manual))]
     if method == "ocr":
         kept = [
-            list(_box(b))
+            b["value"]
             for b in photo["bibs"]
-            if b["method"] == "ocr" and _box(b) in printed
+            if b["method"] == "ocr" and print_values.get(b["value"])
         ]
         recognition = photo.setdefault("recognition", {})
         if kept:
