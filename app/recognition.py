@@ -122,7 +122,9 @@ def _printed(observations):
     be riders.
     Every read of that print's size counts. On the Sokol race such photos held over
     half of the accepted reads nobody wore."""
-    numbers = [o for o in observations if o["value"].isdigit() and o.get("region")]
+    # Decimal, not any digit: an edited index may hold a "2" written small, which
+    # int() refuses.
+    numbers = [o for o in observations if o["value"].isdecimal() and o.get("region")]
     # Only reads sure enough to be accepted: a weak misread beside a bib is no print.
     sure = [o for o in numbers if _sure(o)]
     pairs = [(a, b) for a, b in itertools.permutations(sure, 2) if _follows(a, b)]
