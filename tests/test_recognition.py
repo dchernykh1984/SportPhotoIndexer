@@ -105,6 +105,17 @@ def test_numbers_printed_in_rows_are_not_accepted_as_bibs(album, reads, accepted
     assert set(indexer.bibs_of(data["photos"][0])) == accepted
 
 
+def test_a_podium_stays_a_podium_on_a_rerun_with_a_padding_protocol(album):
+    data = prepared(album)
+    engine = FakeVision()
+    engine.readings[0] = [Reading("2", 0.999, BIB_BOX), Reading("3", 0.999, ROW)]
+    padded = frozenset({"02", "03"})
+    run(album, data, engine, appearance=False, starters=padded)
+    run(album, data, engine, appearance=False, starters=padded)  # from saved reads
+    assert {b["value"] for b in data["photos"][0]["bibs"]} == {"02", "03"}
+    assert indexer.bibs_of(data["photos"][0]) == []
+
+
 def test_a_weak_misread_beside_a_bib_makes_no_podium(album):
     data = prepared(album)
     engine = FakeVision()

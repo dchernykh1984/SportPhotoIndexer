@@ -107,7 +107,7 @@ def _printed(observations):
         >= (ACCEPT_LONE_DIGIT if _lone(o["value"]) else ACCEPT_OCR)
     ]
     pairs = [(a, b) for a, b in itertools.permutations(sure, 2) if _follows(a, b)]
-    lone = any(len(a["value"]) == len(b["value"]) == 1 for a, b in pairs)
+    lone = any(_lone(a["value"]) and _lone(b["value"]) for a, b in pairs)
     if len(pairs) < 2 and not lone:
         return []
     heights = [r["region"]["h"] for pair in pairs for r in pair]
