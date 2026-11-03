@@ -222,6 +222,25 @@ def test_a_rider_s_own_plate_of_another_size_stays_accepted_on_a_board(album):
     assert indexer.bibs_of(data["photos"][0]) == ["41"]
 
 
+def test_a_superscript_digit_in_an_edited_index_stops_no_rerun(album):
+    data = prepared(album)
+    engine = FakeVision()
+    engine.readings[0] = [Reading("3", 0.999, ROW)]
+    run(album, data, engine, appearance=False)
+    region = dict(zip(("x", "y", "w", "h"), BIB_BOX, strict=True))
+    data["photos"][0]["bibs"].append(
+        {
+            "value": "\u00b2",
+            "state": "accepted",
+            "method": "ocr",
+            "confidence": 0.999,
+            "region": region,
+        }
+    )
+    run(album, data, engine, appearance=False)  # from the saved reads
+    assert set(indexer.bibs_of(data["photos"][0])) == {"\u00b2", "3"}
+
+
 def test_riders_with_following_bibs_beside_a_board_stay_accepted(album):
     data = prepared(album)
     engine = FakeVision()
