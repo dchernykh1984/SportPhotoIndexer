@@ -118,6 +118,15 @@ def test_previews_on_request_and_for_photos_dropbox_cannot_shrink(album, monkeyp
     assert report.previews == 3
 
 
+def test_previews_that_still_match_are_not_made_again(album, monkeypatch):
+    _scan_and_save(album, previews=True)
+    _, report = _scan_and_save(album, previews=True)
+    assert report.previews == 0
+    monkeypatch.setattr(indexer, "THUMBNAIL_LIMIT_BYTES", 0)
+    _, report = _scan_and_save(album)
+    assert report.previews == 0
+
+
 def test_a_bib_the_site_would_refuse_is_refused_when_typed():
     with pytest.raises(indexer.IndexError_, match="1 to 32"):
         indexer.parse_bibs("x" * 33)

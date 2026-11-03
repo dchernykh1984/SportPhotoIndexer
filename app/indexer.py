@@ -161,9 +161,9 @@ def scan(
 ) -> tuple[dict, ScanReport]:
     """The folder's index brought up to date with the files in it.
 
-    ``previews`` makes a preview for every photo; one is always made for an original
-    Dropbox cannot thumbnail (over 20 MB). ``cancel``, asked before each photo, stops
-    the scan with CancelledError.
+    ``previews`` makes a preview for every photo without one; one is always made for
+    an original Dropbox cannot thumbnail (over 20 MB). ``cancel``, asked before each
+    photo, stops the scan with CancelledError.
     """
     index = json.loads(json.dumps(index)) if index else new_index()
     report = ScanReport()
@@ -196,23 +196,21 @@ def scan(
             photo.pop("recognition_error", None)
             photo["processing_state"] = "pending"
         photo["original"] = _asset(folder, path, sha)
-        # A preview made from the old file would show the old picture: remake it.
-        if (
+        wanted = (
             previews
-            or (
-                MEDIA_TYPES[path.suffix.lower()] not in PREVIEW_MEDIA_TYPES
-                and "preview" not in photo
-            )
-            or (
-                "preview" in photo
-                and (
-                    not (folder / photo["preview"]["path"]).is_file()
-                    or sha256_of(folder / photo["preview"]["path"])
-                    != photo["preview"]["sha256"]
-                )
-            )
-            or (changed and "preview" in photo)
+            or MEDIA_TYPES[path.suffix.lower()] not in PREVIEW_MEDIA_TYPES
             or path.stat().st_size > THUMBNAIL_LIMIT_BYTES
+        )
+        # A preview made from the old file would show the old picture: remake it.
+        # One that still matches is kept, so a rescan does not make them all again.
+        if (wanted and "preview" not in photo) or (
+            "preview" in photo
+            and (
+                changed
+                or not (folder / photo["preview"]["path"]).is_file()
+                or sha256_of(folder / photo["preview"]["path"])
+                != photo["preview"]["sha256"]
+            )
         ):
             preview = _make_preview(folder, path)
             photo["preview"] = _asset(folder, preview, sha256_of(preview))
