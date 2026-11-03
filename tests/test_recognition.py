@@ -132,6 +132,18 @@ def test_a_lone_digit_read_seeds_nobody(album):
     assert data["photos"][1]["bibs"] == []
 
 
+@pytest.mark.parametrize(("confidence", "accepted"), [(0.97, False), (0.999, True)])
+def test_a_lone_digit_spelled_longer_by_the_protocol_is_judged_as_one(
+    album, confidence, accepted
+):
+    data = prepared(album)
+    engine = FakeVision()
+    engine.readings[0] = [Reading("7", confidence, BIB_BOX)]
+    report = run(album, data, engine, starters=frozenset({"007"}))
+    assert indexer.bibs_of(data["photos"][0]) == (["007"] if accepted else [])
+    assert report.seeds == 0  # sure or not, a lone digit names nobody else
+
+
 def test_a_typed_lone_digit_still_seeds_the_same_rider_elsewhere(album):
     data = prepared(album)
     indexer.set_bibs(data, data["photos"][0]["id"], ["7"])

@@ -50,6 +50,11 @@ def _loose(bib):
     return re.sub(r"(?<!\d)0+(?=\d)", "", bib.upper())
 
 
+def _lone(bib):
+    """One digit as the protocol compares bibs: a "7" read and spelled "007" too."""
+    return len(_loose(bib)) == 1
+
+
 def _classified(observation, method, lock, starters):
     state = observation.get("state", "candidate")
     if method == "ocr":
@@ -61,7 +66,7 @@ def _classified(observation, method, lock, starters):
             # The site matches bibs exactly: "012" read for starter "12" is "12".
             observation = {**observation, "value": spelled}
         # Any bib format is accepted alike: races use letters too ("A12").
-        needed = ACCEPT_LONE_DIGIT if len(observation["value"]) == 1 else ACCEPT_OCR
+        needed = ACCEPT_LONE_DIGIT if _lone(observation["value"]) else ACCEPT_OCR
         state = (
             "accepted"
             if (observation.get("confidence") or 0) >= needed
@@ -99,7 +104,7 @@ def _printed(observations):
         o
         for o in numbers
         if (o.get("confidence") or 0)
-        >= (ACCEPT_LONE_DIGIT if len(o["value"]) == 1 else ACCEPT_OCR)
+        >= (ACCEPT_LONE_DIGIT if _lone(o["value"]) else ACCEPT_OCR)
     ]
     pairs = [(a, b) for a, b in itertools.permutations(sure, 2) if _follows(a, b)]
     lone = any(len(a["value"]) == len(b["value"]) == 1 for a, b in pairs)
@@ -243,7 +248,7 @@ def _known_bibs(photo, riders):
             continue
         # A lone digit read by OCR is too often a logo, a finger or a piece of a
         # longer bib to name anybody (7% right on the Sokol race); a typed one is sure.
-        if len(bib["value"]) == 1 and bib["method"] != "manual":
+        if _lone(bib["value"]) and bib["method"] != "manual":
             continue
         region = bib.get("region")
         if region:
