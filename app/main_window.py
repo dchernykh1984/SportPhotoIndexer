@@ -307,12 +307,10 @@ class MainWindow(QMainWindow):
             return
         shown = self._photo(self._list.currentRow())
         typed = self._edit_bibs.text()
-        if not self.rescan() or shown is None or self._index is None:
-            return
-        ids = [photo["id"] for photo in self._index["photos"]]
-        if shown["id"] in ids:
-            self._list.setCurrentRow(ids.index(shown["id"]))
-            self._edit_bibs.setText(typed)
+        if self.rescan(keep_place=True) and shown is not None:
+            current = self._photo(self._list.currentRow())
+            if current is not None and current["id"] == shown["id"]:
+                self._edit_bibs.setText(typed)
 
     def _on_size(self) -> None:
         settings.save({**settings.load(), "model_size": self._size.currentData()})
@@ -407,17 +405,19 @@ class MainWindow(QMainWindow):
         self._protocol = Path(remembered) if remembered else None
         self._show_protocol()
 
-    def rescan(self) -> bool:
+    def rescan(self, keep_place: bool = False) -> bool:
+        # Rescan folder's clicked signal passes False here.
         try:
-            return self._rescan()
+            return self._rescan(keep_place)
         finally:
             # A close asked for during the scan, once its outcome has been shown.
             if self._closing:
                 QTimer.singleShot(0, self, self.close)
 
-    def _rescan(self) -> bool:
+    def _rescan(self, keep_place: bool = False) -> bool:
         if self._folder is None:
             return False
+        shown = self._photo(self._list.currentRow()) if keep_place else None
         try:
             scanned = self._scan(self._folder)
         except (
@@ -443,7 +443,11 @@ class MainWindow(QMainWindow):
             *report.messages,
         ]
         self._lbl_status.setText(self._summary() + " | " + "; ".join(notes))
-        self._list.setCurrentRow(self._first_unchecked())
+        ids = [photo["id"] for photo in index["photos"]]
+        if shown is not None and shown["id"] in ids:
+            self._list.setCurrentRow(ids.index(shown["id"]))
+        else:
+            self._list.setCurrentRow(self._first_unchecked())
         return True
 
     def _scan(self, folder: Path) -> tuple[dict, indexer.ScanReport] | None:
