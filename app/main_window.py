@@ -445,7 +445,10 @@ class MainWindow(QMainWindow):
             self._list.setCurrentRow(row)
             # A photo changed on disk lost its bibs in the check: what was typed for
             # the old picture is not put back.
-            if index["photos"][row]["original"] == shown["original"]:
+            if (
+                index["photos"][row]["original"]["sha256"]
+                == shown["original"]["sha256"]
+            ):
                 self._edit_bibs.setText(typed)
         else:
             self._list.setCurrentRow(self._first_unchecked())
