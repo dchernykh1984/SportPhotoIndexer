@@ -115,6 +115,22 @@ def _close(a, b):
     return apart <= 4 * max(ra["w"], rb["w"])
 
 
+def _steps(two, three, sure):
+    """2 and 3 alone in their row but for the winner's 1 between them, as on a
+    podium: riders 2 and 3 on a start line stand among other riders' bibs."""
+    left, right = two["region"]["x"], three["region"]["x"]
+    return not any(
+        o is not two
+        and o is not three
+        and (
+            _one_row(o["region"], two["region"])
+            or _one_row(o["region"], three["region"])
+        )
+        and not (_loose(o["value"]) == "1" and left < o["region"]["x"] < right)
+        for o in sure
+    )
+
+
 def _printed(observations):
     """The reads that are print in rows of numbers, not riders' bibs: following
     numbers close together in two rows of one size make a sign-in board, the pair 2
@@ -144,9 +160,8 @@ def _printed(observations):
         (a, b)
         for a, b in pairs
         if (_loose(a["value"]), _loose(b["value"])) == ("2", "3")
-        # Riders 1, 2, 3 and 4 side by side on a start line stand apart: a 1 before
-        # the 2 or a 4 after the 3 that far away makes them riders, not steps.
-        and not any((d is a or c is b) and not _close(c, d) for c, d in pairs)
+        # Or a board's row 1, 2, 3 printed close together.
+        and (_steps(a, b, sure) or any(d is a or c is b for c, d in close))
     ]
     if not board and not podium:
         return []
