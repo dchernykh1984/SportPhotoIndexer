@@ -9,6 +9,14 @@ OCR finishes before the appearance pass collects its complete reference set. Bot
 OCR and rider detection/embedding extraction run across photos in parallel. The final
 similarity comparison and checkpoint writes remain in the coordinator.
 
+Each save rewrites the whole index: on 3049 photos it took about 190 ms. OCR saves after
+every new read, so a stopped run keeps the night's work. Re-applying saved reads and
+the similarity comparison save once, at the end of their pass: a stopped run redoes
+them in seconds, and appearance is recomputed after a restart anyway. Saving after
+every photo made the comparison of 3049 photos take about 10 minutes on a test album
+and much longer on a real one, where the index had grown; it now takes 4 seconds, 21
+with faces, where each face is compared with all references in one matrix product.
+
 The initial budget is the smaller of physical cores and `os.process_cpu_count()`.
 Hyperthreads do not count as additional physical cores. `psutil` supplies the physical
 count and currently available RAM on macOS, Linux and Windows, including ARM64 wheels.
