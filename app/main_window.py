@@ -199,6 +199,7 @@ class MainWindow(QMainWindow):
             "Previews are always made for photos over 20 MB, which Dropbox cannot"
             " shrink; other photos do without."
         )
+        self._chk_previews.toggled.connect(self._on_previews)
         bar.addWidget(self._chk_previews)
         bar.addStretch()
         root.addLayout(bar)
@@ -297,6 +298,12 @@ class MainWindow(QMainWindow):
         for widget in (self._btn_open, self._chk_previews, self._mode, self._size):
             widget.setEnabled(not running)
         self._btn_stop.setEnabled(running)
+
+    def _on_previews(self, on: bool) -> None:
+        # The folder check makes the previews, so ticking the box runs it at once
+        # instead of waiting for the next Open folder or Rescan folder.
+        if on and self._folder is not None and self._scanner is None:
+            self.rescan()
 
     def _on_size(self) -> None:
         settings.save({**settings.load(), "model_size": self._size.currentData()})
