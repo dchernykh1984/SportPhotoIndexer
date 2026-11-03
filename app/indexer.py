@@ -256,9 +256,9 @@ def _refresh_preview(
 ) -> None:
     try:
         img = _preview_image(path)
-    except (OSError, Image.DecompressionBombError) as exc:
+    except Exception as exc:  # a broken file makes Pillow raise SyntaxError too
         if needed:
-            raise
+            raise OSError(f"{path.name} will not open: {exc}") from exc
         # Only asked for: Dropbox shrinks such a photo for the site, so one that
         # will not open does not stop the check.
         photo.pop("preview", None)
