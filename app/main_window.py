@@ -309,8 +309,12 @@ class MainWindow(QMainWindow):
         typed = self._edit_bibs.text()
         if self.rescan(keep_place=True) and shown is not None:
             current = self._photo(self._list.currentRow())
-            if current is not None and current["id"] == shown["id"]:
-                self._edit_bibs.setText(typed)
+            # A photo changed on disk lost its bibs in the check: what was typed for
+            # the old picture is not put back.
+            if current is not None:
+                same = current["original"] == shown["original"]
+                saved = " ".join(indexer.bibs_of(current))
+                self._edit_bibs.setText(typed if same else saved)
 
     def _on_size(self) -> None:
         settings.save({**settings.load(), "model_size": self._size.currentData()})

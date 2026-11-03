@@ -372,6 +372,18 @@ def test_ticking_previews_does_not_show_the_first_unchecked_photo_on_the_way(
     assert win._list.currentRow() == 2
 
 
+def test_ticking_previews_drops_bibs_typed_for_a_photo_that_changed_on_disk(win, album):
+    from tests.conftest import make_photo
+
+    win.open_folder(album)
+    win._list.setCurrentRow(1)
+    win._edit_bibs.setText("12 45")
+    make_photo(album, "IMG_0002.jpg", "black")  # replaced while shown
+    win._chk_previews.setChecked(True)
+    assert win._list.currentRow() == 1
+    assert win._edit_bibs.text() == ""
+
+
 def test_a_broken_optional_preview_does_not_hide_a_readable_jpeg(win, album):
     win._chk_previews.setChecked(True)
     win.open_folder(album)
