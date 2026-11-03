@@ -95,9 +95,14 @@ def test_a_remembered_previews_box_makes_them_as_the_last_album_reopens(
     remembered = {"folder": str(album), "previews": True}
     monkeypatch.setattr(settings, "load", lambda: dict(remembered))
     monkeypatch.setattr(settings, "save", lambda values: None)
+    warnings = []  # a dialog would block the suite instead of failing the test
+    monkeypatch.setattr(
+        mw.QMessageBox, "warning", lambda *args: warnings.append(str(args[-1]))
+    )
     w = mw.MainWindow()
     _app.processEvents()
     try:
+        assert warnings == []
         assert w._chk_previews.isChecked()
         assert all("preview" in photo for photo in indexer.load(album)["photos"])
     finally:
@@ -545,6 +550,7 @@ def test_a_failed_folder_check_leaves_the_previews_box_ticked_for_the_next_one(
 def test_the_previews_box_is_remembered_between_runs(win):
     win._chk_previews.setChecked(True)
     again = mw.MainWindow()
+    _app.processEvents()  # its reopen of the last album runs here, not in a later test
     try:
         assert again._chk_previews.isChecked()
     finally:
