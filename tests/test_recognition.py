@@ -246,6 +246,17 @@ def test_each_photo_is_hashed_once_for_appearance(album, monkeypatch):
     assert hashed.count("Finding rider references") == len(data["photos"])
 
 
+def test_a_face_is_compared_with_every_reference_in_one_product():
+    rng = np.random.default_rng(0)
+    faces = [rng.standard_normal(4).astype(np.float32) for _ in range(4)]
+    references = [faces[0], None, faces[1], None, faces[2]]
+    table, shown = recognition._face_table(references)
+    expected = [-2.0 if f is None else float(f @ faces[3]) for f in references]
+    assert np.allclose(recognition._likeness(table, shown, faces[3]), expected)
+    table, shown = recognition._face_table([None, None])
+    assert list(recognition._likeness(table, shown, faces[3])) == [-2.0, -2.0]
+
+
 def test_appearance_respects_the_bib_already_known_for_the_same_rider_crop(album):
     data = prepared(album)
     engine = FakeVision()
