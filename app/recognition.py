@@ -133,11 +133,11 @@ def _steps(two, three, sure):
 
 def _printed(observations):
     """The reads that are print in rows of numbers, not riders' bibs: following
-    numbers close together in two rows of one size make a sign-in board, the pair 2
-    and 3 a podium's steps; one row, or rows spaced like riders on a start grid, may
-    be riders.
-    Every read of that print's size counts. On the Sokol race such photos held over
-    half of the accepted reads nobody wore."""
+    numbers at most four widths apart in two rows of one size make a sign-in board,
+    and 2 and 3 alone in their row a podium's steps. One row, or rows standing wider
+    apart, as riders mostly do, may be riders; riders packed closer in two rows look
+    like a board. Every read of that print's size counts. On the Sokol race such
+    photos held over half of the accepted reads nobody wore."""
     # Decimal, not any digit: an edited index may hold a "2" written small, which
     # int() refuses.
     numbers = [o for o in observations if o["value"].isdecimal() and o.get("region")]
