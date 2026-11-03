@@ -301,6 +301,28 @@ def test_a_photo_failing_its_references_is_saved_with_the_pass(album, monkeypatc
     assert indexer.load(album)["photos"][1]["processing_state"] == "failed"
 
 
+def test_stop_while_checking_saved_reads_keeps_what_was_checked(album):
+    data = prepared(album)
+    run(album, data, FakeVision(), appearance=False)
+    (album / "IMG_0001.jpg").unlink()
+    stopped = False
+
+    def progress(phase, n, total):
+        nonlocal stopped
+        stopped = n == 2
+
+    report = run(
+        album,
+        data,
+        FakeVision(),
+        appearance=False,
+        progress=progress,
+        cancel=lambda: stopped,
+    )
+    assert report.cancelled
+    assert indexer.load(album)["photos"][0]["processing_state"] == "failed"
+
+
 def test_appearance_respects_the_bib_already_known_for_the_same_rider_crop(album):
     data = prepared(album)
     engine = FakeVision()
