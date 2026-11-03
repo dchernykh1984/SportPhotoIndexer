@@ -14,13 +14,7 @@
 * forget the settings instead of failing the action when they cannot be written ([1166787](https://github.com/dchernykh1984/SportPhotoIndexer/commit/11667872fc7db61f9f78c32d719c748cee248547))
 * let a photo whose asked-for preview will not open go without one instead of stopping the folder check ([fe7b9c6](https://github.com/dchernykh1984/SportPhotoIndexer/commit/fe7b9c6b5a96f5a4b3a390a2397d369d211e127c))
 * let Stop end a folder check, the one a search starts with too ([a63e3b5](https://github.com/dchernykh1984/SportPhotoIndexer/commit/a63e3b55f83be5c080e6426bad9661b4017ebe6e))
-* let Stop pressed as the last photo is checked still stop the folder check and the search after it ([b35399f](https://github.com/dchernykh1984/SportPhotoIndexer/commit/b35399fe855260a19214fc6747bf3c88359989fd))
-* name the photos left without a preview, not Pillow's message with their whole path ([2050969](https://github.com/dchernykh1984/SportPhotoIndexer/commit/205096951dfdb590c7a0729013a155cd89b57045))
-* start no search once the window was closed during the folder check it starts with ([7dd2c66](https://github.com/dchernykh1984/SportPhotoIndexer/commit/7dd2c663ef2f55fd03b83f6972251955cfe0986a))
-* start no search when the folder check it starts with leaves no photo ([83c528d](https://github.com/dchernykh1984/SportPhotoIndexer/commit/83c528dc0a26e0b31e7a5deaec627748fec81e8f))
-* stop the folder check when a preview cannot be written, and skip only a photo that will not open ([57e1226](https://github.com/dchernykh1984/SportPhotoIndexer/commit/57e122669089bdfa33d4042a1521830035e2049b))
 * take whatever a broken photo makes Pillow raise for a photo that will not open ([2e85cad](https://github.com/dchernykh1984/SportPhotoIndexer/commit/2e85cad28b921a7f0d317c370a0b105d89a12538))
-* tick the previews box at start only for a stored true, not any value a hand edit leaves ([7ac5c92](https://github.com/dchernykh1984/SportPhotoIndexer/commit/7ac5c9291341b1568e5809ef466adc3e7999f4f5))
 
 
 ### Documentation
