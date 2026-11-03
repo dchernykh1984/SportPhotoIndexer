@@ -223,6 +223,14 @@ def test_matching_rider_appearance_saves_the_index_once(album, monkeypatch):
     assert indexer.load(album)["processing"]["complete"]
 
 
+def test_checking_saved_bib_numbers_saves_the_index_once(album, monkeypatch):
+    data = prepared(album)
+    run(album, data, FakeVision(), appearance=False)
+    progress, saves = saves_by_phase(monkeypatch)
+    run(album, data, FakeVision(), appearance=False, progress=progress)
+    assert saves == ["Checking saved bib numbers"]
+
+
 def test_appearance_respects_the_bib_already_known_for_the_same_rider_crop(album):
     data = prepared(album)
     engine = FakeVision()
