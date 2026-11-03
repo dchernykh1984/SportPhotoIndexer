@@ -212,6 +212,15 @@ def test_a_rider_s_own_plate_of_another_size_stays_accepted_on_a_board(album):
     assert indexer.bibs_of(data["photos"][0]) == ["41"]
 
 
+def test_riders_with_following_bibs_beside_a_board_stay_accepted(album):
+    data = prepared(album)
+    engine = FakeVision()
+    riders = [("41", (0.05, 0.8, 0.05, 0.18)), ("42", (0.6, 0.8, 0.05, 0.18))]
+    engine.readings[0] = [Reading(v, 0.999, box) for v, box in BOARD + riders]
+    run(album, data, engine, appearance=False)
+    assert set(indexer.bibs_of(data["photos"][0])) == {"41", "42"}
+
+
 def test_a_lone_digit_read_seeds_nobody(album):
     data = prepared(album)
     engine = FakeVision()
