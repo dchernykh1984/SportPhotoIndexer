@@ -79,24 +79,31 @@ def _classified(observation, method, lock, starters):
     return {**observation, "state": state}
 
 
-def _follows(a, b):
-    """b is the number after a, printed right of it in one row at one height, apart
-    from it: the pieces of one bib read on their own touch each other."""
-    ra, rb = a["region"], b["region"]
+def _one_row(ra, rb):
+    """Two boxes of one height at one height."""
     low, high = sorted((ra["h"], rb["h"]))
     return (
-        int(b["value"]) == int(a["value"]) + 1
-        and rb["x"] - (ra["x"] + ra["w"]) >= 0.2 * high
-        and 0 < high <= 1.5 * low
+        0 < high <= 1.5 * low
         and abs(ra["y"] + ra["h"] / 2 - rb["y"] - rb["h"] / 2) <= high / 2
     )
 
 
+def _follows(a, b):
+    """b is the number after a, printed right of it in one row, apart from it: the
+    pieces of one bib read on their own touch each other."""
+    ra, rb = a["region"], b["region"]
+    return (
+        int(b["value"]) == int(a["value"]) + 1
+        and rb["x"] - (ra["x"] + ra["w"]) >= 0.2 * max(ra["h"], rb["h"])
+        and _one_row(ra, rb)
+    )
+
+
 def _printed(observations):
-    """The reads that are print in rows of numbers, not riders' bibs: two pairs of
-    following numbers make a sign-in board, the pair 2 and 3 a podium's steps; one
-    other pair may be two riders side by side. Every read of that print's size counts.
-    On the Sokol race such photos held over half of the accepted reads nobody wore."""
+    """The reads that are print in rows of numbers, not riders' bibs: following
+    numbers in two rows make a sign-in board, the pair 2 and 3 a podium's steps; one
+    row may be riders side by side. Every read of that print's size counts. On the
+    Sokol race such photos held over half of the accepted reads nobody wore."""
     numbers = [o for o in observations if o["value"].isdigit() and o.get("region")]
     # Only reads sure enough to be accepted: a weak misread beside a bib is no print.
     sure = [
@@ -109,7 +116,11 @@ def _printed(observations):
     podium = any(
         _loose(a["value"]) == "2" and _loose(b["value"]) == "3" for a, b in pairs
     )
-    if len(pairs) < 2 and not podium:
+    rows: list[dict] = []
+    for a, _ in pairs:
+        if not any(_one_row(a["region"], r["region"]) for r in rows):
+            rows.append(a)
+    if len(rows) < 2 and not podium:
         return []
     heights = [r["region"]["h"] for pair in pairs for r in pair]
     low, high = min(heights) / 1.5, max(heights) * 1.5
