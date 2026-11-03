@@ -136,6 +136,19 @@ def test_a_photo_that_will_not_open_goes_without_the_preview_asked_for(album):
     assert any("broken.jpg" in message for message in report.messages)
 
 
+def test_whatever_a_broken_photo_raises_skips_or_names_it(album, monkeypatch):
+    def broken(image):
+        raise SyntaxError("broken PNG file")
+
+    monkeypatch.setattr(indexer.ImageOps, "exif_transpose", broken)
+    index, report = indexer.scan(album, None, previews=True)
+    assert not any("preview" in photo for photo in index["photos"])
+    assert report.no_preview
+    monkeypatch.setattr(indexer, "THUMBNAIL_LIMIT_BYTES", 0)  # every photo needs one
+    with pytest.raises(OSError, match=r"IMG_0001\.jpg will not open"):
+        indexer.scan(album, None)
+
+
 def test_a_preview_that_cannot_be_written_stops_the_scan(album, monkeypatch):
     def full(*args, **kwargs):
         raise OSError("No space left on device")
