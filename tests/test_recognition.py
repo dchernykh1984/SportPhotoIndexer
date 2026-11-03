@@ -96,6 +96,8 @@ BELOW_RIGHT = (0.45, 0.605, 0.1, 0.11)
         ),
         # The two halves of bib 12 read on their own, touching.
         ([("1", (0.3, 0.4, 0.05, 0.1)), ("2", (0.35, 0.4, 0.05, 0.1))], {"1", "2"}),
+        # A podium's narrow steps with a gap of half their width, in a tall frame.
+        ([("2", (0.3, 0.4, 0.04, 0.2)), ("3", (0.36, 0.4, 0.04, 0.2))], set()),
         # A board's pair below each other, and three times taller: no row of print.
         (
             [("053", BIB_BOX), ("054", BELOW), ("073", (0.5, 0.1, 0.1, 0.3))],

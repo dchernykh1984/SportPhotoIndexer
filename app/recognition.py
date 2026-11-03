@@ -91,11 +91,12 @@ def _one_row(ra, rb):
 
 def _follows(a, b):
     """b is the number after a, printed right of it in one row, apart from it: the
-    pieces of one bib read on their own touch each other."""
+    pieces of one bib read on their own touch each other. Widths measure the gap, so
+    the photo's shape does not (the narrowest gap on the Sokol board was 0.13)."""
     ra, rb = a["region"], b["region"]
     return (
         int(b["value"]) == int(a["value"]) + 1
-        and rb["x"] - (ra["x"] + ra["w"]) >= 0.2 * max(ra["h"], rb["h"])
+        and rb["x"] - (ra["x"] + ra["w"]) >= 0.1 * min(ra["w"], rb["w"])
         and _one_row(ra, rb)
     )
 
