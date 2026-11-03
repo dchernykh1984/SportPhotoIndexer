@@ -119,20 +119,24 @@ def _printed(observations):
     # Only reads sure enough to be accepted: a weak misread beside a bib is no print.
     sure = [o for o in numbers if _sure(o)]
     pairs = [(a, b) for a, b in itertools.permutations(sure, 2) if _follows(a, b)]
-    podium = any(
-        (_loose(a["value"]), _loose(b["value"])) == ("2", "3")
+    close = [(a, b) for a, b in pairs if _close(a, b)]
+    rows: list[dict] = []
+    for a, _ in close:
+        if not any(_one_row(a["region"], r["region"]) for r in rows):
+            rows.append(a)
+    board = close if len(rows) >= 2 else []
+    podium = [
+        (a, b)
+        for a, b in pairs
+        if (_loose(a["value"]), _loose(b["value"])) == ("2", "3")
         # Riders 1, 2, 3 and 4 side by side on a start line stand apart: a 1 before
         # the 2 or a 4 after the 3 that far away makes them riders, not steps.
         and not any((d is a or c is b) and not _close(c, d) for c, d in pairs)
-        for a, b in pairs
-    )
-    rows: list[dict] = []
-    for a, b in pairs:
-        if _close(a, b) and not any(_one_row(a["region"], r["region"]) for r in rows):
-            rows.append(a)
-    if len(rows) < 2 and not podium:
+    ]
+    if not board and not podium:
         return []
-    heights = [r["region"]["h"] for pair in pairs for r in pair]
+    # The print's own size: riders' following bibs beside it are no print.
+    heights = [r["region"]["h"] for pair in board + podium for r in pair]
     low, high = min(heights) / 1.5, max(heights) * 1.5
     return [o for o in numbers if low <= o["region"]["h"] <= high]
 
