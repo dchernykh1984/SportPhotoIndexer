@@ -154,6 +154,8 @@ ten was wrong on the first race and half on the second, most of those there matc
 starter (a car plate, a display), so review suggestions before relying on them. Cross-album appearance search is not implemented.
 
 **Stop** terminates the read-only photo workers and keeps every already-saved photo.
+It also ends a folder check, the one a search starts with included; the index then
+stays as it was, and no search starts.
 Photos can finish out of order; the progress count measures returned photos. Start again to resume OCR without repeating
 unchanged completed OCR. Appearance is recomputed after restart; its vectors live only
 in a private temporary database outside the album and are deleted on exit. Changing the
