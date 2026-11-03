@@ -213,7 +213,8 @@ def _references(folder, index, engine, db, progress, cancel, report):
                 report.errors.append(f"{photo['original']['path']}: {error}")
                 _checkpoint(folder, index)
                 continue
-            _verify(folder, photo)
+            # The worker checked the photo before and after; matching checks it again
+            # when its suggestions are written.
             for rider, bibs in zip(riders, _known_bibs(photo, riders), strict=True):
                 db.execute(
                     "INSERT INTO crops VALUES (?, ?, ?, ?, ?)",
@@ -306,7 +307,7 @@ def _appearance(folder, index, engine, db, faces, progress, cancel, report):
         progress("Matching rider appearance", n, len(index["photos"]))
         if photo["processing_state"] == "failed":
             continue
-        # No hash again: _references checked the photo its crops were computed from.
+        _verify(folder, photo)
         observations = []
         for region, vector, face, known in db.execute(
             "SELECT region, vector, face, known_bibs FROM crops WHERE photo_id=?",
