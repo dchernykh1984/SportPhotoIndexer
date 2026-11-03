@@ -276,6 +276,8 @@ def _bib_like(text):
 
 
 def _sure(reading):
+    # The read as read, before any start protocol: "07" is two characters here, while
+    # recognition, comparing bibs as the protocol does, judges it as a lone digit.
     needed = ACCEPT_LONE_DIGIT if len(reading.value) == 1 else ACCEPT_OCR
     return reading.confidence >= needed
 
