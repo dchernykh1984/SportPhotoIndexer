@@ -120,7 +120,11 @@ def _printed(observations):
     sure = [o for o in numbers if _sure(o)]
     pairs = [(a, b) for a, b in itertools.permutations(sure, 2) if _follows(a, b)]
     podium = any(
-        _loose(a["value"]) == "2" and _loose(b["value"]) == "3" for a, b in pairs
+        (_loose(a["value"]), _loose(b["value"])) == ("2", "3")
+        # Riders 1, 2, 3 and 4 side by side on a start line stand apart: a 1 before
+        # the 2 or a 4 after the 3 that far away makes them riders, not steps.
+        and not any((d is a or c is b) and not _close(c, d) for c, d in pairs)
+        for a, b in pairs
     )
     rows: list[dict] = []
     for a, b in pairs:
