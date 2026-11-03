@@ -201,7 +201,7 @@ class MainWindow(QMainWindow):
         )
         # Remembered between runs, and set before it is connected: no folder is open
         # yet, and the last album's reopening makes the previews.
-        self._chk_previews.setChecked(bool(settings.load().get("previews")))
+        self._chk_previews.setChecked(settings.load().get("previews") is True)
         self._chk_previews.toggled.connect(self._on_previews)
         bar.addWidget(self._chk_previews)
         bar.addStretch()
