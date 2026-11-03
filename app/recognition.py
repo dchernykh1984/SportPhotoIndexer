@@ -274,8 +274,10 @@ def _references(folder, index, engine, db, progress, cancel, report):
             "SELECT vector, face, known_bibs FROM crops WHERE photo_id=?",
             (photo["id"],),
         ):
-            for value in json.loads(known):
-                values.append(value)
+            bibs = json.loads(known)
+            # Two bibs in one rider's box name neither of them for sure.
+            if len(bibs) == 1:
+                values.append(bibs[0])
                 owners.append(photo["id"])
                 seeds.append(np.frombuffer(vector, dtype=np.float32))
                 references.append(_vector(face))
