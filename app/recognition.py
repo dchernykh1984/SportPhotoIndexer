@@ -55,6 +55,12 @@ def _lone(bib):
     return len(_loose(bib)) == 1
 
 
+def _sure(observation):
+    """Read surely enough to be accepted: a lone digit needs more."""
+    needed = ACCEPT_LONE_DIGIT if _lone(observation["value"]) else ACCEPT_OCR
+    return (observation.get("confidence") or 0) >= needed
+
+
 def _classified(observation, method, lock, starters):
     state = observation.get("state", "candidate")
     if method == "ocr":
@@ -66,12 +72,7 @@ def _classified(observation, method, lock, starters):
             # The site matches bibs exactly: "012" read for starter "12" is "12".
             observation = {**observation, "value": spelled}
         # Any bib format is accepted alike: races use letters too ("A12").
-        needed = ACCEPT_LONE_DIGIT if _lone(observation["value"]) else ACCEPT_OCR
-        state = (
-            "accepted"
-            if (observation.get("confidence") or 0) >= needed
-            else "candidate"
-        )
+        state = "accepted" if _sure(observation) else "candidate"
     elif state == "rejected":
         return observation
     if lock:
@@ -106,12 +107,7 @@ def _printed(observations):
     Sokol race such photos held over half of the accepted reads nobody wore."""
     numbers = [o for o in observations if o["value"].isdigit() and o.get("region")]
     # Only reads sure enough to be accepted: a weak misread beside a bib is no print.
-    sure = [
-        o
-        for o in numbers
-        if (o.get("confidence") or 0)
-        >= (ACCEPT_LONE_DIGIT if _lone(o["value"]) else ACCEPT_OCR)
-    ]
+    sure = [o for o in numbers if _sure(o)]
     pairs = [(a, b) for a, b in itertools.permutations(sure, 2) if _follows(a, b)]
     podium = any(
         _loose(a["value"]) == "2" and _loose(b["value"]) == "3" for a, b in pairs
