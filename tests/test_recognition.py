@@ -122,6 +122,16 @@ def test_a_podium_stays_a_podium_on_a_rerun_with_a_padding_protocol(album):
     assert indexer.bibs_of(data["photos"][0]) == []
 
 
+def test_a_rider_s_plate_keeps_its_bib_when_the_board_shows_the_same_number(album):
+    data = prepared(album)
+    engine = FakeVision()
+    board = [("053", BIB_BOX), ("054", ROW), ("073", BELOW), ("074", BELOW_RIGHT)]
+    plate = Reading("054", 0.99, (0.6, 0.75, 0.1, 0.2))
+    engine.readings[0] = [*(Reading(v, 0.999, box) for v, box in board), plate]
+    run(album, data, engine, appearance=False)
+    assert indexer.bibs_of(data["photos"][0]) == ["054"]
+
+
 def test_a_weak_misread_beside_a_bib_makes_no_podium(album):
     data = prepared(album)
     engine = FakeVision()
