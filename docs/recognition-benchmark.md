@@ -155,12 +155,16 @@ What was wrong:
 
 - 47 photos with five or more accepted reads, most of them a sign-in board printed with
   every starter's number, held 53% of the accepted reads nobody wore; podium steps and
-  prize cheques did the same on a smaller scale. Two reads side by side at one height,
-  the right one the next number, now keep a photo's reads from being accepted.
+  prize cheques did the same on a smaller scale. Following numbers side by side in two
+  rows, or the steps 2 and 3 of a podium, now keep every read of that print's size from
+  being accepted. One row of following bibs stays accepted: on Sokol two riders side by
+  side wore 65 and 66. Demoting the whole photo instead removed 707 wrong reads and 19
+  right ones, only the print's size 673 and 16, only the pair's row 440 and 9.
 - Lone digits read by OCR were 7% right there (logos, fingers, pieces of longer bibs)
   and 75% on Alatau XCO. They stay acceptable but seed nobody, so they are no longer
   spread to the same rider's other photos. A typed lone digit still seeds.
-- A rider box with two different accepted bibs seeded both; now neither.
+- A rider box with two different accepted bibs seeded both; now neither, once lone
+  digits read by OCR are set aside.
 - Without faces every bib above 0.80 was suggested, so riders in one team's kit got
   each other's bibs. Now only the bib that leads the next by 0.05, as with faces.
 
@@ -169,11 +173,12 @@ What was wrong:
 | Album | Rules | Accepted: visible | Accepted: wrong | All: visible | All: without a bib | All: wrong |
 | --- | --- | ---: | ---: | ---: | ---: | ---: |
 | Sokol | before | 515 of 643 | 1251 of 1927 | 569 of 643 | 243 of 1104 | 2048 of 2860 |
-| Sokol | after | 508 of 643 | **515 of 1171** | 570 of 643 | **290 of 1104** | 1997 of 2857 |
+| Sokol | after | 512 of 643 | **587 of 1247** | 570 of 643 | **280 of 1104** | 1979 of 2829 |
 | UBT TT | before | 31 of 45 | 12 of 43 | 33 of 45 | 8 of 141 | 34 of 75 |
 | UBT TT | after | 31 of 45 | 12 of 43 | 33 of 45 | 8 of 141 | **20 of 61** |
 
-The 7 visible bibs Sokol lost from the accepted ones stay as candidates. By eye: of 16
+The 3 visible bibs Sokol lost from the accepted ones, riders' own numbers read on the
+sign-in board, stay candidates. By eye (on the first version of the rules): of 16
 suggestions the rules removed there, most showed the right person with a bib misread on
 the reference (a lone digit); of 16 they added, about 12 showed the right person.
 Neither rule flagged any saved read of Alatau XCO (500 photos, no longer available to

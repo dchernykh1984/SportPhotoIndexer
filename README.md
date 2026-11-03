@@ -111,18 +111,19 @@ a rider who is missing from the file, so use the final protocol. On the labelled
 it found as many bibs and cut the wrong values from 36 to 14 (seat-post plates, Large)
 and from 70 to 61 (handlebar plates).
 
-Numbers that follow each other side by side at one height, as on a sign-in board, a
-podium's steps or prize cheques, are not accepted: they stay candidates for review and
-name nobody for appearance. On a 3049-photo road race with a sign-in board this cut the
-accepted values nobody wore from 1251 to 515; 7 visible bibs went from accepted to
-candidates.
+Numbers printed in rows are not accepted: following numbers side by side in two rows
+(a sign-in board) or the steps 2 and 3 of a podium make every read of that print's
+size a candidate for review, which names nobody for appearance. One row of following
+bibs, as riders side by side, stays accepted. On a 3049-photo road race with a sign-in
+board this cut the accepted values nobody wore from 1251 to 587; 3 visible bibs, the
+riders' own numbers read on the board, went from accepted to candidates.
 
 The appearance phase uses whole-person crops (kit, helmet and build, plus bike pixels
 inside the crop). It searches **only this album**: put one
 event in a folder. It needs unambiguous accepted bib references: overlapping riders, a
 rider with two bibs in the box and a lone digit read by OCR seed nothing (on that road
 race 7% of the lone digits were right: logos, fingers, pieces of longer bibs); a typed
-lone digit does. A team/relay bib can keep references of several different riders.
+lone digit does, and a rider whose only other bib is such a lone digit still seeds. A team/relay bib can keep references of several different riders.
 A rider is suggested the bib whose body match is at least 0.80 and leads every other
 bib by 0.05, so riders in one team's kit are not given each other's bibs; appearance
 suggestions are always **candidates**.
