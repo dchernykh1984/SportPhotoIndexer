@@ -357,6 +357,7 @@ def test_a_stop_still_reads_as_a_stop_when_the_save_then_fails(album, monkeypatc
 
     report = run(album, data, FakeVision(), progress=progress, cancel=lambda: stopped)
     assert report.cancelled
+    assert any("not saved: changed elsewhere" in e for e in report.errors)
 
 
 def test_appearance_respects_the_bib_already_known_for_the_same_rider_crop(album):

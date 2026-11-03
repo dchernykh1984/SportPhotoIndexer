@@ -8,7 +8,7 @@ import re
 import sqlite3
 import tempfile
 from collections.abc import Callable
-from contextlib import closing, contextmanager, suppress
+from contextlib import closing, contextmanager
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -105,15 +105,17 @@ def _checkpoint(folder, index):
 
 
 @contextmanager
-def _saved_once(folder, index):
+def _saved_once(folder, index, report):
     """Save the index once when a pass ends, also when it is stopped: each save
     rewrites the whole index. An error that ends the pass wins over one the save
-    raises then, so a Stop still reads as a Stop."""
+    raises then, so a Stop still reads as a Stop; the save's error is reported."""
     try:
         yield
     except BaseException:
-        with suppress(indexer.IndexError_, OSError):
+        try:
             _checkpoint(folder, index)
+        except (indexer.IndexError_, OSError) as exc:
+            report.errors.append(f"{indexer.INDEX_FILE} not saved: {exc}")
         raise
     _checkpoint(folder, index)
 
@@ -141,7 +143,7 @@ def _ocr(folder, index, engine, appearance, size, starters, progress, cancel, re
     total = len(index["photos"])
     pending = []
     cached = 0
-    with _saved_once(folder, index):  # before the new reads, too
+    with _saved_once(folder, index, report):  # before the new reads, too
         for photo in index["photos"]:
             check_cancel(cancel)
             stamp = {"sha256": photo["original"]["sha256"], "engine": engine_name}
@@ -312,7 +314,7 @@ def _face_matches(body, likeness, values, owners, photo_id):
 
 
 def _appearance(folder, index, engine, db, faces, progress, cancel, report):
-    with _saved_once(folder, index):
+    with _saved_once(folder, index, report):
         values, owners, seeds, references = _references(
             folder, index, engine, db, progress, cancel, report
         )
