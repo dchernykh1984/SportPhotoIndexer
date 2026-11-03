@@ -424,14 +424,15 @@ def _likeness(known_faces, face):
     return np.where(shown, table @ face, -2.0)
 
 
-def _best(scores, values, owners, photo_id):
+def _best(scores, values, owners, photo_id, taken):
     """The bib whose reference matches best, and its lead over the next bib.
 
-    A reference on the same photo is another person, never this one.
+    A reference on the same photo is another person, never this one, and so is a bib
+    ``taken`` there already: the lead is over the bibs this rider can still wear.
     """
     best: dict[str, float] = {}
     for score, value, owner in zip(scores, values, owners, strict=True):
-        if owner != photo_id and score > best.get(value, -2.0):
+        if owner != photo_id and value not in taken and score > best.get(value, -2.0):
             best[value] = float(score)
     ranked = sorted(best.items(), key=lambda kv: kv[1], reverse=True)
     if not ranked:
@@ -440,15 +441,15 @@ def _best(scores, values, owners, photo_id):
     return ranked[0][0], ranked[0][1], ranked[0][1] - second
 
 
-def _matches(body, likeness, values, owners, photo_id):
+def _matches(body, likeness, values, owners, photo_id, taken):
     """A face and the body agree on one bib, or the body alone is sure and well
     ahead of any other bib; ``likeness`` is None without faces. On the labelled races
     this found more people, at awards too, and suggested fewer wrong bibs than every
     bib above the body's threshold, which gave riders in one team's kit each other's
     bibs (the Sokol race)."""
-    value, score, lead = _best(body, values, owners, photo_id)
+    value, score, lead = _best(body, values, owners, photo_id, taken)
     if likeness is not None:
-        known, face, _ = _best(likeness, values, owners, photo_id)
+        known, face, _ = _best(likeness, values, owners, photo_id, taken)
         if known == value and face >= FACE_AGREES and score >= BODY_AGREES:
             return [(value, max(face, score))]
     if value is not None and score >= APPEARANCE_THRESHOLD and lead >= BODY_LEAD:
@@ -471,6 +472,12 @@ def _appearance(folder, index, engine, db, faces, progress, cancel, report):
             # stops the run, as one changed during OCR does.
             _verify(folder, photo)
             observations = []
+            # Bibs accepted or typed here belong to someone else on the photo.
+            taken = {
+                b["value"]
+                for b in photo["bibs"]
+                if b["method"] == "manual" or b["state"] == "accepted"
+            }
             crops = (
                 db.execute(
                     "SELECT region, vector, face, known_bibs FROM crops"
@@ -492,7 +499,7 @@ def _appearance(folder, index, engine, db, faces, progress, cancel, report):
                     if query is None or known_faces is None
                     else _likeness(known_faces, query)
                 )
-                matches = _matches(scores, likeness, values, owners, photo["id"])
+                matches = _matches(scores, likeness, values, owners, photo["id"], taken)
                 for value, score in matches:
                     observations.append(
                         {
