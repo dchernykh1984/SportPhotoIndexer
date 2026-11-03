@@ -146,7 +146,8 @@ def _ocr(folder, index, engine, appearance, size, starters, progress, cancel, re
                 photo["processing_state"] = "failed"
                 photo["recognition_error"] = str(exc)[:500]
                 report.errors.append(f"{photo['original']['path']}: {exc}")
-            _checkpoint(folder, index)
+    # Once, before the new reads: a saved read costs nothing to apply again.
+    _checkpoint(folder, index)
     completed = total - len(pending)
     with closing(results(folder, pending, engine, "ocr", cancel)) as computed:
         for photo, (readings, error) in computed:
@@ -178,8 +179,6 @@ def _ocr(folder, index, engine, appearance, size, starters, progress, cancel, re
                 report.errors.append(f"{photo['original']['path']}: {error}")
             _checkpoint(folder, index)
             completed += 1
-    if not pending:
-        _checkpoint(folder, index)
 
 
 def _known_bibs(photo, riders):
