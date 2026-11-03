@@ -413,7 +413,7 @@ class MainWindow(QMainWindow):
         if self._folder is None:
             return False
         shown = self._photo(self._list.currentRow()) if keep_place else None
-        typed = self._edit_bibs.text()
+        typed = self._edit_bibs.text() if keep_place else ""
         try:
             scanned = self._scan(self._folder)
         except (
