@@ -265,11 +265,18 @@ def test_a_face_is_compared_with_every_reference_in_one_product():
     rng = np.random.default_rng(0)
     faces = [rng.standard_normal(4).astype(np.float32) for _ in range(4)]
     references = [faces[0], None, faces[1], None, faces[2]]
-    table, shown = recognition._face_table(references)
+    known_faces = recognition._face_table(references)
     expected = [-2.0 if f is None else float(f @ faces[3]) for f in references]
-    assert np.allclose(recognition._likeness(table, shown, faces[3]), expected)
-    table, shown = recognition._face_table([None, None])
-    assert list(recognition._likeness(table, shown, faces[3])) == [-2.0, -2.0]
+    assert np.allclose(recognition._likeness(known_faces, faces[3]), expected)
+    assert recognition._face_table([None, None]) is None
+
+
+def test_without_faces_no_face_table_is_built(album, monkeypatch):
+    def refuse(references):
+        raise AssertionError("faces are off")
+
+    monkeypatch.setattr(recognition, "_face_table", refuse)
+    run(album, prepared(album), FakeVision(), faces=False)
 
 
 def test_stop_while_matching_keeps_the_photos_matched_so_far(album):

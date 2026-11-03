@@ -254,19 +254,20 @@ def _vector(blob):
 
 def _face_table(references):
     """The references' faces as rows of one matrix, zeros where none shows, and which
-    rows show one: a face is then compared with all of them in one product."""
+    rows show one: a face is then compared with all of them in one product. None when
+    no reference shows a face, so that faces decide nothing."""
     shown = np.array([f is not None for f in references], dtype=bool)
-    width = next((len(f) for f in references if f is not None), 0)
-    table = np.zeros((len(references), width), dtype=np.float32)
+    if not shown.any():
+        return None
+    table = np.zeros((len(references), len(references[shown.argmax()])), np.float32)
     for i in np.flatnonzero(shown):
         table[i] = references[i]
     return table, shown
 
 
-def _likeness(table, shown, face):
+def _likeness(known_faces, face):
     """Face similarity to each reference; -2 where the reference shows no face."""
-    if not shown.any():
-        return np.full(len(shown), -2.0)
+    table, shown = known_faces
     return np.where(shown, table @ face, -2.0)
 
 
@@ -305,7 +306,7 @@ def _appearance(folder, index, engine, db, faces, progress, cancel, report):
         values, owners, seeds, references = _references(
             folder, index, engine, db, progress, cancel, report
         )
-        table, shown = _face_table(references)
+        known_faces = _face_table(references) if faces else None
         for n, photo in enumerate(index["photos"], 1):
             check_cancel(cancel)
             progress("Matching rider appearance", n, len(index["photos"]))
@@ -324,7 +325,11 @@ def _appearance(folder, index, engine, db, faces, progress, cancel, report):
                 scores = seeds @ np.frombuffer(vector, dtype=np.float32)
                 if faces:
                     query = _vector(face)
-                    likeness = None if query is None else _likeness(table, shown, query)
+                    likeness = (
+                        None
+                        if query is None or known_faces is None
+                        else _likeness(known_faces, query)
+                    )
                     matches = _face_matches(
                         scores, likeness, values, owners, photo["id"]
                     )
