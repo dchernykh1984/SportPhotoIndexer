@@ -329,12 +329,16 @@ def _appearance(folder, index, engine, db, faces, progress, cancel, report):
             # stops the run, as one changed during OCR does.
             _verify(folder, photo)
             observations = []
-            for region, vector, face, known in db.execute(
-                "SELECT region, vector, face, known_bibs FROM crops WHERE photo_id=?",
-                (photo["id"],),
-            ):
-                if not len(seeds):
-                    break
+            crops = (
+                db.execute(
+                    "SELECT region, vector, face, known_bibs FROM crops"
+                    " WHERE photo_id=?",
+                    (photo["id"],),
+                )
+                if len(seeds)  # without references nothing can match
+                else ()
+            )
+            for region, vector, face, known in crops:
                 if json.loads(known):
                     continue  # an unambiguous accepted bib already identifies this crop
                 scores = seeds @ np.frombuffer(vector, dtype=np.float32)
