@@ -94,10 +94,9 @@ def _follows(a, b):
 
 def _printed(observations):
     """The reads that are print in rows of numbers, not riders' bibs: two pairs of
-    following numbers make a sign-in board, a pair of lone digits a podium's steps;
-    one pair of longer numbers may be two riders side by side. Every read of that
-    print's size counts. On the Sokol race such photos held over half of the accepted
-    reads nobody wore."""
+    following numbers make a sign-in board, the pair 2 and 3 a podium's steps; one
+    other pair may be two riders side by side. Every read of that print's size counts.
+    On the Sokol race such photos held over half of the accepted reads nobody wore."""
     numbers = [o for o in observations if o["value"].isdigit() and o.get("region")]
     # Only reads sure enough to be accepted: a weak misread beside a bib is no print.
     sure = [
@@ -107,8 +106,10 @@ def _printed(observations):
         >= (ACCEPT_LONE_DIGIT if _lone(o["value"]) else ACCEPT_OCR)
     ]
     pairs = [(a, b) for a, b in itertools.permutations(sure, 2) if _follows(a, b)]
-    lone = any(_lone(a["value"]) and _lone(b["value"]) for a, b in pairs)
-    if len(pairs) < 2 and not lone:
+    podium = any(
+        _loose(a["value"]) == "2" and _loose(b["value"]) == "3" for a, b in pairs
+    )
+    if len(pairs) < 2 and not podium:
         return []
     heights = [r["region"]["h"] for pair in pairs for r in pair]
     low, high = min(heights) / 1.5, max(heights) * 1.5
