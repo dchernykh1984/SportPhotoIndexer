@@ -93,6 +93,23 @@ def test_numbers_in_a_row_are_not_accepted_as_bibs(album, right, accepted):
     )
 
 
+def test_a_lone_digit_read_seeds_nobody(album):
+    data = prepared(album)
+    engine = FakeVision()
+    engine.readings[0] = [Reading("7", 0.999, BIB_BOX)]
+    assert run(album, data, engine).seeds == 0
+    assert indexer.bibs_of(data["photos"][0]) == ["7"]
+    assert data["photos"][1]["bibs"] == []
+
+
+def test_a_typed_lone_digit_still_seeds_the_same_rider_elsewhere(album):
+    data = prepared(album)
+    indexer.set_bibs(data, data["photos"][0]["id"], ["7"])
+    indexer.save(album, data)
+    assert run(album, data, FakeVision()).seeds == 1
+    assert [b["value"] for b in data["photos"][1]["bibs"]] == ["7"]
+
+
 def test_numbers_only_never_detects_riders_or_runs_appearance(album):
     data = prepared(album)
     engine = FakeVision()

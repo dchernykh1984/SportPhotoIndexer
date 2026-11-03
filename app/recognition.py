@@ -223,6 +223,10 @@ def _known_bibs(photo, riders):
     for bib in photo["bibs"]:
         if bib["state"] != "accepted" or bib["method"] == "appearance":
             continue
+        # A lone digit read by OCR is too often a logo, a finger or a piece of a
+        # longer bib to name anybody (7% right on the Sokol race); a typed one is sure.
+        if len(bib["value"]) == 1 and bib["method"] != "manual":
+            continue
         region = bib.get("region")
         if region:
             box = tuple(region[k] for k in ("x", "y", "w", "h"))
