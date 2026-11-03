@@ -89,6 +89,16 @@ BELOW_RIGHT = (0.45, 0.605, 0.1, 0.11)
         # Two riders side by side with following bibs, longer or lone.
         ([("065", BIB_BOX), ("066", ROW)], {"065", "066"}),
         ([("4", BIB_BOX), ("5", ROW)], {"4", "5"}),
+        # A start grid: following bibs in two rows, riders' width apart.
+        (
+            [
+                ("11", (0.1, 0.3, 0.05, 0.1)),
+                ("12", (0.4, 0.3, 0.05, 0.1)),
+                ("21", (0.1, 0.5, 0.05, 0.1)),
+                ("22", (0.4, 0.5, 0.05, 0.1)),
+            ],
+            {"11", "12", "21", "22"},
+        ),
         # Three teammates in one row.
         (
             [("101", BIB_BOX), ("102", ROW), ("103", (0.6, 0.4, 0.1, 0.1))],
