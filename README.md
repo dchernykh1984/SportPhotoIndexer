@@ -111,10 +111,11 @@ a rider who is missing from the file, so use the final protocol. On the labelled
 it found as many bibs and cut the wrong values from 36 to 14 (seat-post plates, Large)
 and from 70 to 61 (handlebar plates).
 
-Numbers printed in rows are not accepted: following numbers side by side in two rows
-(a sign-in board) or the steps 2 and 3 of a podium make every read of that print's
-size a candidate for review, which names nobody for appearance. One row of following
-bibs, as riders side by side, stays accepted. On a 3049-photo road race with a sign-in
+Numbers printed in rows are not accepted: following numbers printed close together in
+two rows (a sign-in board) or the steps 2 and 3 of a podium make every read of that
+print's size a candidate for review, which names nobody for appearance, on later runs
+too. One row of following bibs, as riders side by side, and rows spaced like riders on
+a start grid stay accepted. On a 3049-photo road race with a sign-in
 board this cut the accepted values nobody wore from 1251 to 587; 3 visible bibs, the
 riders' own numbers read on the board, went from accepted to candidates.
 
