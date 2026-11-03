@@ -419,8 +419,8 @@ def test_appearance_respects_the_bib_already_known_for_the_same_rider_crop(album
     red, green, blue = data["photos"]
     assert {b["value"] for b in red["bibs"]} == {"012"}
     assert {b["value"] for b in blue["bibs"]} == {"99"}
-    assert {b["value"] for b in green["bibs"]} == {"012", "99"}
-    assert all(b["state"] == "candidate" for b in green["bibs"])
+    # Alike on the body, neither bib leads the other: green is given neither.
+    assert green["bibs"] == []
 
 
 def test_a_matching_face_lets_a_weaker_body_match_through(album):
