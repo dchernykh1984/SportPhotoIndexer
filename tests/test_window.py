@@ -327,6 +327,25 @@ def test_the_button_can_finish_a_real_spawned_photo_pool(win, album, monkeypatch
     assert win._index == indexer.load(album)
 
 
+def test_rescan_with_previews_ticked_makes_them_for_photos_already_indexed(win, album):
+    win.open_folder(album)
+    win._chk_previews.blockSignals(True)  # ticked earlier; this is about Rescan
+    win._chk_previews.setChecked(True)
+    win._chk_previews.blockSignals(False)
+    win.rescan()
+    saved = indexer.load(album)["photos"]
+    assert all((album / p["preview"]["path"]).is_file() for p in saved)
+
+
+def test_ticking_previews_makes_them_at_once_for_the_open_album(win, album):
+    win.open_folder(album)
+    assert not (album / indexer.PREVIEW_DIR).exists()
+    win._chk_previews.setChecked(True)
+    saved = indexer.load(album)["photos"]
+    assert all((album / p["preview"]["path"]).is_file() for p in saved)
+    assert "3 previews" in win._lbl_status.text()
+
+
 def test_a_broken_optional_preview_does_not_hide_a_readable_jpeg(win, album):
     win._chk_previews.setChecked(True)
     win.open_folder(album)
