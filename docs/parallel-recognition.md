@@ -10,12 +10,14 @@ OCR and rider detection/embedding extraction run across photos in parallel. The 
 similarity comparison and checkpoint writes remain in the coordinator.
 
 Each save rewrites the whole index: on 3049 photos it took about 190 ms. OCR saves after
-every new read, so a stopped run keeps the night's work. Re-applying saved reads and
-the appearance pass save once, at the end of the pass or when it is stopped. Saving
-after every photo made the comparison of 3049 photos take about 10 minutes on a test
-album and much longer on a real one, where the index had grown. It now takes about 13
-seconds, 30 with faces, where each face is compared with all references in one matrix
-product; most of that is hashing each photo once, when its suggestions are written.
+every new read, so even a crashed or killed run keeps the night's work. Re-applying
+saved reads and the appearance pass save once, at the end of the pass or when it is
+stopped; a crash loses only those passes, which are quick to redo, and appearance is
+recomputed after a restart anyway. Saving after every photo made the comparison of
+3049 photos take about 10 minutes on a test album and much longer on a real one, where
+the index had grown. It now takes about 3 seconds, 19 with faces, where each face is
+compared with all references in one matrix product, plus one hash of each photo that
+gets suggestions (3 ms for a 4 MB photo already in the cache).
 
 The initial budget is the smaller of physical cores and `os.process_cpu_count()`.
 Hyperthreads do not count as additional physical cores. `psutil` supplies the physical
