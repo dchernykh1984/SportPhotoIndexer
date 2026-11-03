@@ -116,11 +116,12 @@ two rows of one size (a sign-in board) or the steps 2 and 3 of a podium make eve
 of that print's size a candidate for review, which names nobody for appearance, on
 later runs too. One row of following bibs, as riders side by side, rows spaced like
 riders on a start grid, and riders 1, 2, 3 and 4 side by side on a start line stay
-accepted. A team with following bibs posing close together in two rows looks like a
-board and is held back too: look for such photos among the candidates. On a 3049-photo
-road race with a sign-in board this cut the accepted values nobody wore from 1251 to
-587; 3 visible bibs, the riders' own numbers read on the board, went from accepted to
-candidates.
+accepted. Two look-alikes are held back too, so look for them among the candidates: a
+team with following bibs posing close together in two rows, which looks like a board,
+and riders 2 and 3 side by side with neither 1 nor 4 readable beside them, which look
+like a podium's steps. On a 3049-photo road race with a sign-in board this cut the
+accepted values nobody wore from 1251 to 587; 3 visible bibs, the riders' own numbers
+read on the board, went from accepted to candidates.
 
 The appearance phase uses whole-person crops (kit, helmet and build, plus bike pixels
 inside the crop). It searches **only this album**: put one
