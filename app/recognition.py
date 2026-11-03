@@ -101,11 +101,20 @@ def _follows(a, b):
     )
 
 
+def _close(a, b):
+    """Printed close as on a board, not plates on riders side by side: centres at most
+    four widths apart (1 to 3.7 on the Sokol board; riders stand wider)."""
+    ra, rb = a["region"], b["region"]
+    apart = rb["x"] + rb["w"] / 2 - ra["x"] - ra["w"] / 2
+    return apart <= 4 * max(ra["w"], rb["w"])
+
+
 def _printed(observations):
     """The reads that are print in rows of numbers, not riders' bibs: following
-    numbers in two rows make a sign-in board, the pair 2 and 3 a podium's steps; one
-    row may be riders side by side. Every read of that print's size counts. On the
-    Sokol race such photos held over half of the accepted reads nobody wore."""
+    numbers close together in two rows make a sign-in board, the pair 2 and 3 a
+    podium's steps; one row, or rows spaced like riders on a start grid, may be riders.
+    Every read of that print's size counts. On the Sokol race such photos held over
+    half of the accepted reads nobody wore."""
     numbers = [o for o in observations if o["value"].isdigit() and o.get("region")]
     # Only reads sure enough to be accepted: a weak misread beside a bib is no print.
     sure = [o for o in numbers if _sure(o)]
@@ -114,8 +123,8 @@ def _printed(observations):
         _loose(a["value"]) == "2" and _loose(b["value"]) == "3" for a, b in pairs
     )
     rows: list[dict] = []
-    for a, _ in pairs:
-        if not any(_one_row(a["region"], r["region"]) for r in rows):
+    for a, b in pairs:
+        if _close(a, b) and not any(_one_row(a["region"], r["region"]) for r in rows):
             rows.append(a)
     if len(rows) < 2 and not podium:
         return []
