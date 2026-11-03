@@ -18,7 +18,8 @@ their photos by bib, and in their own race album.
    separate JPEG preview for the app and site. Originals keep their format and bytes.
    *Make a preview of every photo* gives every photo one; ticking it checks the open
    folder again at once, and *Rescan folder* then keeps the previews coming for new
-   photos. A preview that still matches its photo is kept, not made again.
+   photos. A preview that still matches its photo is kept, not made again; to make
+   them all again, delete `_previews/` and press *Rescan folder*.
    A multi-image file contributes its primary image (HEIF) or first frame/page.
    AVIF needs Pillow's native AVIF codec, unavailable on Windows ARM64; an explicit
    error is shown there rather than silently leaving AVIF files out. HEIC/HEIF works
