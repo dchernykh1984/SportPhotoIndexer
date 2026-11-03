@@ -33,3 +33,9 @@ def test_a_broken_settings_file_reads_as_empty(app_dir):
     (app_dir / "data").mkdir()
     (app_dir / "data" / "spi_settings.json").write_text("{oops", encoding="utf-8")
     assert settings.load() == {}
+
+
+def test_settings_that_cannot_be_written_are_forgotten_without_an_error(app_dir):
+    (app_dir / "data").write_text("a file where the folder goes", encoding="utf-8")
+    settings.save({"folder": "/photos/race"})
+    assert settings.load() == {}

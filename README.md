@@ -270,8 +270,9 @@ The program reads and writes its files (`data/spi_settings.json`) **next to itse
 it a folder of its own rather than a shared downloads directory. On macOS the
 files land next to the `.app` bundle, in the folder that contains it.
 
-It remembers the last album folder you opened, the model size and each album's start
-protocol.
+It remembers the last album folder you opened, the model size, each album's start
+protocol and *Make a preview of every photo*. In a folder it may not write to, it works
+the same but remembers none of these.
 
 
 ## Setup
