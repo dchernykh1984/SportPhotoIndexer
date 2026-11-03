@@ -330,6 +330,23 @@ def test_stop_while_checking_saved_reads_keeps_what_was_checked(album):
     assert indexer.load(album)["photos"][0]["processing_state"] == "failed"
 
 
+def test_a_stop_still_reads_as_a_stop_when_the_save_then_fails(album, monkeypatch):
+    data = prepared(album)
+    stopped = False
+
+    def refuse(folder, index):
+        raise indexer.StaleIndexError("changed elsewhere")
+
+    def progress(phase, n, total):
+        nonlocal stopped
+        if phase == "Matching rider appearance" and n == 2:
+            stopped = True
+            monkeypatch.setattr(indexer, "save", refuse)  # saved elsewhere meanwhile
+
+    report = run(album, data, FakeVision(), progress=progress, cancel=lambda: stopped)
+    assert report.cancelled
+
+
 def test_appearance_respects_the_bib_already_known_for_the_same_rider_crop(album):
     data = prepared(album)
     engine = FakeVision()
