@@ -110,6 +110,18 @@ def test_a_typed_lone_digit_still_seeds_the_same_rider_elsewhere(album):
     assert [b["value"] for b in data["photos"][1]["bibs"]] == ["7"]
 
 
+def test_a_rider_with_two_bibs_in_the_box_seeds_nobody(album):
+    data = prepared(album)
+    engine = FakeVision()
+    engine.readings[0] = [
+        Reading("012", 0.99, BIB_BOX),
+        Reading("045", 0.99, (0.5, 0.6, 0.1, 0.1)),
+    ]
+    assert run(album, data, engine).seeds == 0
+    assert indexer.bibs_of(data["photos"][0]) == ["012", "045"]
+    assert data["photos"][1]["bibs"] == []
+
+
 def test_numbers_only_never_detects_riders_or_runs_appearance(album):
     data = prepared(album)
     engine = FakeVision()
