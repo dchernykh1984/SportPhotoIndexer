@@ -136,6 +136,15 @@ def test_a_photo_that_will_not_open_goes_without_the_preview_asked_for(album):
     assert any("broken.jpg" in message for message in report.messages)
 
 
+def test_a_preview_that_cannot_be_written_stops_the_scan(album, monkeypatch):
+    def full(*args, **kwargs):
+        raise OSError("No space left on device")
+
+    monkeypatch.setattr(indexer.Image.Image, "save", full)
+    with pytest.raises(OSError, match="No space left"):
+        indexer.scan(album, None, previews=True)
+
+
 def test_a_photo_that_needs_a_preview_and_will_not_open_stops_the_scan(album):
     (album / "broken.heic").write_text("not an image", encoding="utf-8")
     with pytest.raises(OSError, match=r"broken\.heic"):
