@@ -301,9 +301,18 @@ class MainWindow(QMainWindow):
 
     def _on_previews(self, on: bool) -> None:
         # The folder check makes the previews, so ticking the box runs it at once
-        # instead of waiting for the next Open folder or Rescan folder.
-        if on and self._folder is not None:  # unclickable while a check runs
-            self.rescan()
+        # instead of waiting for the next Open folder or Rescan folder; the photo
+        # shown and bibs typed but not saved stay. The box is off while a check runs.
+        if not on or self._folder is None:
+            return
+        shown = self._photo(self._list.currentRow())
+        typed = self._edit_bibs.text()
+        if not self.rescan() or shown is None or self._index is None:
+            return
+        ids = [photo["id"] for photo in self._index["photos"]]
+        if shown["id"] in ids:
+            self._list.setCurrentRow(ids.index(shown["id"]))
+            self._edit_bibs.setText(typed)
 
     def _on_size(self) -> None:
         settings.save({**settings.load(), "model_size": self._size.currentData()})

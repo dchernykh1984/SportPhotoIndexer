@@ -346,6 +346,17 @@ def test_ticking_previews_makes_them_at_once_for_the_open_album(win, album):
     assert "3 previews" in win._lbl_status.text()
 
 
+def test_ticking_previews_keeps_the_photo_shown_and_bibs_typed_but_not_saved(
+    win, album
+):
+    win.open_folder(album)
+    win._list.setCurrentRow(1)
+    win._edit_bibs.setText("12 45")
+    win._chk_previews.setChecked(True)
+    assert win._list.currentRow() == 1
+    assert win._edit_bibs.text() == "12 45"
+
+
 def test_a_broken_optional_preview_does_not_hide_a_readable_jpeg(win, album):
     win._chk_previews.setChecked(True)
     win.open_folder(album)
