@@ -62,7 +62,7 @@ class ScanReport:
     changed: int = 0
     stale_bibs: int = 0
     previews: int = 0
-    # Photos that would not open for a preview they could do without, and why.
+    # Photos that would not open for a preview they could do without.
     no_preview: list[str] = field(default_factory=list)
     messages: list[str] = field(default_factory=list)
 
@@ -246,7 +246,7 @@ def scan(
     if report.no_preview:
         report.messages.append(
             f"no preview for {len(report.no_preview)} photo(s) that would not open: "
-            + "; ".join(report.no_preview[:3])
+            + ", ".join(report.no_preview[:3])
         )
     return index, report
 
@@ -262,7 +262,7 @@ def _refresh_preview(
         # Only asked for: Dropbox shrinks such a photo for the site, so one that
         # will not open does not stop the check.
         photo.pop("preview", None)
-        report.no_preview.append(f"{path.name} ({exc})")
+        report.no_preview.append(path.name)
         return
     # Writing it is another matter: a full disk or a read-only folder stops the check.
     preview = _make_preview(folder, path, img)

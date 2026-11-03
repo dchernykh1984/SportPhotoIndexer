@@ -133,7 +133,9 @@ def test_a_photo_that_will_not_open_goes_without_the_preview_asked_for(album):
     broken = next(p for p in index["photos"] if p["original"]["path"] == "broken.jpg")
     assert "preview" not in broken
     assert report.previews == 3
-    assert any("broken.jpg" in message for message in report.messages)
+    # Names only: Pillow's message repeats the whole path, too long for a status line.
+    assert any(message.endswith(": broken.jpg") for message in report.messages)
+    assert not any(str(album) in message for message in report.messages)
 
 
 def test_whatever_a_broken_photo_raises_skips_or_names_it(album, monkeypatch):
