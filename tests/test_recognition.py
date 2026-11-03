@@ -360,6 +360,30 @@ def test_a_rider_named_only_by_a_lone_digit_read_still_gets_a_suggestion(album):
     ]
 
 
+def test_a_teammate_beside_a_named_rider_is_suggested_a_bib_still_free(album):
+    data = prepared(album)
+    engine = FakeVision()
+    left, right = (0.0, 0.1, 0.45, 0.8), (0.5, 0.1, 0.45, 0.8)
+    plate, other = (0.1, 0.4, 0.1, 0.1), (0.6, 0.4, 0.1, 0.1)
+    engine.readings[0] = [Reading("054", 0.99, plate), Reading("055", 0.99, other)]
+    engine.readings[1] = [Reading("054", 0.99, plate)]
+    engine.crops[0] = [
+        Rider(left, np.array([1.0, 0.0])),
+        Rider(right, np.array([0.8, 0.6])),
+    ]
+    # Rider B on the second photo looks most like 054, already named there.
+    engine.crops[1] = [
+        Rider(left, np.array([1.0, 0.0])),
+        Rider(right, np.array([0.98, 0.199])),
+    ]
+    run(album, data, engine)
+    second = data["photos"][1]["bibs"]
+    assert [(b["value"], b["method"]) for b in second] == [
+        ("054", "ocr"),
+        ("055", "appearance"),
+    ]
+
+
 def test_a_rider_named_by_a_typed_lone_digit_gets_no_other_bib_suggested(album):
     data = prepared(album)
     indexer.set_bibs(data, data["photos"][1]["id"], ["7"])
