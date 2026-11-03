@@ -231,6 +231,21 @@ def test_checking_saved_bib_numbers_saves_the_index_once(album, monkeypatch):
     assert saves == ["Checking saved bib numbers"]
 
 
+def test_each_photo_is_hashed_once_for_appearance(album, monkeypatch):
+    data = prepared(album)
+    phases, hashed = [None], []
+    real = recognition._verify
+
+    def counted(folder, photo):
+        hashed.append(phases[-1])
+        return real(folder, photo)
+
+    monkeypatch.setattr(recognition, "_verify", counted)
+    run(album, data, FakeVision(), progress=lambda p, n, t: phases.append(p))
+    assert "Matching rider appearance" not in hashed
+    assert hashed.count("Finding rider references") == len(data["photos"])
+
+
 def test_appearance_respects_the_bib_already_known_for_the_same_rider_crop(album):
     data = prepared(album)
     engine = FakeVision()
