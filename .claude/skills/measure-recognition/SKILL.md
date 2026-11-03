@@ -90,3 +90,17 @@ Check a change on both kinds; one album hides regressions on the other.
 - A start protocol only removes values that match no starter; the harmful wrong
   values (a starter's number on a sticker) stay. Keeping weaker reads of starters'
   bibs found a few more pairs for many more of those, so it was not kept.
+
+## What the Sokol race taught
+
+- Sokol (3049 photos, a road race; labels from an LLM pass in `tmp/sokol`, photos in
+  `races/2026-09-06_sokol/all`) has labels that miss many riders identified without a
+  readable bib: 6 of 8 appearance suggestions the labels called wrong showed the right
+  person. Judge an appearance change by eye too: render a sample of the suggestions it
+  removes and adds, each crop next to the reference it came from.
+- Numbers in a row (a sign-in board, podium steps, prize cheques) were over half of the
+  accepted values nobody wore. Lone digits read by OCR were 7% right there and 75% on
+  Alatau XCO: they stay acceptable, but seed nobody for appearance.
+- Compute every photo's riders once (`PhotoPool.results(folder, photos, "riders", ...)`)
+  and replay the appearance pass offline on that cache: a rule is then compared in
+  seconds, and a simulator that reproduces the real run's suggestions can be trusted.
