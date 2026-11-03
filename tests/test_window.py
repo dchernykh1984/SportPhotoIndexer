@@ -357,6 +357,21 @@ def test_ticking_previews_keeps_the_photo_shown_and_bibs_typed_but_not_saved(
     assert win._edit_bibs.text() == "12 45"
 
 
+def test_ticking_previews_does_not_show_the_first_unchecked_photo_on_the_way(
+    win, album, monkeypatch
+):
+    win.open_folder(album)
+    win._list.setCurrentRow(2)
+    shown = []
+    real = win._show_photo
+    monkeypatch.setattr(win, "_show_photo", lambda row: (shown.append(row), real(row)))
+    win._list.currentRowChanged.disconnect()
+    win._list.currentRowChanged.connect(win._show_photo)
+    win._chk_previews.setChecked(True)
+    assert 0 not in shown
+    assert win._list.currentRow() == 2
+
+
 def test_a_broken_optional_preview_does_not_hide_a_readable_jpeg(win, album):
     win._chk_previews.setChecked(True)
     win.open_folder(album)
