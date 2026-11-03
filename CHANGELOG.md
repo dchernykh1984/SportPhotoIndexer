@@ -1,5 +1,37 @@
 # Changelog
 
+## [0.8.2](https://github.com/dchernykh1984/SportPhotoIndexer/compare/sport-photo-indexer-v0.8.1...sport-photo-indexer-v0.8.2) (2026-11-03)
+
+
+### Bug Fixes
+
+* check a photo's hash when its appearance suggestions are written, not before ([130351b](https://github.com/dchernykh1984/SportPhotoIndexer/commit/130351b10da56dbcfce2456acbba05b1df17054b))
+* keep the photos matched so far when Stop is pressed while matching rider appearance ([921e52d](https://github.com/dchernykh1984/SportPhotoIndexer/commit/921e52d5751bd14bc315f4307c33ea7ab215c29a))
+* keep the saved reads checked so far when Stop is pressed while checking them ([6d8688b](https://github.com/dchernykh1984/SportPhotoIndexer/commit/6d8688b06abdd43f4df5622ac0cf5d3535e23e08))
+* let a Stop or a changed photo that ends a pass win over a save that fails then ([8cacc72](https://github.com/dchernykh1984/SportPhotoIndexer/commit/8cacc72a1b992d8cdeda5d20ad4fbe680940f9f4))
+* record why finding a photo's rider references failed, as OCR does ([ab13f26](https://github.com/dchernykh1984/SportPhotoIndexer/commit/ab13f26dcea9c5676143efb68031b95ee1af9ed5))
+* report a save that fails after a Stop instead of dropping it ([472cfaf](https://github.com/dchernykh1984/SportPhotoIndexer/commit/472cfafb5a50e89284f09ab254dd93bf716125f3))
+* stop the run on a photo changed after its references even when it gets no suggestion ([1599f73](https://github.com/dchernykh1984/SportPhotoIndexer/commit/1599f73538b46acc0c332aeddc2a8f23ae5a2d39))
+
+
+### Performance Improvements
+
+* build the face table only with faces and decide once when no reference shows one ([2ce0d4b](https://github.com/dchernykh1984/SportPhotoIndexer/commit/2ce0d4bcbd36003b4a84aeeeef0dc4d6c0fedb6e))
+* compare a rider's face with every reference in one product ([65265a9](https://github.com/dchernykh1984/SportPhotoIndexer/commit/65265a98e1b037782644b6950f895e4e61c59e23))
+* hash each photo once for appearance, not again while matching riders ([0b54302](https://github.com/dchernykh1984/SportPhotoIndexer/commit/0b54302db835f16956de7448beda866a729f0376))
+* hash only the photos that matching adds suggestions to ([cc3901f](https://github.com/dchernykh1984/SportPhotoIndexer/commit/cc3901f1eb83487eded7ecd04e995f8ea3ef2dfe))
+* save a photo whose rider references failed with the appearance pass, not at once ([4421fde](https://github.com/dchernykh1984/SportPhotoIndexer/commit/4421fdef63a78b0ef55f6fa9be6f5316308cfc07))
+* save the index once after checking saved bib numbers, not after every photo ([2ed2fc5](https://github.com/dchernykh1984/SportPhotoIndexer/commit/2ed2fc5e812597bbc191ffd809c3559ab060ab66))
+* save the index once after matching rider appearance, not after every photo ([0a07a04](https://github.com/dchernykh1984/SportPhotoIndexer/commit/0a07a0472b7d9953325fd1512f7081186c4e69a2))
+
+
+### Documentation
+
+* give the appearance pass's time with every photo hashed once again ([b85144f](https://github.com/dchernykh1984/SportPhotoIndexer/commit/b85144f5090e32c657fa7e0deb76d25ebb2f08aa))
+* say that OCR saves every read so a crash keeps it, and what a crash costs the other passes ([15784f3](https://github.com/dchernykh1984/SportPhotoIndexer/commit/15784f32cfad2818bce16e3d7cd83f4cb6bb830a))
+* say the appearance pass also saves when stopped and give its time with the hash check ([c24beb7](https://github.com/dchernykh1984/SportPhotoIndexer/commit/c24beb70a6d2ff82373a35e74bdab1f1febf6f7a))
+* say which recognition passes save the index after every photo and why ([48e4d18](https://github.com/dchernykh1984/SportPhotoIndexer/commit/48e4d1844119398c50d51f068bf04cff566151d5))
+
 ## [0.8.1](https://github.com/dchernykh1984/SportPhotoIndexer/compare/sport-photo-indexer-v0.8.0...sport-photo-indexer-v0.8.1) (2026-10-28)
 
 
