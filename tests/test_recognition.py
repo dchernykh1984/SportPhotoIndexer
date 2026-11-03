@@ -74,6 +74,25 @@ def test_bibs_run_first_and_seed_only_candidates_for_other_photos(album):
     assert not list(album.glob("*.sqlite3"))
 
 
+@pytest.mark.parametrize(
+    ("right", "accepted"),
+    [
+        ((0.42, 0.405, 0.1, 0.11), False),  # 053 054 on one board row
+        ((0.42, 0.7, 0.1, 0.11), True),  # below: two riders' plates
+        ((0.42, 0.405, 0.1, 0.3), True),  # three times taller: not one row of print
+    ],
+)
+def test_numbers_in_a_row_are_not_accepted_as_bibs(album, right, accepted):
+    data = prepared(album)
+    engine = FakeVision()
+    engine.readings[0] = [Reading("053", 0.99, BIB_BOX), Reading("054", 0.99, right)]
+    run(album, data, engine, appearance=False)
+    states = {b["value"]: b["state"] for b in data["photos"][0]["bibs"]}
+    assert states == dict.fromkeys(
+        ("053", "054"), "accepted" if accepted else "candidate"
+    )
+
+
 def test_numbers_only_never_detects_riders_or_runs_appearance(album):
     data = prepared(album)
     engine = FakeVision()

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import hashlib
+import itertools
 import json
 import re
 import sqlite3
@@ -73,6 +74,24 @@ def _classified(observation, method, lock, starters):
     return {**observation, "state": state}
 
 
+def _in_a_row(observations):
+    """Two reads of one height side by side, the right one the next number: a sign-in
+    board, a podium's steps or prize cheques, not riders' bibs. On the Sokol race such
+    photos held over half of the accepted reads nobody wore."""
+    numbers = [o for o in observations if o["value"].isdigit() and o.get("region")]
+    for a, b in itertools.permutations(numbers, 2):
+        ra, rb = a["region"], b["region"]
+        low, high = sorted((ra["h"], rb["h"]))
+        if (
+            int(b["value"]) == int(a["value"]) + 1
+            and rb["x"] > ra["x"]
+            and 0 < high <= 1.5 * low
+            and abs(ra["y"] + ra["h"] / 2 - rb["y"] - rb["h"] / 2) <= high / 2
+        ):
+            return True
+    return False
+
+
 def _merge(photo, method, observations, starters=None):
     manual = [b for b in photo["bibs"] if b["method"] == "manual"]
     reviewed = {b["value"] for b in manual}
@@ -80,8 +99,11 @@ def _merge(photo, method, observations, starters=None):
     retained = [b for b in photo["bibs"] if b["method"] not in (method, "manual")]
     accepted = {b["value"] for b in retained if b["state"] == "accepted"}
     choices = {}
+    board = method == "ocr" and _in_a_row(observations)
     for observation in observations:
         observation = _classified(observation, method, lock, starters)
+        if board and observation["state"] == "accepted":
+            observation = {**observation, "state": "candidate"}  # for review only
         value = observation["value"]
         if value in reviewed or value in accepted:
             continue
