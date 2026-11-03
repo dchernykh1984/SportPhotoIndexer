@@ -74,9 +74,9 @@ def test_bibs_run_first_and_seed_only_candidates_for_other_photos(album):
     assert not list(album.glob("*.sqlite3"))
 
 
-ROW = (0.42, 0.405, 0.1, 0.11)  # right of BIB_BOX, one height, one row
+ROW = (0.45, 0.405, 0.1, 0.11)  # right of BIB_BOX, one height, one row
 BELOW = (0.3, 0.6, 0.1, 0.1)  # BIB_BOX's row moved down
-BELOW_RIGHT = (0.42, 0.605, 0.1, 0.11)
+BELOW_RIGHT = (0.45, 0.605, 0.1, 0.11)
 
 
 @pytest.mark.parametrize(
@@ -88,6 +88,8 @@ BELOW_RIGHT = (0.42, 0.605, 0.1, 0.11)
         ([("2", BIB_BOX), ("3", ROW)], set()),
         # Two riders side by side with following bibs.
         ([("065", BIB_BOX), ("066", ROW)], {"065", "066"}),
+        # The two halves of bib 12 read on their own, touching.
+        ([("1", (0.3, 0.4, 0.05, 0.1)), ("2", (0.35, 0.4, 0.05, 0.1))], {"1", "2"}),
         # A board's pair below each other, and three times taller: no row of print.
         (
             [("053", BIB_BOX), ("054", BELOW), ("073", (0.5, 0.1, 0.1, 0.3))],

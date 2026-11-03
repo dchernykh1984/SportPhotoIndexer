@@ -75,12 +75,13 @@ def _classified(observation, method, lock, starters):
 
 
 def _follows(a, b):
-    """b is the number after a, printed right of it in one row at one height."""
+    """b is the number after a, printed right of it in one row at one height, apart
+    from it: the pieces of one bib read on their own touch each other."""
     ra, rb = a["region"], b["region"]
     low, high = sorted((ra["h"], rb["h"]))
     return (
         int(b["value"]) == int(a["value"]) + 1
-        and rb["x"] > ra["x"]
+        and rb["x"] - (ra["x"] + ra["w"]) >= 0.2 * high
         and 0 < high <= 1.5 * low
         and abs(ra["y"] + ra["h"] / 2 - rb["y"] - rb["h"] / 2) <= high / 2
     )
