@@ -226,6 +226,7 @@ def _references(folder, index, engine, db, progress, cancel, report):
             if error:
                 # Saved with the whole pass, once, by _appearance.
                 photo["processing_state"] = "failed"
+                photo["recognition_error"] = error
                 report.errors.append(f"{photo['original']['path']}: {error}")
                 continue
             # The worker checked the photo before and after; matching checks it again
