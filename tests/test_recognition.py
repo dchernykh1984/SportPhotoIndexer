@@ -286,11 +286,22 @@ def test_a_lone_digit_spelled_longer_by_the_protocol_is_judged_as_one(
     assert report.seeds == 0  # sure or not, a lone digit names nobody else
 
 
-def test_a_rider_with_an_accepted_lone_digit_gets_no_other_bib_suggested(album):
+def test_a_rider_named_only_by_a_lone_digit_read_still_gets_a_suggestion(album):
     data = prepared(album)
     engine = FakeVision()
     engine.readings[1] = [Reading("7", 0.999, BIB_BOX)]  # green wears red's kit
     run(album, data, engine)
+    second = data["photos"][1]["bibs"]
+    assert [(b["value"], b["state"], b["method"]) for b in second] == [
+        ("7", "accepted", "ocr"),
+        ("012", "candidate", "appearance"),
+    ]
+
+
+def test_a_rider_named_by_a_typed_lone_digit_gets_no_other_bib_suggested(album):
+    data = prepared(album)
+    indexer.set_bibs(data, data["photos"][1]["id"], ["7"])
+    run(album, data, FakeVision())
     assert [b["value"] for b in data["photos"][1]["bibs"]] == ["7"]
 
 

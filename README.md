@@ -127,7 +127,9 @@ inside the crop). It searches **only this album**: put one
 event in a folder. It needs unambiguous accepted bib references: overlapping riders, a
 rider with two bibs in the box and a lone digit read by OCR seed nothing (on that road
 race 7% of the lone digits were right: logos, fingers, pieces of longer bibs); a typed
-lone digit does, and a rider whose only other bib is such a lone digit still seeds. A team/relay bib can keep references of several different riders.
+lone digit does, and a rider whose only other bib is such a lone digit still seeds. A
+rider named only by such a lone digit still gets suggestions, as a rider without a bib
+does. A team/relay bib can keep references of several different riders.
 A rider is suggested the bib whose body match is at least 0.80 and leads every other
 bib by 0.05, so riders in one team's kit are not given each other's bibs; appearance
 suggestions are always **candidates**.

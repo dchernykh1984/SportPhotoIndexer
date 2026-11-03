@@ -170,7 +170,10 @@ What was wrong:
   lined up on only 24 of its 31 photos.
 - Lone digits read by OCR were 7% right there (logos, fingers, pieces of longer bibs)
   and 75% on Alatau XCO. They stay acceptable but seed nobody, so they are no longer
-  spread to the same rider's other photos. A typed lone digit still seeds.
+  spread to the same rider's other photos. A typed lone digit still seeds. A rider
+  named only by one gets suggestions as a rider without a bib does: on Sokol 28 more,
+  7 of them right by the labels (25%, against 18% for the other suggestions); the lone
+  digit itself was right on 1 of the 28.
 - A rider box with two different accepted bibs seeded both; now neither, once lone
   digits read by OCR are set aside.
 - Without faces every bib above 0.80 was suggested, so riders in one team's kit got
