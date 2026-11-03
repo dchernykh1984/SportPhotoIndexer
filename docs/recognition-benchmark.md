@@ -156,11 +156,18 @@ What was wrong:
 - 47 photos with five or more accepted reads, most of them a sign-in board printed with
   every starter's number, held 53% of the accepted reads nobody wore; podium steps and
   prize cheques did the same on a smaller scale. Following numbers printed close
-  together (centres at most four widths apart; 1 to 3.7 on that board) in two rows, or
-  the steps 2 and 3 of a podium, now keep every read of that print's size from being
-  accepted. One row of following bibs stays accepted (on Sokol two riders side by side
-  wore 65 and 66), and so do rows spaced like riders on a start grid. Demoting the whole photo instead removed 707 wrong reads and 19
-  right ones, only the print's size 673 and 16, only the pair's row 440 and 9.
+  together (centres at most four widths apart; 1 to 3.7 on that board) in two rows of
+  one size, or the steps 2 and 3 of a podium, now keep every read of that print's size
+  from being accepted. One row of following bibs stays accepted (on Sokol two riders
+  side by side wore 65 and 66), and so do rows spaced like riders on a start grid and
+  riders 1, 2, 3 and 4 standing apart on a start line. Demoting the whole photo instead
+  removed 707 wrong reads and 19 right ones, only the print's size 673 and 16, only the
+  pair's row 440 and 9.
+- Riders can stand as close as that board's numbers: two on Sokol wore 150 and 142
+  2.1 widths apart. So a team with following bibs close together in two rows is taken
+  for a board. Nothing in the layout told the two apart without losing board photos:
+  asking for three rows let 126 wrong reads on 7 photos back, and the board's columns
+  lined up on only 24 of its 31 photos.
 - Lone digits read by OCR were 7% right there (logos, fingers, pieces of longer bibs)
   and 75% on Alatau XCO. They stay acceptable but seed nobody, so they are no longer
   spread to the same rider's other photos. A typed lone digit still seeds.
