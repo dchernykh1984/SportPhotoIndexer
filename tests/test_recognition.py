@@ -230,6 +230,33 @@ def test_a_board_held_back_once_stays_held_back_on_a_rerun(album, reads, accepte
     assert indexer.bibs_of(data["photos"][0]) == accepted
 
 
+def test_a_board_stays_held_back_when_a_protocol_drops_its_numbers_and_takes_them_back(
+    album,
+):
+    data = prepared(album)
+    engine = FakeVision()
+    reads = [("053", BIB_BOX), ("054", ROW), ("054", BELOW), ("055", BELOW_RIGHT)]
+    engine.readings[0] = [Reading(v, 0.999, box) for v, box in reads]
+    run(album, data, engine, appearance=False)
+    run(album, data, engine, appearance=False, starters=frozenset({"053"}))
+    every = frozenset({"053", "054", "055"})
+    run(album, data, engine, appearance=False, starters=every)  # from the saved reads
+    assert indexer.bibs_of(data["photos"][0]) == []
+
+
+def test_a_weak_read_saved_before_is_accepted_once_the_threshold_lets_it_in(
+    album, monkeypatch
+):
+    data = prepared(album)
+    engine = FakeVision()
+    engine.readings[0] = [Reading("54", 0.9, BIB_BOX)]
+    run(album, data, engine, appearance=False)
+    assert indexer.bibs_of(data["photos"][0]) == []
+    monkeypatch.setattr(recognition, "ACCEPT_OCR", 0.85)
+    run(album, data, engine, appearance=False)  # from the saved reads
+    assert indexer.bibs_of(data["photos"][0]) == ["54"]
+
+
 def test_a_weak_misread_beside_a_bib_makes_no_podium(album):
     data = prepared(album)
     engine = FakeVision()

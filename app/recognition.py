@@ -175,6 +175,11 @@ def _rank(observation):
     return (observation["state"] == "accepted", observation.get("confidence") or 0)
 
 
+def _box(observation):
+    region = observation.get("region") or {}
+    return tuple(region.get(k) for k in ("x", "y", "w", "h"))
+
+
 def _merge(photo, method, observations, starters=None):
     manual = [b for b in photo["bibs"] if b["method"] == "manual"]
     reviewed = {b["value"] for b in manual}
@@ -182,14 +187,16 @@ def _merge(photo, method, observations, starters=None):
     retained = [b for b in photo["bibs"] if b["method"] not in (method, "manual")]
     accepted = {b["value"] for b in retained if b["state"] == "accepted"}
     choices = {}
-    printed = {id(o) for o in _printed(observations)} if method == "ocr" else set()
+    printed = set()
+    if method == "ocr":
+        # The boxes of the reads found to be print stay print on later runs, whatever
+        # the protocol or thresholds then say: a rerun sees the saved reads only, one
+        # per value and twenty at most, where the board's pairs may be gone.
+        before = photo.get("recognition", {}).get("printed", [])
+        printed = {_box(o) for o in _printed(observations)} | set(map(tuple, before))
     for read in observations:
         observation = _classified(read, method, lock, starters)
-        # A sure read saved as a candidate was held back as print, and stays so: a
-        # rerun sees the saved reads only, one per value and twenty at most, where the
-        # board's pairs may be gone.
-        held = method == "ocr" and read.get("state") == "candidate" and _sure(read)
-        if (id(read) in printed or held) and observation["state"] == "accepted":
+        if _box(read) in printed and observation["state"] == "accepted":
             observation = {**observation, "state": "candidate"}  # for review only
         value = observation["value"]
         if value in reviewed or value in accepted:
@@ -207,6 +214,17 @@ def _merge(photo, method, observations, starters=None):
         reverse=True,
     )
     photo["bibs"] = manual + automatic[: max(0, MAX_BIBS_PER_PHOTO - len(manual))]
+    if method == "ocr":
+        kept = [
+            list(_box(b))
+            for b in photo["bibs"]
+            if b["method"] == "ocr" and _box(b) in printed
+        ]
+        recognition = photo.setdefault("recognition", {})
+        if kept:
+            recognition["printed"] = kept
+        else:
+            recognition.pop("printed", None)
 
 
 def _checkpoint(folder, index):
@@ -291,9 +309,12 @@ def _ocr(folder, index, engine, appearance, size, starters, progress, cancel, re
                     }
                     for r in readings
                 ]
-                photo.setdefault("recognition", {})["ocr"] = {
-                    "sha256": photo["original"]["sha256"],
-                    "engine": engine_name,
+                # New reads, so what was print among the old ones no longer counts.
+                photo["recognition"] = {
+                    "ocr": {
+                        "sha256": photo["original"]["sha256"],
+                        "engine": engine_name,
+                    }
                 }
                 _merge(photo, "ocr", observations, starters)
                 photo.pop("recognition_error", None)
