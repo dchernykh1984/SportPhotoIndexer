@@ -461,7 +461,7 @@ class MainWindow(QMainWindow):
 
     def _scan(self, folder: Path) -> tuple[dict, indexer.ScanReport] | None:
         """The folder scanned on a worker thread while the window keeps drawing; None
-        when closing the window stopped it."""
+        when Stop or closing the window stopped it."""
         worker = _ScanWorker(folder, self._index, self._chk_previews.isChecked(), self)
         loop = QEventLoop()
         worker.finished.connect(loop.quit)
@@ -473,16 +473,20 @@ class MainWindow(QMainWindow):
             widget
             for kind in (QAbstractButton, QComboBox, QLineEdit, QListWidget)
             for widget in self._central.findChildren(kind)
-            if widget.isEnabled()
+            if widget.isEnabled() and widget is not self._btn_stop
         ]
         for widget in controls:
             widget.setEnabled(False)
+        # Stop ends a check as it ends a search, the one a search starts with too.
+        stop = self._btn_stop.isEnabled()
+        self._btn_stop.setEnabled(True)
         worker.start()
         loop.exec()
         # The loop also ends when the application quits: never wait out a long scan.
         worker.requestInterruption()
         worker.wait()
         self._scanner = None
+        self._btn_stop.setEnabled(stop)
         for widget in controls:
             widget.setEnabled(True)
         worker.deleteLater()
@@ -635,7 +639,11 @@ class MainWindow(QMainWindow):
         self._worker.start()
 
     def _on_stop(self) -> None:
-        if self._worker is not None:
+        if self._scanner is not None:
+            self._scanner.requestInterruption()
+            self._btn_stop.setEnabled(False)
+            self._lbl_status.setText("Stopping the folder check...")
+        elif self._worker is not None:
             self._worker.requestInterruption()
             self._btn_stop.setEnabled(False)
             self._lbl_status.setText("Stopping after the current operation...")

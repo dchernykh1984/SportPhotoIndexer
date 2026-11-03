@@ -226,6 +226,49 @@ def test_a_search_with_previews_ticked_first_checks_the_folder_and_makes_them(
     assert all(photo["processing_state"] == "processed" for photo in photos)
 
 
+def test_stop_ends_the_folder_check_a_search_starts_with(win, album, monkeypatch):
+    import time
+    from contextlib import nullcontext
+
+    from app import recognition_worker as worker_module
+    from tests.test_recognition import FakeVision
+
+    monkeypatch.setattr(worker_module, "ensure_models", lambda *args, **kwargs: {})
+    monkeypatch.setattr(
+        worker_module, "PhotoPool", lambda *args: nullcontext(FakeVision())
+    )
+    win._chk_previews.setChecked(True)  # before a folder is open: nothing to check
+    win.open_folder(album)
+    real_hash = indexer.sha256_of
+
+    def slow(path):
+        # The check waits on each photo until Stop is pressed, a second at most.
+        deadline = time.monotonic() + 1
+        scanner = win._scanner
+        while scanner is not None and not scanner.isInterruptionRequested():
+            if time.monotonic() > deadline:
+                break
+            time.sleep(0.01)
+        return real_hash(path)
+
+    monkeypatch.setattr(indexer, "sha256_of", slow)
+    shown = win._show_progress
+
+    def press_stop(phase, done, total):
+        shown(phase, done, total)
+        if win._btn_stop.isEnabled():
+            win._btn_stop.click()
+
+    monkeypatch.setattr(win, "_show_progress", press_stop)
+    win._on_recognize()
+    worker = win._worker
+    if worker is not None:
+        worker.wait(10000)
+    assert worker is None
+    assert win._lbl_status.text() == "Folder check stopped"
+    assert not win._btn_stop.isEnabled()
+
+
 def test_the_search_mode_and_model_size_can_be_chosen_before_an_album(win):
     # Out of the box the search that finds the most: Large models, faces too.
     assert win._mode.currentText() == "Bib numbers, then rider appearance and faces"
