@@ -186,6 +186,31 @@ def test_one_button_runs_the_selected_automatic_stages_and_reloads_saved_results
     assert "Recognition finished" in win._lbl_status.text()
 
 
+def test_a_search_with_previews_ticked_first_checks_the_folder_and_makes_them(
+    win, album, monkeypatch
+):
+    from contextlib import nullcontext
+
+    from app import recognition_worker as worker_module
+    from tests.conftest import make_photo
+    from tests.test_recognition import FakeVision
+
+    monkeypatch.setattr(worker_module, "ensure_models", lambda *args, **kwargs: {})
+    monkeypatch.setattr(
+        worker_module, "PhotoPool", lambda *args: nullcontext(FakeVision())
+    )
+    win._chk_previews.setChecked(True)  # before a folder is open: nothing to check
+    win.open_folder(album)
+    make_photo(album, "IMG_0004.jpg", "black")
+    win._on_recognize()
+    assert win._worker.wait(10000)
+    _app.processEvents()
+    photos = indexer.load(album)["photos"]
+    assert len(photos) == 4
+    assert all("preview" in photo for photo in photos)
+    assert all(photo["processing_state"] == "processed" for photo in photos)
+
+
 def test_the_search_mode_and_model_size_can_be_chosen_before_an_album(win):
     # Out of the box the search that finds the most: Large models, faces too.
     assert win._mode.currentText() == "Bib numbers, then rider appearance and faces"
