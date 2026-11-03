@@ -94,7 +94,14 @@ def _printed(observations):
     print's size counts. On the Sokol race such photos held over half of the accepted
     reads nobody wore."""
     numbers = [o for o in observations if o["value"].isdigit() and o.get("region")]
-    pairs = [(a, b) for a, b in itertools.permutations(numbers, 2) if _follows(a, b)]
+    # Only reads sure enough to be accepted: a weak misread beside a bib is no print.
+    sure = [
+        o
+        for o in numbers
+        if (o.get("confidence") or 0)
+        >= (ACCEPT_LONE_DIGIT if len(o["value"]) == 1 else ACCEPT_OCR)
+    ]
+    pairs = [(a, b) for a, b in itertools.permutations(sure, 2) if _follows(a, b)]
     lone = any(len(a["value"]) == len(b["value"]) == 1 for a, b in pairs)
     if len(pairs) < 2 and not lone:
         return []

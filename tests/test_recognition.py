@@ -105,6 +105,14 @@ def test_numbers_printed_in_rows_are_not_accepted_as_bibs(album, reads, accepted
     assert set(indexer.bibs_of(data["photos"][0])) == accepted
 
 
+def test_a_weak_misread_beside_a_bib_makes_no_podium(album):
+    data = prepared(album)
+    engine = FakeVision()
+    engine.readings[0] = [Reading("3", 0.999, BIB_BOX), Reading("4", 0.5, ROW)]
+    run(album, data, engine, appearance=False)
+    assert indexer.bibs_of(data["photos"][0]) == ["3"]
+
+
 def test_a_rider_s_own_plate_of_another_size_stays_accepted_on_a_board(album):
     data = prepared(album)
     engine = FakeVision()
