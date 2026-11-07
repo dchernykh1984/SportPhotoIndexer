@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.10.1](https://github.com/dchernykh1984/SportPhotoIndexer/compare/sport-photo-indexer-v0.10.0...sport-photo-indexer-v0.10.1) (2026-11-07)
+
+
+### Bug Fixes
+
+* **ci:** restore the macos release asset, lost to a retired runner label ([e6e3b23](https://github.com/dchernykh1984/SportPhotoIndexer/commit/e6e3b236fc4b0427285ff0bea4d57a6b32c3a091))
+
 ## [0.10.0](https://github.com/dchernykh1984/SportPhotoIndexer/compare/sport-photo-indexer-v0.9.0...sport-photo-indexer-v0.10.0) (2026-11-03)
 
 
