@@ -201,50 +201,28 @@ def scan(
     gone_before = _removed_records(index)
     files = photo_files(folder)
     photos = []
-    # Hashed ahead in threads, taken in order: the scan itself stays as it was.
-    with closing(ahead(sha256_of, files)) as hashed:
-        for n, (path, hashing) in enumerate(hashed, 1):
-            if cancel:
-                check_cancel(cancel)
-            if progress:
-                progress(n, len(files))
-            sha = hashing.result()
-            rel = path.name
-            photo = by_path.pop(rel, None)
-            changed = False
-            if photo is None:
-                photo = _returned_photo(gone_before.pop((rel, sha), None))
-                report.added += 1
-            elif photo["original"]["sha256"] != sha:
-                changed = True
-                report.changed += 1
-                kept = [b for b in photo["bibs"] if b.get("method") != "manual"]
-                report.stale_bibs += len(photo["bibs"]) - len(kept)
-                _archive_review(photo)
-                photo["bibs"] = []
-                photo.pop("manual_review", None)
-                photo.pop("recognition", None)
-                photo.pop("recognition_error", None)
-                photo["processing_state"] = "pending"
-            photo["original"] = _asset(folder, path, sha)
-            needed = (
-                MEDIA_TYPES[path.suffix.lower()] not in PREVIEW_MEDIA_TYPES
-                or path.stat().st_size > THUMBNAIL_LIMIT_BYTES
-            )
-            wanted = previews or needed
-            # A preview made from the old file would show the old picture: remake it.
-            # One that still matches is kept, so a rescan does not make them all again.
-            if (wanted and "preview" not in photo) or (
-                "preview" in photo
-                and (
-                    changed
-                    or not (folder / photo["preview"]["path"]).is_file()
-                    or sha256_of(folder / photo["preview"]["path"])
-                    != photo["preview"]["sha256"]
+    # Hashes are taken ahead and previews made alongside, in threads; both are kept
+    # in the folder's order, so the index comes out as a scan in one thread made it.
+    made = []
+    makers = ThreadPoolExecutor(max_workers=READERS)
+    try:
+        with closing(ahead(sha256_of, files)) as hashed:
+            for n, (path, hashing) in enumerate(hashed, 1):
+                if cancel:
+                    check_cancel(cancel)
+                if progress:
+                    progress(n, len(files))
+                photo, needed, stale = _scanned(
+                    folder, path, hashing.result(), by_path, gone_before, report
                 )
-            ):
-                _refresh_preview(folder, path, photo, needed, report)
-            photos.append(photo)
+                if stale or ((previews or needed) and "preview" not in photo):
+                    making = makers.submit(_built_preview, folder, path)
+                    made.append((photo, path, needed, making))
+                photos.append(photo)
+        for photo, path, needed, making in made:
+            _keep_preview(photo, path, needed, making.result(), report)
+    finally:
+        makers.shutdown(wait=True, cancel_futures=True)
     gone = list(by_path.values())
     report.removed = len(gone)
     back = {p["id"] for p in photos}
@@ -275,22 +253,62 @@ def scan(
     return index, report
 
 
-def _refresh_preview(
-    folder: Path, path: Path, photo: dict, needed: bool, report: ScanReport
-) -> None:
+def _scanned(folder, path, sha, by_path, gone_before, report):
+    """A file of the folder, hashed, as a photo of the index; whether it needs a
+    preview Dropbox will not make, and whether the one it has is stale."""
+    rel = path.name
+    photo = by_path.pop(rel, None)
+    changed = False
+    if photo is None:
+        photo = _returned_photo(gone_before.pop((rel, sha), None))
+        report.added += 1
+    elif photo["original"]["sha256"] != sha:
+        changed = True
+        report.changed += 1
+        kept = [b for b in photo["bibs"] if b.get("method") != "manual"]
+        report.stale_bibs += len(photo["bibs"]) - len(kept)
+        _archive_review(photo)
+        photo["bibs"] = []
+        photo.pop("manual_review", None)
+        photo.pop("recognition", None)
+        photo.pop("recognition_error", None)
+        photo["processing_state"] = "pending"
+    photo["original"] = _asset(folder, path, sha)
+    needed = (
+        MEDIA_TYPES[path.suffix.lower()] not in PREVIEW_MEDIA_TYPES
+        or path.stat().st_size > THUMBNAIL_LIMIT_BYTES
+    )
+    # A preview made from the old file would show the old picture: remake it. One
+    # that still matches is kept, so a rescan does not make them all again.
+    stale = "preview" in photo and (
+        changed
+        or not (folder / photo["preview"]["path"]).is_file()
+        or sha256_of(folder / photo["preview"]["path"]) != photo["preview"]["sha256"]
+    )
+    return photo, needed, stale
+
+
+def _built_preview(folder: Path, path: Path):
+    """The preview made and written for a photo, or why the photo would not open."""
     try:
         img = _preview_image(path)
     except Exception as exc:  # a broken file makes Pillow raise SyntaxError too
+        return exc
+    # Writing it is another matter: a full disk or a read-only folder stops the check.
+    preview = _make_preview(folder, path, img)
+    return _asset(folder, preview, sha256_of(preview))
+
+
+def _keep_preview(photo, path, needed, made, report):
+    if isinstance(made, Exception):
         if needed:
-            raise OSError(f"{path.name} will not open: {exc}") from exc
+            raise OSError(f"{path.name} will not open: {made}") from made
         # Only asked for: Dropbox shrinks such a photo for the site, so one that
         # will not open does not stop the check.
         photo.pop("preview", None)
         report.no_preview.append(path.name)
         return
-    # Writing it is another matter: a full disk or a read-only folder stops the check.
-    preview = _make_preview(folder, path, img)
-    photo["preview"] = _asset(folder, preview, sha256_of(preview))
+    photo["preview"] = made
     report.previews += 1
 
 

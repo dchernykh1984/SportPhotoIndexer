@@ -465,3 +465,27 @@ def test_closing_work_ahead_drops_the_calls_not_started():
     with closing(indexer.ahead(work, range(100), threads=2)) as taken:
         next(taken)
     assert len(done) <= 5  # two running, three queued ahead of the first
+
+
+@pytest.mark.skipif(indexer.READERS < 2, reason="one thread on this machine")
+def test_previews_are_made_in_threads_alongside_the_scan(album, monkeypatch):
+    import threading
+    import time
+
+    lock, active, most = threading.Lock(), [0], [0]
+    real = indexer._preview_image
+
+    def slow(path):
+        with lock:
+            active[0] += 1
+            most[0] = max(most[0], active[0])
+        time.sleep(0.2)
+        with lock:
+            active[0] -= 1
+        return real(path)
+
+    monkeypatch.setattr(indexer, "_preview_image", slow)
+    data, report = indexer.scan(album, previews=True)
+    assert report.previews == 3 and not report.no_preview
+    assert all((album / p["preview"]["path"]).is_file() for p in data["photos"])
+    assert most[0] >= 2
