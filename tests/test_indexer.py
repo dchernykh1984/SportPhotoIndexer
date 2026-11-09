@@ -43,6 +43,20 @@ def test_ids_survive_a_rescan_and_the_revision_moves_only_on_change(album):
     assert indexer.load(album)["revision"] == 2
 
 
+def test_the_index_names_the_version_that_wrote_it_last(album, monkeypatch):
+    index, _ = _scan_and_save(album)
+    monkeypatch.setattr(indexer, "version", lambda: "9.9.9")
+    assert not indexer.save(album, index)  # nothing changed: the file stays
+    assert indexer.load(album)["producer"]["version"] != "9.9.9"
+    indexer.set_bibs(index, index["photos"][0]["id"], ["12"])
+    assert indexer.save(album, index)
+    assert indexer.load(album)["producer"] == {
+        "name": "SportPhotoIndexer",
+        "version": "9.9.9",
+    }
+    assert not indexer.save(album, index)  # and no second revision for it
+
+
 def test_typed_bibs_are_manual_and_bound_to_the_photo_bytes(album):
     index, _ = _scan_and_save(album)
     photo = index["photos"][0]
