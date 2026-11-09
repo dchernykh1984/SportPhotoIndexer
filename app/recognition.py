@@ -474,7 +474,8 @@ def _references(folder, index, engine, db, progress, cancel, report):
             # Two bibs left in one rider's box name neither of them for sure.
             trusted = _trusted(json.loads(known))
             body = np.frombuffer(vector, dtype=np.float32)
-            people.append(_Person(photo["id"], region, body, trusted))
+            if shots.get(photo["id"]):  # a photo with no time joins no series
+                people.append(_Person(photo["id"], region, body, trusted))
             if len(trusted) == 1:
                 values.extend(trusted)
                 owners.append(photo["id"])
