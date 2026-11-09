@@ -229,3 +229,72 @@ def test_cpu_sessions_share_one_thread_budget_and_do_not_spin(monkeypatch):
     assert options[0].intra_op_num_threads == 2
     assert options[0].inter_op_num_threads == 1
     assert options[0].get_session_config_entry("session.intra_op.allow_spinning") == "0"
+
+
+def initialize_recording(models, threads):
+    """A worker that notes the models and threads it got, then works as the fake."""
+    import os
+    from pathlib import Path
+
+    keys = " ".join(sorted(models))
+    Path(models["notes"], f"{os.getpid()}.txt").write_text(f"{threads} {keys}")
+    parallel._engine = FakeVision()
+
+
+READING = {
+    "notes": "",
+    "text_detector": "detector.onnx",
+    "text_reader": "reader.onnx",
+    "people_detector": "people.onnx",
+    "florence-2-base/encoder_model": "encoder.onnx",
+    "florence-2/tokenizer": "tokenizer.json",
+    "appearance": "appearance.onnx",
+    "face_vectors": "faces.onnx",
+}
+
+
+@pytest.mark.parametrize(
+    ("riders", "notes"),
+    [
+        (
+            parallel.Plan(3, 2),
+            {
+                "1 appearance face_vectors florence-2-base/encoder_model "
+                "florence-2/tokenizer notes people_detector text_detector text_reader",
+                "2 appearance face_vectors notes people_detector",
+            },
+        ),
+        # Without a plan of their own, riders are found in the reading workers.
+        (
+            None,
+            {
+                "1 appearance face_vectors florence-2-base/encoder_model "
+                "florence-2/tokenizer notes people_detector text_detector text_reader"
+            },
+        ),
+    ],
+)
+def test_finding_riders_loads_none_of_the_reading_models_in_workers_of_its_own(
+    album, monkeypatch, tmp_path, riders, notes
+):
+    monkeypatch.setattr(parallel, "_initialize", initialize_recording)
+    data = prepared(album)
+    models = {**READING, "notes": str(tmp_path)}
+    with parallel.PhotoPool(models, parallel.Plan(2, 1), riders) as pool:
+        report = run(album, data, pool)
+    assert not report.errors and report.seeds == 1
+    assert {path.read_text() for path in tmp_path.glob("*.txt")} == notes
+
+
+def test_a_rider_engine_needs_no_text_reader(monkeypatch):
+    import onnxruntime as ort
+
+    from app.vision import CpuVision
+
+    class Session:
+        def __init__(self, path, **kwargs):
+            pass
+
+    monkeypatch.setattr(ort, "InferenceSession", Session)
+    engine = CpuVision(parallel.for_riders(READING))
+    assert "text_reader" not in engine.sessions and engine.florence is None

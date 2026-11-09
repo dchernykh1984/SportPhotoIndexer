@@ -73,15 +73,44 @@ def infer(folder, photo, method, engine=None):
         return [], str(exc)[:500]
 
 
+def for_riders(models):
+    """The models finding riders loads: none of those that read bibs."""
+    return {
+        key: path
+        for key, path in models.items()
+        if key not in ("text_detector", "text_reader")
+        and not key.startswith("florence")
+    }
+
+
 class PhotoPool:
-    def __init__(self, models, plan: Plan):
+    def __init__(self, models, plan: Plan, riders: Plan | None = None):
+        """``riders``, when given, plans finding riders in workers of their own that
+        load only ``for_riders(models)``: lighter, so more of them fit in memory."""
+        self._kinds = {"reading": (models, plan)}
+        if riders:
+            self._kinds["riders"] = (for_riders(models), riders)
+        self._kind = "reading"
         self.plan = plan
-        self.executor = ProcessPoolExecutor(
+        self.executor = self._start(models, plan)
+
+    @staticmethod
+    def _start(models, plan):
+        return ProcessPoolExecutor(
             max_workers=plan.workers,
             mp_context=multiprocessing.get_context("spawn"),
             initializer=_initialize,
             initargs=(models, plan.threads),
         )
+
+    def _use(self, kind):
+        if kind != self._kind:
+            # The reading workers' memory is freed before the lighter ones come.
+            self.executor.shutdown(wait=True, cancel_futures=True)
+            models, self.plan = self._kinds[kind]
+            self.executor = self._start(models, self.plan)
+            self._kind = kind
+        return self.executor
 
     def __enter__(self):
         return self
@@ -91,13 +120,15 @@ class PhotoPool:
 
     def results(self, folder, photos, method, cancel):
         """At most one in-flight photo per worker; consume fast results first."""
+        riders = method == "riders" and "riders" in self._kinds
+        executor = self._use("riders" if riders else "reading")
         remaining = iter(photos)
         pending = {}
 
         def submit():
             check_cancel(cancel)
             if (photo := next(remaining, None)) is not None:
-                pending[self.executor.submit(infer, folder, photo, method)] = photo
+                pending[executor.submit(infer, folder, photo, method)] = photo
 
         try:
             for _ in range(self.plan.workers):
@@ -112,7 +143,7 @@ class PhotoPool:
                     submit()
         except BaseException:
             # Children have no writable album state; stop them on cancel/fatal error.
-            self.executor.terminate_workers()
+            executor.terminate_workers()
             raise
 
 

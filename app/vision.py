@@ -427,8 +427,9 @@ class CpuVision:
             for key, path in models.items()
             if Path(path).suffix == ".onnx"
         }
-        metadata = self.sessions["text_reader"].get_modelmeta().custom_metadata_map
-        self.characters = [*metadata["character"].splitlines(), " "]
+        if "text_reader" in self.sessions:  # a worker finding riders reads no text
+            metadata = self.sessions["text_reader"].get_modelmeta().custom_metadata_map
+            self.characters = [*metadata["character"].splitlines(), " "]
         self.reads_faces = "face_detector" in self.sessions
         vocabulary = [Path(p) for p in models.values() if Path(p).suffix == ".json"]
         if vocabulary:

@@ -363,3 +363,15 @@ def test_every_size_downloads_more_and_keeps_its_files_apart():
     # HTTPS only; a copy is trusted for its hash, not for its host.
     for model in real.values():
         assert model["urls"] and all(u.startswith("https://") for u in model["urls"])
+
+
+def test_finding_riders_loads_a_small_part_of_the_models():
+    import math
+
+    keys = ("people_detector", "appearance", "face_detector", "face_vectors")
+    total = sum(cache.CATALOG[key]["bytes"] for key in keys)
+    assert cache.rider_megabytes(True) == math.ceil(total / 1_000_000)
+    assert cache.rider_megabytes(False) < cache.rider_megabytes(True)
+    assert 5 * cache.rider_megabytes(True) < cache.download_megabytes(
+        True, "florence-2-base", True
+    )
