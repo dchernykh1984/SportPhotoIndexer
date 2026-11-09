@@ -167,6 +167,12 @@ def _preview_image(original: Path) -> Image.Image:
     """The photo upright and shrunk for its preview."""
     check_decoder(original)
     with Image.open(original) as source:
+        # A JPEG decodes at a half, quarter or eighth of its size: enough for the
+        # preview, in about half the time.
+        scale = PREVIEW_SIDE / max(source.size)
+        if scale < 1:
+            box = (round(source.width * scale), round(source.height * scale))
+            source.draft("RGB", box)
         img = ImageOps.exif_transpose(source).convert("RGB")
     img.thumbnail((PREVIEW_SIDE, PREVIEW_SIDE))
     return img
