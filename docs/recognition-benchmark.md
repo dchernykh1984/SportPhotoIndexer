@@ -251,6 +251,65 @@ them; pieces of stickers ("2" of a half-hidden "62"); misreads with no right rea
 beside them; a "SUN 45" jacket patch. 47 accepted reads matched no starter and go with a
 start protocol.
 
+## Series of one camera
+
+The appearance pass compared each person only with single reference photos. Photos
+one camera takes seconds apart (a burst, a rider followed along the track) often show
+the same rider again, further away or turned so that no bib is readable: on the BMX
+race 144 pairs without a readable bib were within 10 seconds of a photo where OCR read
+the same bib. Now people are linked across photos of one camera taken at most 3
+seconds apart (EXIF DateTimeOriginal, camera model and serial; never the file's
+dates, which a copy or an export rewrites): a person who is the other's best body
+match, and back, at 0.65 or more, standing about where they stood (at most 0.3 of the
+width across, at most twice as tall or short), is the same person, and so on along
+the series, never twice on one photo. A series offers a bib to its people without
+one when every person with known bibs in it wears that bib, and only to those at
+least 0.5 alike to a person known to wear it; a rider a series names gets no other
+suggestion. A series that reaches a photo where its bib is known for someone else has
+picked up a lookalike and names nobody.
+
+Two bodies of one model that write no serial number (Sony, phones) count as one
+camera; nothing else in EXIF tells them apart. The app's albums are one photographer's
+each, and a series still needs the best mutual match in about the same place.
+
+Every rule was compared on a replay of the appearance pass over every photo's people,
+computed once per album; the replay reproduced the real runs' suggestions exactly
+(BMX: 322 of 322 with faces, 134 of 134 without). Suggestions right / wrong by the
+labels, and photos with participants found (accepted bibs or suggestions):
+
+| Album | Faces | Before | After | Photos found |
+| --- | --- | ---: | ---: | ---: |
+| BMX | yes | 193 / 129 | 212 / 131 | 452 -> 464 of 866 |
+| BMX | no | 87 / 47 | 124 / 53 | 388 -> 411 of 866 |
+| UBT TT | yes | 9 / 5 | 11 / 5 | 37 -> 39 of 127 |
+| UBT TT | no | 1 / 0 | 3 / 0 | 30 -> 32 of 127 |
+| Sokol | yes | 137 / 571 | 167 / 655 | 660 -> 689 of 1385 |
+| Sokol | no | 64 / 244 | 105 / 357 | 593 -> 633 of 1385 |
+
+Sokol's labels lack many riders: of 24 added suggestions they call wrong, 13 showed the
+right rider by eye; most of the others were teammates in one kit riding together.
+
+Tried and not kept (the same replay, with faces):
+
+- Kit colours: hue histograms of the head, torso and lower body, added to the body
+  likeness at weights 0.2 to 0.5. More suggestions, but no more right ones for the
+  same number of wrong ones than the body alone: at 0.2, 218 right for 178 wrong on
+  BMX, 147 for 681 on Sokol. As a veto it removed almost nothing: the body's matches
+  already agree in colour, and the wrong ones are teammates and kids in one black
+  jacket.
+- A rider's profile as the mean of their 2 or 3 best references instead of the best
+  one: 167 / 101 and 134 / 89 on BMX, fewer right ones for about the same share of
+  wrong.
+- Profiles over the whole album, people joined wherever face (0.5) and body (0.7)
+  agree, with the series: 230 / 148 on BMX, but on Sokol chains of lookalikes in one
+  team's kit joined different riders (182 right for 826 wrong by the labels).
+- Series as references (every person of a series with a bib becomes a reference, and
+  a match passes along the matched person's series): 280 / 212 on BMX, but 196 right
+  for 1193 wrong on Sokol.
+- A read owned by the rider box holding its centre when no box holds all of it (88 of
+  401 right reads on BMX named nobody): 201 / 126 on BMX, but on UBT TT 10 / 14
+  instead of 9 / 5, seat-post plates given to the wrong person.
+
 ## What was wrong before
 
 - The text detector is the OpenCV Zoo PP-OCRv3 export, which takes
