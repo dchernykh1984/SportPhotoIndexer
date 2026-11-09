@@ -14,6 +14,7 @@ from contextlib import closing, contextmanager
 from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
+from typing import NamedTuple
 
 import numpy as np
 from PIL import Image
@@ -463,21 +464,28 @@ def _references(folder, index, engine, db, progress, cancel, report):
             # Two bibs left in one rider's box name neither of them for sure.
             trusted = _trusted(json.loads(known))
             body = np.frombuffer(vector, dtype=np.float32)
-            people.append((photo["id"], json.loads(region), body, trusted))
+            people.append(_Person(photo["id"], region, body, trusted))
             if len(trusted) == 1:
                 values.extend(trusted)
                 owners.append(photo["id"])
                 seeds.append(body)
                 references.append(_vector(face))
     report.seeds = len(seeds)
-    chained = _chained(people, _chains(people, shots))
-    return values, owners, np.asarray(seeds, dtype=np.float32), references, chained
+    named = _named(people, _chains(people, shots))
+    return values, owners, np.asarray(seeds, dtype=np.float32), references, named
+
+
+class _Person(NamedTuple):
+    photo_id: str
+    region: str  # as saved, JSON
+    body: np.ndarray
+    bibs: list[str]  # the trusted ones
 
 
 def _same_place(a, b):
     """About where the other photo showed them: no further than BURST_SHIFT of the
     width across, and at most twice as tall or short."""
-    (ax, _, aw, ah), (bx, _, bw, bh) = a, b
+    (ax, _, aw, ah), (bx, _, bw, bh) = json.loads(a), json.loads(b)
     return abs(ax + aw / 2 - bx - bw / 2) <= BURST_SHIFT and max(ah, bh) <= 2 * min(
         ah, bh
     )
@@ -485,14 +493,13 @@ def _same_place(a, b):
 
 def _chains(people, shots):
     """One person over a camera's photos taken close together: lists of indices into
-    ``people`` ((photo id, region, body, trusted bibs) in index order), two or more
-    each and never two of one photo. ``shots`` maps a photo id to its camera and
-    second, or None."""
+    ``people`` (in index order), two or more each and never two of one photo.
+    ``shots`` maps a photo id to its camera and second, or None."""
     parent = list(range(len(people)))
-    photos_of = [{person[0]} for person in people]
+    photos_of = [{person.photo_id} for person in people]
     on_photo: dict[str, list[int]] = {}
     for i, person in enumerate(people):
-        on_photo.setdefault(person[0], []).append(i)
+        on_photo.setdefault(person.photo_id, []).append(i)
 
     def root(i):
         while parent[i] != i:
@@ -535,34 +542,36 @@ def _bursts(shots, photo_ids):
 def _same_people(people, here, there):
     """Pairs of one person on two photos: each the other's best body match, alike
     enough and about in the same place."""
-    likeness = np.array([[people[i][2] @ people[j][2] for j in there] for i in here])
+    likeness = np.array(
+        [[people[i].body @ people[j].body for j in there] for i in here]
+    )
     for row, i in enumerate(here):
         col = int(likeness[row].argmax())
         if (
             likeness[row, col] >= BURST_LIKENESS
             and int(likeness[:, col].argmax()) == row
-            and _same_place(people[i][1], people[there[col]][1])
+            and _same_place(people[i].region, people[there[col]].region)
         ):
             yield i, there[col]
 
 
-def _chained(people, chains):
-    """Per photo, the suggestions a chain holding exactly one bib makes for its other
-    people, as alike as they are to the nearest person known to wear it. A chain with
-    two bibs has picked up a second person somewhere and names nobody."""
-    found: dict[str, list[dict]] = {}
+def _named(people, chains):
+    """The bib a series holding exactly one names for each of its other people, by
+    (photo id, region), as alike as they are to the nearest person known to wear it.
+    A series with two bibs has picked up a second person somewhere and names nobody."""
+    named: dict[tuple[str, str], tuple[str, float]] = {}
     for chain in chains:
-        known = [i for i in chain if len(people[i][3]) == 1]
-        bibs = {people[i][3][0] for i in known}
+        members = [people[i] for i in chain]
+        known = [p for p in members if len(p.bibs) == 1]
+        bibs = {p.bibs[0] for p in known}
         if len(bibs) != 1:
             continue
         (value,) = bibs
-        for i in chain:
-            photo_id, region, body, trusted = people[i]
-            if not trusted:
-                score = max(float(people[k][2] @ body) for k in known)
-                found.setdefault(photo_id, []).append(_suggestion(value, score, region))
-    return found
+        for person in members:
+            if not person.bibs:
+                score = max(float(k.body @ person.body) for k in known)
+                named[person.photo_id, person.region] = (value, score)
+    return named
 
 
 def _suggestion(value, score, region):
@@ -637,7 +646,7 @@ def _matches(body, likeness, values, owners, photo_id, taken):
 
 def _appearance(folder, index, engine, db, faces, progress, cancel, report):
     with _saved_once(folder, index, report):
-        values, owners, seeds, references, chained = _references(
+        values, owners, seeds, references, named = _references(
             folder, index, engine, db, progress, cancel, report
         )
         known_faces = _face_table(references) if faces else None
@@ -649,7 +658,7 @@ def _appearance(folder, index, engine, db, faces, progress, cancel, report):
             # Every photo, with suggestions or none: one changed since its references
             # stops the run, as one changed during OCR does.
             _verify(folder, photo)
-            observations = chained.get(photo["id"], [])
+            observations = []
             # Bibs accepted or typed here belong to someone else on the photo.
             taken = {
                 b["value"]
@@ -669,6 +678,11 @@ def _appearance(folder, index, engine, db, faces, progress, cancel, report):
                 # A rider named only by a lone digit read by OCR gets suggestions too:
                 # on the Sokol race they were as often right as the others.
                 if _trusted(json.loads(known)):
+                    continue
+                if series := named.get((photo["id"], region)):
+                    # The same person seconds before or after is surer than a likeness
+                    # to another photo: one suggestion, not two different ones.
+                    observations.append(_suggestion(*series, json.loads(region)))
                     continue
                 scores = seeds @ np.frombuffer(vector, dtype=np.float32)
                 query = _vector(face)
