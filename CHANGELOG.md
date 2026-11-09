@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.11.1](https://github.com/dchernykh1984/SportPhotoIndexer/compare/sport-photo-indexer-v0.11.0...sport-photo-indexer-v0.11.1) (2026-11-09)
+
+
+### Bug Fixes
+
+* name the version that wrote the index last, not the one that made it ([c7b5681](https://github.com/dchernykh1984/SportPhotoIndexer/commit/c7b5681f76bfa733dfd2e131283e59f8c0b5b48f))
+
 ## [0.11.0](https://github.com/dchernykh1984/SportPhotoIndexer/compare/sport-photo-indexer-v0.10.2...sport-photo-indexer-v0.11.0) (2026-11-09)
 
 
