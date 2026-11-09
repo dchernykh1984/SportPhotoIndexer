@@ -1091,12 +1091,28 @@ def test_two_series_naming_one_bib_for_two_riders_of_a_photo_name_neither(album)
     ] == [set(), set(), set()]
 
 
-def test_a_person_a_series_names_gets_no_second_bib(album):
-    # Photo 3, outside the series, shows bib 34 on someone just like photo 2's rider.
+def test_a_rider_the_references_name_gets_no_second_bib_from_a_series(album):
+    # Photo 3, outside the series, shows bib 34 on someone just like photo 2's rider:
+    # far surer than the series' 0.7.
     moments = ("2026:11:08 10:00:00", "2026:11:08 10:00:02", "2026:11:08 10:00:15")
     bibs = {2: [Reading("34", 0.99, BIB_BOX)]}
     found = series(album, moments, bibs=bibs, vectors=(V0, V1, V1))
-    assert found[1] == {"12"}
+    assert found[1] == {"34"}
+
+
+def test_a_series_whose_bib_is_on_the_photo_keeps_its_rider_from_a_weaker_bib(album):
+    # 12 sticks out of the second photo's rider, so OCR has it there; the references
+    # would offer that rider 34 (0.82), less like them than the series' wearer (0.85).
+    moments = ("2026:11:08 10:00:00", "2026:11:08 10:00:02", "2026:11:08 10:00:15")
+    rider = np.array([0.85, (1 - 0.85**2) ** 0.5, 0.0])
+    other = np.array([0.5, 0.395 / (1 - 0.85**2) ** 0.5, 0.0])
+    other[2] = (1 - other[0] ** 2 - other[1] ** 2) ** 0.5
+    bibs = {
+        1: [Reading("12", 0.99, (0.85, 0.05, 0.1, 0.1))],
+        2: [Reading("34", 0.99, BIB_BOX)],
+    }
+    found = series(album, moments, bibs=bibs, vectors=(V0, rider, other))
+    assert found[1] == set()
 
 
 def test_one_person_is_never_twice_on_one_photo_in_a_series():
