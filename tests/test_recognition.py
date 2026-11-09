@@ -1017,8 +1017,12 @@ def test_a_bib_read_once_is_offered_along_a_series_of_one_camera(album):
     ],
 )
 def test_no_series_no_bib_offered(album, options):
-    found = series(album, **options)
-    assert found[1] == set()
+    assert series(album, **options) == [set(), set(), set()]
+
+
+def test_a_series_offers_its_bib_to_nobody_too_unlike_its_wearer(album):
+    unlike = np.array([0.3, 0.7, (1 - 0.3**2 - 0.7**2) ** 0.5])  # 0.71 like V1
+    assert series(album, SECONDS, vectors=(V0, V1, unlike)) == [set(), {"12"}, set()]
 
 
 LEFT, RIGHT = (0.05, 0.1, 0.3, 0.8), (0.6, 0.1, 0.3, 0.8)
