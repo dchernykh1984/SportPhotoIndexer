@@ -42,6 +42,10 @@ BODY_LEAD = 0.05
 BURST_SECONDS = 3
 BURST_LIKENESS = 0.65
 BURST_SHIFT = 0.3
+# Step by step a long series can drift to someone else: its bib goes only to people at
+# least this alike to a person known to wear it (no right suggestion was lost at 0.5
+# on the labelled races).
+BURST_RESEMBLANCE = 0.5
 
 
 def engine_id(size: str = "small") -> str:
@@ -557,7 +561,7 @@ def _same_people(people, here, there):
 
 def _named(people, chains):
     """The bib a series names for each of its people without one, by (photo id,
-    region), as alike as they are to the nearest person known to wear it: the one bib
+    region), if alike enough to the nearest person known to wear it: the one bib
     every person with known bibs in the series wears, read alone on one at least. A
     series has picked up someone else, and names nobody, when they disagree or it
     reaches a photo where its bib is known for another person."""
@@ -578,7 +582,8 @@ def _named(people, chains):
         for person in members:
             if not person.bibs:
                 score = max(float(k.body @ person.body) for k in known)
-                named[person.photo_id, person.region] = (value, score)
+                if score >= BURST_RESEMBLANCE:
+                    named[person.photo_id, person.region] = (value, score)
     return named
 
 
