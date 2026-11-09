@@ -12,11 +12,11 @@ from app.vision import (
     CpuVision,
     Reading,
     _combined,
-    _overlap,
     _person_windows,
     _whole_bibs,
     contains,
     decode_text,
+    overlaps,
     person_boxes,
 )
 
@@ -358,7 +358,7 @@ def test_finer_windows_give_one_vote_per_spot_and_never_displace_a_read():
     assert "16" in {r.value for r in found} and "44" not in {r.value for r in found}
     # Elsewhere a 160 is a new bib; on the plate read as 16 it would replace it.
     assert not any(
-        r.value == "160" and _overlap(r.region, whole[0].region) for r in found
+        r.value == "160" and overlaps(r.region, whole[0].region) for r in found
     )
 
 
@@ -413,7 +413,7 @@ def test_finer_windows_read_a_bib_where_only_a_discarded_guess_was():
     engine.florence = FakeFlorence({})
     found = engine.ocr(Image.new("RGB", (1000, 800), "white"))
     assert "1" not in {r.value for r in found}
-    assert any(r.value == "16" and _overlap(r.region, guess.region) for r in found)
+    assert any(r.value == "16" and overlaps(r.region, guess.region) for r in found)
 
 
 def test_a_rider_behind_does_not_let_a_sticker_in_front_pass_for_a_bib():

@@ -202,7 +202,7 @@ def _person_windows(region, size, share=WINDOWS):
             )
 
 
-def _overlap(a, b):
+def overlaps(a, b):
     return (
         a[0] < b[0] + b[2]
         and b[0] < a[0] + a[2]
@@ -216,7 +216,7 @@ def _clusters(readings):
     clusters: list[list[Reading]] = []
     for reading in sorted(readings, key=lambda r: r.confidence, reverse=True):
         for cluster in clusters:
-            if cluster[0].value == reading.value and _overlap(
+            if cluster[0].value == reading.value and overlaps(
                 cluster[0].region, reading.region
             ):
                 cluster.append(reading)
@@ -247,7 +247,7 @@ def _related(a, b):
     return (
         a.value != b.value
         and (a.value in b.value or b.value in a.value)
-        and _overlap(a.region, b.region)
+        and overlaps(a.region, b.region)
     )
 
 
@@ -290,7 +290,7 @@ def _whole_bibs(readings):
         if not any(
             len(o.value) > len(r.value)
             and r.value in o.value
-            and _overlap(r.region, o.region)
+            and overlaps(r.region, o.region)
             for o in readings
         )
     ]
