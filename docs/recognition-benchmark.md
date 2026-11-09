@@ -267,13 +267,18 @@ one when every person with known bibs in it wears that bib, and only to those at
 least 0.5 alike to a person known to wear it. A series that reaches a photo where its
 bib is someone else's (in another rider's box, or read away from the rider the series
 has there) has picked up a lookalike and names nobody; two series giving one bib to
-two riders of one photo name neither. A rider gets one suggestion, the surer of the
-series' bib and the best match to the references: a read that touches the rider's box
-is often their own helmet sticker sticking out of it, so there the series stands.
+two riders of one photo name neither. A rider gets one suggestion: the series' bib,
+unless the best match to the references is more alike, body to body. A face is on
+another scale, and on BMX the series was right in the 3 cases where a face agreed with
+the body on another bib. A read that touches the rider's box is often their own
+helmet sticker sticking out of it, so there the series goes on.
 
 Two bodies of one model that write no serial number (Sony, phones) count as one
 camera; nothing else in EXIF tells them apart. The app's albums are one photographer's
-each, and a series still needs the best mutual match in about the same place.
+each, and a series still needs the best mutual match in about the same place. A camera
+turned between two photos changes what "the same place" means; keeping such photos
+apart lost 1 right suggestion on BMX (800 portrait and 110 landscape photos) and
+changed nothing on Sokol or UBT TT, so they stay in one series.
 
 Every rule was compared on a replay of the appearance pass over every photo's people,
 computed once per album; the replay reproduced the real runs' suggestions exactly
@@ -291,6 +296,22 @@ labels, and photos with participants found (accepted bibs or suggestions):
 
 Sokol's labels lack many riders: of 24 added suggestions they call wrong, 13 showed the
 right rider by eye; most of the others were teammates in one kit riding together.
+
+`tools.album.measure`, main against this rule, with faces, from the same saved reads
+(pairs found among accepted bibs and suggestions):
+
+| Album | Rules | Visible | Without a bib | Wrong |
+| --- | --- | ---: | ---: | ---: |
+| BMX | before | 427 of 647 | 241 of 946 | 408 of 1076 |
+| BMX | after | 431 of 647 | **255 of 946** | 410 of 1096 |
+| UBT TT | before | 33 of 45 | 8 of 141 | 18 of 59 |
+| UBT TT | after | 33 of 45 | **10 of 141** | 18 of 61 |
+| Sokol | before | 570 of 643 | 287 of 1104 | 1971 of 2828 |
+| Sokol | after | 570 of 643 | **320 of 1104** | 2054 of 2944 |
+
+Accepted bibs do not change: a series only suggests. Building the series took 0.07 s
+for Sokol's 8016 people; the runs' own times are not compared, the three albums of
+the second run were measured side by side.
 
 Tried and not kept (the same replay, with faces):
 
