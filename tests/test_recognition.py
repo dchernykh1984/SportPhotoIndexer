@@ -1115,6 +1115,32 @@ def test_a_series_whose_bib_is_on_the_photo_keeps_its_rider_from_a_weaker_bib(al
     assert found[1] == set()
 
 
+def test_a_match_the_face_confirms_wins_over_a_series(album):
+    # 12 sticks out of the second photo's rider, so the series' 12 is on the photo;
+    # face (0.45) and body (0.66) agree on 34, the series' wearer is 0.7 alike.
+    moments = ("2026:11:08 10:00:00", "2026:11:08 10:00:02", "2026:11:08 10:00:15")
+    for path, moment in zip(sorted(album.glob("*.jpg")), moments, strict=True):
+        taken(path, moment)
+    data = prepared(album)
+    engine = FakeVision()
+    engine.readings = {
+        0: [Reading("12", 0.99, BIB_BOX)],
+        1: [Reading("12", 0.99, (0.85, 0.05, 0.1, 0.1))],
+        2: [Reading("34", 0.99, BIB_BOX)],
+    }
+    other = np.array([0.3, 0.45 / 0.51**0.5, 0.0])
+    other[2] = (1 - other[0] ** 2 - other[1] ** 2) ** 0.5  # 0.66 like V1
+    engine.crops = {
+        0: [Rider(BOX, V0, np.array([0.0, 1.0]))],
+        1: [Rider(BOX, V1, np.array([1.0, 0.0]))],
+        2: [Rider(BOX, other, np.array([0.45, (1 - 0.45**2) ** 0.5]))],
+    }
+    run(album, data, engine, faces=True)
+    assert {
+        b["value"] for b in data["photos"][1]["bibs"] if b["method"] == "appearance"
+    } == {"34"}
+
+
 def test_one_person_is_never_twice_on_one_photo_in_a_series():
     q = np.array([1.0, 1.0, 0.0]) / 2**0.5
     p2 = np.array([0.0, 1.0, 0.3]) / 1.09**0.5

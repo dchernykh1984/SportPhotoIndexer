@@ -693,14 +693,14 @@ def _matches(body, likeness, values, owners, photo_id, taken):
     ahead of any other bib; ``likeness`` is None without faces. On the labelled races
     this found more people, at awards too, and suggested fewer wrong bibs than every
     bib above the body's threshold, which gave riders in one team's kit each other's
-    bibs (the Sokol race)."""
+    bibs (the Sokol race). Each match also says whether the face confirmed it."""
     value, score, lead = _best(body, values, owners, photo_id, taken)
     if likeness is not None:
         known, face, _ = _best(likeness, values, owners, photo_id, taken)
         if known == value and face >= FACE_AGREES and score >= BODY_AGREES:
-            return [(value, max(face, score))]
+            return [(value, max(face, score), True)]
     if value is not None and score >= APPEARANCE_THRESHOLD and lead >= BODY_LEAD:
-        return [(value, score)]
+        return [(value, score, False)]
     return []
 
 
@@ -742,14 +742,17 @@ def _appearance(folder, index, engine, db, faces, progress, cancel, report):
                     else _likeness(known_faces, query)
                 )
                 matches = _matches(scores, likeness, values, owners, photo["id"], taken)
-                # One suggestion per rider, the surer one. A match to another bib is
-                # as alike as the series' wearer at least, unless the series' bib is
-                # on the photo already: then the series stands, so as not to offer
-                # its rider someone else's bib, and _merge keeps that bib once.
+                # One suggestion per rider. A match the face confirms wins; a body's
+                # match to another bib is as alike as the series' wearer at least,
+                # unless the series' bib is on the photo already: then the series
+                # stands, so as not to offer its rider someone else's bib, and _merge
+                # keeps that bib once.
                 series = named.get((photo["id"], region))
-                if series and (not matches or matches[0][1] <= series[1]):
-                    matches = [series]
-                for value, score in matches:
+                if series and (
+                    not matches or (not matches[0][2] and matches[0][1] <= series[1])
+                ):
+                    matches = [(*series, False)]
+                for value, score, _ in matches:
                     observations.append(_suggestion(value, score, json.loads(region)))
             _merge(photo, "appearance", observations)
             photo["processing_state"] = "processed"
