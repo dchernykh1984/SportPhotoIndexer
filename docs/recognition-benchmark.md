@@ -264,9 +264,12 @@ match, and back, at 0.65 or more, standing about where they stood (at most 0.3 o
 width across, at most twice as tall or short), is the same person, and so on along
 the series, never twice on one photo. A series offers a bib to its people without
 one when every person with known bibs in it wears that bib, and only to those at
-least 0.5 alike to a person known to wear it; a rider a series names gets no other
-suggestion. A series that reaches a photo where its bib is known for someone else has
-picked up a lookalike and names nobody.
+least 0.5 alike to a person known to wear it. A series that reaches a photo where its
+bib is someone else's (in another rider's box, or read away from the rider the series
+has there) has picked up a lookalike and names nobody; two series giving one bib to
+two riders of one photo name neither. A rider gets one suggestion, the surer of the
+series' bib and the best match to the references: a read that touches the rider's box
+is often their own helmet sticker sticking out of it, so there the series stands.
 
 Two bodies of one model that write no serial number (Sony, phones) count as one
 camera; nothing else in EXIF tells them apart. The app's albums are one photographer's
@@ -283,8 +286,8 @@ labels, and photos with participants found (accepted bibs or suggestions):
 | BMX | no | 87 / 47 | 124 / 53 | 388 -> 411 of 866 |
 | UBT TT | yes | 9 / 5 | 11 / 5 | 37 -> 39 of 127 |
 | UBT TT | no | 1 / 0 | 3 / 0 | 30 -> 32 of 127 |
-| Sokol | yes | 137 / 571 | 167 / 655 | 660 -> 689 of 1385 |
-| Sokol | no | 64 / 244 | 105 / 357 | 593 -> 633 of 1385 |
+| Sokol | yes | 137 / 571 | 169 / 654 | 660 -> 692 of 1385 |
+| Sokol | no | 64 / 244 | 107 / 353 | 593 -> 635 of 1385 |
 
 Sokol's labels lack many riders: of 24 added suggestions they call wrong, 13 showed the
 right rider by eye; most of the others were teammates in one kit riding together.
