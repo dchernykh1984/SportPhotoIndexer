@@ -39,7 +39,8 @@ BODY_LEAD = 0.05
 # photo best, and back, at BURST_LIKENESS or more, and stands about where they stood
 # (moved by at most BURST_SHIFT of the width, at most twice as tall or short) is taken
 # for the same person, and so on along the series: a bib known for one of them is
-# offered for the others. On the BMX race 19 more right suggestions for 6 wrong ones.
+# offered for the others. On the BMX race 19 more right suggestions for 2 more wrong
+# ones with faces, 37 for 6 without (docs/recognition-benchmark.md).
 BURST_SECONDS = 3
 BURST_LIKENESS = 0.65
 BURST_SHIFT = 0.3
