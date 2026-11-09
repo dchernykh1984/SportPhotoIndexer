@@ -18,8 +18,10 @@ import re
 import tempfile
 import time
 import uuid
-from collections.abc import Callable, Iterator
-from contextlib import contextmanager
+from collections import deque
+from collections.abc import Callable, Generator, Iterable, Iterator
+from concurrent.futures import ThreadPoolExecutor
+from contextlib import closing, contextmanager
 from copy import deepcopy
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
@@ -47,6 +49,9 @@ from app.model_cache import check_cancel
 PREVIEW_DIR = "_previews"
 PREVIEW_SIDE = 1024
 _CHUNK = 1024 * 1024
+# Reading and hashing a photo waits on the disk and lets go of the GIL: this many
+# threads keep a disk busy where one thread waited between files.
+READERS = min(8, os.process_cpu_count() or 1)
 register_heif_opener(decode_threads=1, thumbnails=False)
 AvifImagePlugin.DEFAULT_MAX_THREADS = 1
 
@@ -65,6 +70,23 @@ class ScanReport:
     # Photos that would not open for a preview they could do without.
     no_preview: list[str] = field(default_factory=list)
     messages: list[str] = field(default_factory=list)
+
+
+def ahead(work, items: Iterable, threads: int = READERS) -> Generator[tuple]:
+    """(item, future) for each item in order, ``work(item)`` running in ``threads``
+    threads a little ahead of the item taken. Take ``future.result()`` where the call
+    used to be: it raises what the call raised. Closing the iterator drops the calls
+    not started yet."""
+    pool = ThreadPoolExecutor(max_workers=threads)
+    pending: deque = deque()
+    try:
+        for item in items:
+            pending.append((item, pool.submit(work, item)))
+            if len(pending) > 2 * threads:
+                yield pending.popleft()
+        yield from pending
+    finally:
+        pool.shutdown(wait=True, cancel_futures=True)
 
 
 def sha256_of(path: Path) -> str:
@@ -179,48 +201,50 @@ def scan(
     gone_before = _removed_records(index)
     files = photo_files(folder)
     photos = []
-    for n, path in enumerate(files, 1):
-        if cancel:
-            check_cancel(cancel)
-        if progress:
-            progress(n, len(files))
-        sha = sha256_of(path)
-        rel = path.name
-        photo = by_path.pop(rel, None)
-        changed = False
-        if photo is None:
-            photo = _returned_photo(gone_before.pop((rel, sha), None))
-            report.added += 1
-        elif photo["original"]["sha256"] != sha:
-            changed = True
-            report.changed += 1
-            kept = [b for b in photo["bibs"] if b.get("method") != "manual"]
-            report.stale_bibs += len(photo["bibs"]) - len(kept)
-            _archive_review(photo)
-            photo["bibs"] = []
-            photo.pop("manual_review", None)
-            photo.pop("recognition", None)
-            photo.pop("recognition_error", None)
-            photo["processing_state"] = "pending"
-        photo["original"] = _asset(folder, path, sha)
-        needed = (
-            MEDIA_TYPES[path.suffix.lower()] not in PREVIEW_MEDIA_TYPES
-            or path.stat().st_size > THUMBNAIL_LIMIT_BYTES
-        )
-        wanted = previews or needed
-        # A preview made from the old file would show the old picture: remake it.
-        # One that still matches is kept, so a rescan does not make them all again.
-        if (wanted and "preview" not in photo) or (
-            "preview" in photo
-            and (
-                changed
-                or not (folder / photo["preview"]["path"]).is_file()
-                or sha256_of(folder / photo["preview"]["path"])
-                != photo["preview"]["sha256"]
+    # Hashed ahead in threads, taken in order: the scan itself stays as it was.
+    with closing(ahead(sha256_of, files)) as hashed:
+        for n, (path, hashing) in enumerate(hashed, 1):
+            if cancel:
+                check_cancel(cancel)
+            if progress:
+                progress(n, len(files))
+            sha = hashing.result()
+            rel = path.name
+            photo = by_path.pop(rel, None)
+            changed = False
+            if photo is None:
+                photo = _returned_photo(gone_before.pop((rel, sha), None))
+                report.added += 1
+            elif photo["original"]["sha256"] != sha:
+                changed = True
+                report.changed += 1
+                kept = [b for b in photo["bibs"] if b.get("method") != "manual"]
+                report.stale_bibs += len(photo["bibs"]) - len(kept)
+                _archive_review(photo)
+                photo["bibs"] = []
+                photo.pop("manual_review", None)
+                photo.pop("recognition", None)
+                photo.pop("recognition_error", None)
+                photo["processing_state"] = "pending"
+            photo["original"] = _asset(folder, path, sha)
+            needed = (
+                MEDIA_TYPES[path.suffix.lower()] not in PREVIEW_MEDIA_TYPES
+                or path.stat().st_size > THUMBNAIL_LIMIT_BYTES
             )
-        ):
-            _refresh_preview(folder, path, photo, needed, report)
-        photos.append(photo)
+            wanted = previews or needed
+            # A preview made from the old file would show the old picture: remake it.
+            # One that still matches is kept, so a rescan does not make them all again.
+            if (wanted and "preview" not in photo) or (
+                "preview" in photo
+                and (
+                    changed
+                    or not (folder / photo["preview"]["path"]).is_file()
+                    or sha256_of(folder / photo["preview"]["path"])
+                    != photo["preview"]["sha256"]
+                )
+            ):
+                _refresh_preview(folder, path, photo, needed, report)
+            photos.append(photo)
     gone = list(by_path.values())
     report.removed = len(gone)
     back = {p["id"] for p in photos}

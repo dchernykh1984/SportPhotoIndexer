@@ -426,3 +426,42 @@ def test_a_missing_preview_is_rebuilt_without_changing_the_original(album):
     updated, report = indexer.scan(album, data)
     assert preview.is_file() and report.previews == 1
     assert updated["photos"][0]["original"]["sha256"] == original_hash
+
+
+def test_work_ahead_keeps_the_order_and_raises_where_the_result_is_taken():
+    def work(n):
+        if n == 3:
+            raise OSError("three")
+        return n * 10
+
+    taken = []
+    for item, future in indexer.ahead(work, range(6), threads=3):
+        try:
+            taken.append((item, future.result()))
+        except OSError as exc:
+            taken.append((item, str(exc)))
+    assert taken == [(0, 0), (1, 10), (2, 20), (3, "three"), (4, 40), (5, 50)]
+
+
+def test_work_ahead_runs_in_parallel_threads():
+    import time
+
+    started = time.monotonic()
+    for _, future in indexer.ahead(lambda n: time.sleep(0.2), range(8), threads=8):
+        future.result()
+    assert time.monotonic() - started < 1.0
+
+
+def test_closing_work_ahead_drops_the_calls_not_started():
+    import time
+    from contextlib import closing
+
+    done = []
+
+    def work(n):
+        time.sleep(0.05)
+        done.append(n)
+
+    with closing(indexer.ahead(work, range(100), threads=2)) as taken:
+        next(taken)
+    assert len(done) <= 5  # two running, three queued ahead of the first
