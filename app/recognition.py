@@ -424,11 +424,16 @@ def _shot(path: Path) -> tuple[tuple[str, str], int] | None:
             details = exif.get_ifd(0x8769)  # the Exif IFD
             model = str(exif.get(272) or "").strip("\x00 ")
             serial = str(details.get(42033) or "").strip("\x00 ")
-            taken = str(details.get(36867)).strip("\x00 ")  # DateTimeOriginal
-        moment = datetime.strptime(taken, "%Y:%m:%d %H:%M:%S")
-    except Exception:  # no EXIF, or a damaged one: it fails in many ways
+            taken = str(details.get(36867) or "").strip("\x00 ")  # DateTimeOriginal
+    except Exception:  # a damaged EXIF block fails in many ways: no time then
         return None
-    return ((model, serial), calendar.timegm(moment.timetuple())) if model else None
+    if not model or not taken:
+        return None
+    try:
+        moment = datetime.strptime(taken, "%Y:%m:%d %H:%M:%S")
+    except ValueError:  # a camera whose clock was never set writes zeros
+        return None
+    return (model, serial), calendar.timegm(moment.timetuple())
 
 
 def _references(folder, index, engine, db, progress, cancel, report):
