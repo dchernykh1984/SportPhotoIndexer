@@ -960,8 +960,16 @@ V2 = np.array([0.0, 0.7 / 0.51**0.5, (1 - 0.49 / 0.51) ** 0.5])  # 0.7 like V1 o
 MOVED = (0.85, 0.1, 0.1, 0.8)  # 0.4 of the width away from the middle of BOX
 
 
-def series(album, moments, cameras=("TEST Z 6",) * 3, boxes=(BOX,) * 3, bibs=None):
-    """Bib 12 read on the first photo; one rider on each, alike only to the next."""
+def series(
+    album,
+    moments,
+    cameras=("TEST Z 6",) * 3,
+    boxes=(BOX,) * 3,
+    bibs=None,
+    vectors=(V0, V1, V2),
+):
+    """Bib 12 read on the first photo; one rider on each, by default alike only to the
+    next."""
     for path, moment, camera in zip(
         sorted(album.glob("*.jpg")), moments, cameras, strict=True
     ):
@@ -972,7 +980,7 @@ def series(album, moments, cameras=("TEST Z 6",) * 3, boxes=(BOX,) * 3, bibs=Non
     engine.readings = {0: [Reading("12", 0.99, BIB_BOX)], **(bibs or {})}
     engine.crops = {
         n: [Rider(box, vector)]
-        for n, (box, vector) in enumerate(zip(boxes, (V0, V1, V2), strict=True))
+        for n, (box, vector) in enumerate(zip(boxes, vectors, strict=True))
     }
     run(album, data, engine)
     return [
@@ -1013,15 +1021,23 @@ def test_no_series_no_bib_offered(album, options):
     assert found[1] == set()
 
 
+def test_a_person_a_series_names_gets_no_second_bib(album):
+    # Photo 3, outside the series, shows bib 34 on someone just like photo 2's rider.
+    moments = ("2026:11:08 10:00:00", "2026:11:08 10:00:02", "2026:11:08 10:00:15")
+    bibs = {2: [Reading("34", 0.99, BIB_BOX)]}
+    found = series(album, moments, bibs=bibs, vectors=(V0, V1, V1))
+    assert found[1] == {"12"}
+
+
 def test_one_person_is_never_twice_on_one_photo_in_a_series():
     q = np.array([1.0, 1.0, 0.0]) / 2**0.5
     p2 = np.array([0.0, 1.0, 0.3]) / 1.09**0.5
-    region = [0.1, 0.1, 0.3, 0.8]
+    region = "[0.1, 0.1, 0.3, 0.8]"
     people = [
-        ("A", region, np.array([1.0, 0.0, 0.0]), []),
-        ("A", region, p2, []),
-        ("B", region, q, []),
-        ("C", region, np.array([0.0, 1.0, 0.0]), []),
+        recognition._Person("A", region, np.array([1.0, 0.0, 0.0]), []),
+        recognition._Person("A", region, p2, []),
+        recognition._Person("B", region, q, []),
+        recognition._Person("C", region, np.array([0.0, 1.0, 0.0]), []),
     ]
     shots = {"A": (("TEST", ""), 0), "B": (("TEST", ""), 1), "C": (("TEST", ""), 2)}
     # A's first person links to B, A's second to C; B and C alike would join them.
