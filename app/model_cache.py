@@ -66,6 +66,13 @@ def download_megabytes(
     return math.ceil(sum(CATALOG[key]["bytes"] for key in keys) / 1_000_000)
 
 
+def rider_megabytes(faces: bool = False) -> int:
+    """What finding riders loads: the person detector, appearance and faces, none of
+    the models that read bibs."""
+    keys = ("people_detector", "appearance", *(FACE_MODELS if faces else ()))
+    return math.ceil(sum(CATALOG[key]["bytes"] for key in keys) / 1_000_000)
+
+
 class CancelledError(Exception):
     pass
 

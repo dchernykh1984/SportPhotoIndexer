@@ -22,7 +22,7 @@ import time
 from pathlib import Path
 
 from app import indexer, recognition
-from app.model_cache import download_megabytes, ensure_models
+from app.model_cache import download_megabytes, ensure_models, rider_megabytes
 from app.parallel import PhotoPool, plan_for
 from tools.album.labels import read
 
@@ -44,8 +44,9 @@ def run(
     paths = ensure_models(True, lambda *a: None, lambda: False, models, size, faces)
     megabytes = download_megabytes(True, size, faces)
     plan = plan_for(len(index["photos"]), megabytes * 1_000_000)
+    riders = plan_for(len(index["photos"]), rider_megabytes(faces) * 1_000_000)
     started = time.time()
-    with PhotoPool(paths, plan) as engine:
+    with PhotoPool(paths, plan, riders) as engine:
         report = recognition.run(
             copy,
             index,

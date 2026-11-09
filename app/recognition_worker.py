@@ -5,7 +5,12 @@ from copy import deepcopy
 from PySide6.QtCore import QThread, Signal
 
 from app import recognition
-from app.model_cache import CancelledError, download_megabytes, ensure_models
+from app.model_cache import (
+    CancelledError,
+    download_megabytes,
+    ensure_models,
+    rider_megabytes,
+)
 from app.parallel import PhotoPool, plan_for
 
 
@@ -42,12 +47,19 @@ class RecognitionWorker(QThread):
                 size=self.size,
                 faces=self.faces,
             )
+            photos = len(self.index["photos"])
             plan = plan_for(
-                len(self.index["photos"]),
+                photos,
                 download_megabytes(self.appearance, self.size, self.faces) * 1_000_000,
             )
+            # Finding riders loads a few small models: more workers fit for it.
+            riders = (
+                plan_for(photos, rider_megabytes(self.faces) * 1_000_000)
+                if self.appearance
+                else None
+            )
             self.progress.emit(f"Preparing {plan.workers} parallel photo workers", 0, 1)
-            with PhotoPool(models, plan) as engine:
+            with PhotoPool(models, plan, riders) as engine:
                 self.report = recognition.run(
                     self.folder,
                     self.index,
