@@ -480,8 +480,18 @@ def _references(folder, index, engine, db, progress, cancel, report):
                 seeds.append(body)
                 references.append(_vector(face))
     report.seeds = len(seeds)
-    named = _named(people, _chains(people, shots))
+    taken = {photo["id"]: _taken(photo) for photo in photos}
+    named = _named(people, _chains(people, shots), taken)
     return values, owners, np.asarray(seeds, dtype=np.float32), references, named
+
+
+def _taken(photo):
+    """Bibs accepted or typed on the photo: suggestions name someone else there."""
+    return {
+        b["value"]
+        for b in photo["bibs"]
+        if b["method"] == "manual" or b["state"] == "accepted"
+    }
 
 
 class _Person(NamedTuple):
@@ -564,15 +574,13 @@ def _same_people(people, here, there):
             yield i, there[col]
 
 
-def _named(people, chains):
+def _named(people, chains, taken):
     """The bib a series names for each of its people without one, by (photo id,
     region), if alike enough to the nearest person known to wear it: the one bib
     every person with known bibs in the series wears, read alone on one at least. A
     series has picked up someone else, and names nobody, when they disagree or it
-    reaches a photo where its bib is known for another person."""
-    worn: dict[str, set[str]] = {}
-    for person in people:
-        worn.setdefault(person.photo_id, set()).update(person.bibs)
+    reaches a photo where its bib is already accepted or typed (``taken``, by photo
+    id), also when no rider box holds it there."""
     named: dict[tuple[str, str], tuple[str, float]] = {}
     for chain in chains:
         members = [people[i] for i in chain]
@@ -582,7 +590,7 @@ def _named(people, chains):
         if len(common) != 1 or not known:
             continue
         (value,) = common
-        if any(value in worn[p.photo_id] for p in members if not p.bibs):
+        if any(value in taken[p.photo_id] for p in members if not p.bibs):
             continue
         for person in members:
             if not person.bibs:
@@ -677,12 +685,7 @@ def _appearance(folder, index, engine, db, faces, progress, cancel, report):
             # stops the run, as one changed during OCR does.
             _verify(folder, photo)
             observations = []
-            # Bibs accepted or typed here belong to someone else on the photo.
-            taken = {
-                b["value"]
-                for b in photo["bibs"]
-                if b["method"] == "manual" or b["state"] == "accepted"
-            }
+            taken = _taken(photo)
             crops = (
                 db.execute(
                     "SELECT region, vector, face, known_bibs FROM crops"
