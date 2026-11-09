@@ -1046,6 +1046,12 @@ def test_a_series_reaching_a_photo_where_its_bib_is_worn_names_nobody(album):
     ] == [set(), set(), set()]
 
 
+def test_a_series_through_a_rider_with_other_bibs_names_nobody(album):
+    # Two bibs, neither 12, read in the second photo's rider's box.
+    two = [Reading("34", 0.99, BIB_BOX), Reading("56", 0.99, (0.5, 0.4, 0.1, 0.1))]
+    assert series(album, SECONDS, bibs={1: two})[2] == set()
+
+
 def test_a_person_a_series_names_gets_no_second_bib(album):
     # Photo 3, outside the series, shows bib 34 on someone just like photo 2's rider.
     moments = ("2026:11:08 10:00:00", "2026:11:08 10:00:02", "2026:11:08 10:00:15")

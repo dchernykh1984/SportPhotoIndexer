@@ -556,9 +556,10 @@ def _same_people(people, here, there):
 
 
 def _named(people, chains):
-    """The bib a series holding exactly one names for each of its other people, by
-    (photo id, region), as alike as they are to the nearest person known to wear it.
-    A series has picked up someone else, and names nobody, when it holds two bibs or
+    """The bib a series names for each of its people without one, by (photo id,
+    region), as alike as they are to the nearest person known to wear it: the one bib
+    every person with known bibs in the series wears, read alone on one at least. A
+    series has picked up someone else, and names nobody, when they disagree or it
     reaches a photo where its bib is known for another person."""
     worn: dict[str, set[str]] = {}
     for person in people:
@@ -566,11 +567,12 @@ def _named(people, chains):
     named: dict[tuple[str, str], tuple[str, float]] = {}
     for chain in chains:
         members = [people[i] for i in chain]
+        bibs = [set(p.bibs) for p in members if p.bibs]
+        common = set.intersection(*bibs) if bibs else set()
         known = [p for p in members if len(p.bibs) == 1]
-        bibs = {p.bibs[0] for p in known}
-        if len(bibs) != 1:
+        if len(common) != 1 or not known:
             continue
-        (value,) = bibs
+        (value,) = common
         if any(value in worn[p.photo_id] for p in members if not p.bibs):
             continue
         for person in members:
