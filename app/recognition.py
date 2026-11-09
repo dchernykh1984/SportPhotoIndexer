@@ -171,6 +171,43 @@ def _printed(observations):
     return [o for o in numbers if low <= o["region"]["h"] <= high]
 
 
+def _same_spot(a, b):
+    """At least half of the smaller read's box inside the other's."""
+    ra, rb = a["region"], b["region"]
+    width = min(ra["x"] + ra["w"], rb["x"] + rb["w"]) - max(ra["x"], rb["x"])
+    height = min(ra["y"] + ra["h"], rb["y"] + rb["h"]) - max(ra["y"], rb["y"])
+    smaller = min(ra["w"] * ra["h"], rb["w"] * rb["h"])
+    return width > 0 and height > 0 and width * height >= 0.5 * smaller
+
+
+def _misreads(observations, starters):
+    """The reads of a spot that a surer read of another value holds: one sticker read
+    as 39 and as 33. On the BMX race the less sure read was wrong all 44 times. A
+    value the start protocol rejects holds no spot, and "6" read inside "16" is left
+    to the reader, which keeps the longer one."""
+    held = sorted(
+        (
+            o
+            for o in observations
+            if o.get("region") and (not starters or _loose(o["value"]) in starters)
+        ),
+        key=lambda o: o.get("confidence") or 0,
+        reverse=True,
+    )
+    found: set[int] = set()
+    for o in held:
+        if any(
+            id(k) not in found
+            and (k.get("confidence") or 0) > (o.get("confidence") or 0)
+            and k["value"] not in o["value"]
+            and o["value"] not in k["value"]
+            and _same_spot(k, o)
+            for k in held
+        ):
+            found.add(id(o))
+    return found
+
+
 def _rank(observation):
     return (observation["state"] == "accepted", observation.get("confidence") or 0)
 
@@ -182,9 +219,11 @@ def _merge(photo, method, observations, starters=None):
     retained = [b for b in photo["bibs"] if b["method"] not in (method, "manual")]
     accepted = {b["value"] for b in retained if b["state"] == "accepted"}
     choices = {}
-    printed, before = set(), set()
+    printed, before, misread = set(), set(), set()
     if method == "ocr":
         printed = {id(o) for o in _printed(observations)}
+        # Rejected, not dropped: like the protocol's, derived again on every run.
+        misread = _misreads(observations, starters)
         # The saved reads found to be print stay print on later runs, whatever the
         # protocol or thresholds then say: a rerun sees the saved reads only, one per
         # value and twenty at most, where the board's pairs may be gone. One per value
@@ -193,6 +232,11 @@ def _merge(photo, method, observations, starters=None):
     print_values = {}
     for read in observations:
         observation = _classified(read, method, lock, starters)
+        if id(read) in misread:
+            # A sure read beaten on its spot is still offered for review: on the
+            # Sokol race 9 of 26 such were the right bib (31 under a surer 37).
+            state = "candidate" if _sure(observation) else "rejected"
+            observation = {**observation, "state": state}
         is_print = id(read) in printed or read["value"] in before
         if is_print and observation["state"] == "accepted":
             observation = {**observation, "state": "candidate"}  # for review only
