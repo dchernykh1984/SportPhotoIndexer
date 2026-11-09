@@ -498,6 +498,12 @@ def save(folder: Path, index: dict) -> bool:
             return False
         candidate = {
             **index,
+            # The program writing the index now, not the one that made the file.
+            "producer": {
+                **index.get("producer", {}),
+                "name": "SportPhotoIndexer",
+                "version": version(),
+            },
             "revision": on_disk + 1,
             "generated_at": datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ"),
         }
@@ -512,7 +518,9 @@ def save(folder: Path, index: dict) -> bool:
             )
         _replace(folder, data)
         index.update(
-            revision=candidate["revision"], generated_at=candidate["generated_at"]
+            revision=candidate["revision"],
+            generated_at=candidate["generated_at"],
+            producer=candidate["producer"],
         )
     return True
 
