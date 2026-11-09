@@ -1115,9 +1115,10 @@ def test_a_series_whose_bib_is_on_the_photo_keeps_its_rider_from_a_weaker_bib(al
     assert found[1] == set()
 
 
-def test_a_match_the_face_confirms_wins_over_a_series(album):
+@pytest.mark.parametrize("face", [0.45, 0.95])
+def test_a_series_and_a_match_are_weighed_by_body_likeness_alone(album, face):
     # 12 sticks out of the second photo's rider, so the series' 12 is on the photo;
-    # face (0.45) and body (0.66) agree on 34, the series' wearer is 0.7 alike.
+    # face and body (0.66) agree on 34, but the series' wearer is 0.7 alike.
     moments = ("2026:11:08 10:00:00", "2026:11:08 10:00:02", "2026:11:08 10:00:15")
     for path, moment in zip(sorted(album.glob("*.jpg")), moments, strict=True):
         taken(path, moment)
@@ -1133,12 +1134,12 @@ def test_a_match_the_face_confirms_wins_over_a_series(album):
     engine.crops = {
         0: [Rider(BOX, V0, np.array([0.0, 1.0]))],
         1: [Rider(BOX, V1, np.array([1.0, 0.0]))],
-        2: [Rider(BOX, other, np.array([0.45, (1 - 0.45**2) ** 0.5]))],
+        2: [Rider(BOX, other, np.array([face, (1 - face**2) ** 0.5]))],
     }
     run(album, data, engine, faces=True)
     assert {
         b["value"] for b in data["photos"][1]["bibs"] if b["method"] == "appearance"
-    } == {"34"}
+    } == set()
 
 
 def test_one_person_is_never_twice_on_one_photo_in_a_series():
