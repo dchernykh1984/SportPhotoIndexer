@@ -956,7 +956,7 @@ def taken(path, moment, camera="TEST Z 6"):
 
 V0 = np.array([1.0, 0.0, 0.0])
 V1 = np.array([0.7, 0.51**0.5, 0.0])  # 0.7 like V0: below APPEARANCE_THRESHOLD
-V2 = np.array([0.0, 0.7 / 0.51**0.5, (1 - 0.49 / 0.51) ** 0.5])  # 0.7 like V1 only
+V2 = np.array([0.55, 0.469, (1 - 0.55**2 - 0.469**2) ** 0.5])  # 0.72 like V1, 0.55 V0
 MOVED = (0.85, 0.1, 0.1, 0.8)  # 0.4 of the width away from the middle of BOX
 
 
@@ -1019,6 +1019,31 @@ def test_a_bib_read_once_is_offered_along_a_series_of_one_camera(album):
 def test_no_series_no_bib_offered(album, options):
     found = series(album, **options)
     assert found[1] == set()
+
+
+LEFT, RIGHT = (0.05, 0.1, 0.3, 0.8), (0.6, 0.1, 0.3, 0.8)
+
+
+def test_a_series_reaching_a_photo_where_its_bib_is_worn_names_nobody(album):
+    # The series takes a lookalike on the second photo, where 12 is read on another.
+    for path, moment in zip(sorted(album.glob("*.jpg")), SECONDS, strict=True):
+        taken(path, moment)
+    data = prepared(album)
+    engine = FakeVision()
+    engine.readings = {
+        0: [Reading("12", 0.99, (0.15, 0.4, 0.1, 0.1))],
+        1: [Reading("12", 0.99, (0.7, 0.4, 0.1, 0.1))],
+    }
+    engine.crops = {
+        0: [Rider(LEFT, V0)],
+        1: [Rider(LEFT, V1), Rider(RIGHT, np.array([0.0, -0.6, 0.8]))],
+        2: [Rider(LEFT, V2)],
+    }
+    run(album, data, engine)
+    assert [
+        {b["value"] for b in photo["bibs"] if b["method"] == "appearance"}
+        for photo in data["photos"]
+    ] == [set(), set(), set()]
 
 
 def test_a_person_a_series_names_gets_no_second_bib(album):
