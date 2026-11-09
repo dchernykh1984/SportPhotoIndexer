@@ -203,6 +203,54 @@ within 5 seconds found 63 more labelled pairs on Sokol for 257 the labels lack, 
 same ratio as the suggestions already made. Stronger appearance models had been tried
 before (see Faces).
 
+## One value per spot
+
+A 915-photo kids' BMX race (2026-11-08), bibs printed as outlined digits on paper
+helmet stickers, Large models, run by the app without a start protocol. Its labels
+(`tmp/bmx_2026_11_08`) are an eye pass checked against that run read by read: of the
+309 starters' numbers the app read and the eye pass lacked, 75 were real stickers on
+crowded and far shots, now in the labels.
+
+What was wrong:
+
+- The reader confuses 3, 5 and 9, 6 and 5, 7 and 1, 8 and 0 in that font, at 0.95 to 1.0.
+  44 times one sticker was read as two values (39 and 33) and both were kept; the less
+  sure one was wrong all 44 times. Now a read is not accepted when a surer read of
+  another value covers at least half of it: a sure one stays a candidate, an unsure one
+  is rejected. A value the start protocol rejects covers nothing, and "6" inside "16"
+  is left to the reader, which keeps the longer one. On Sokol 1 and 7 go both ways
+  (31 under a surer 37): 9 right bibs became candidates there, which is why sure ones
+  are still offered.
+
+Replayed on each album's saved reads, OCR only (right / wrong by the labels):
+
+| Album | Rules | Accepted: right | Accepted: wrong | Candidates: right | Candidates: wrong |
+| --- | --- | ---: | ---: | ---: | ---: |
+| BMX | before | 448 | 205 | 33 | 103 |
+| BMX | after | 448 | **188** | 33 | **94** |
+| Sokol | before | 653 | 594 | 67 | 852 |
+| Sokol | after | 644 | **577** | 75 | **846** |
+| UBT TT | before | 31 | 12 | 1 | 3 |
+| UBT TT | after | 31 | 12 | 1 | **1** |
+
+`tools.album.measure` on BMX from the same saved reads, appearance without faces
+(seconds for the whole run, OCR reused):
+
+| Rules | Accepted: visible | Accepted: wrong | All: visible | All: without a bib | All: wrong | Time |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| before | 339 of 647 | 205 of 653 | 392 of 647 | 168 of 946 | 351 of 911 | 155 |
+| after | 339 of 647 | **188 of 636** | **396 of 647** | 168 of 946 | **326 of 890** | 135 |
+
+A rider box with two different accepted bibs seeds neither, so a helmet that held its
+own bib and a misread of it now spreads its bib: 12 more seeds, 4 more visible bibs
+among the suggestions.
+
+Still wrong on BMX: the podium's step numbers 1, 2 and 3 (about 55 accepted reads),
+shot at an angle and mostly one or two steps at a time, so the steps rule does not see
+them; pieces of stickers ("2" of a half-hidden "62"); misreads with no right read
+beside them; a "SUN 45" jacket patch. 47 accepted reads matched no starter and go with a
+start protocol.
+
 ## What was wrong before
 
 - The text detector is the OpenCV Zoo PP-OCRv3 export, which takes
