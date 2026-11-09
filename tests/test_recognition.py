@@ -1085,6 +1085,16 @@ def test_a_photo_without_a_readable_time_has_none(tmp_path):
     make_photo(tmp_path, "plain.jpg")
     named = make_photo(tmp_path, "named.jpg")
     taken(named, "2026:11:08 10:00:02", "TEST Z 6")
+    unset = make_photo(tmp_path, "unset.jpg")
+    taken(unset, "0000:00:00 00:00:00", "TEST Z 6")
+    model_only = make_photo(tmp_path, "model.jpg")
+    with Image.open(model_only) as image:
+        image.load()
+    exif = Image.Exif()
+    exif[272] = "TEST Z 6"
+    image.save(model_only, exif=exif)
     assert recognition._shot(tmp_path / "notes.jpg") is None
     assert recognition._shot(tmp_path / "plain.jpg") is None
+    assert recognition._shot(unset) is None
+    assert recognition._shot(model_only) is None
     assert recognition._shot(named) == (("TEST Z 6", ""), 1794132002)
