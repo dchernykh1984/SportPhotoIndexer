@@ -731,11 +731,6 @@ def _appearance(folder, index, engine, db, faces, progress, cancel, report):
                 # on the Sokol race they were as often right as the others.
                 if _trusted(json.loads(known)):
                     continue
-                if series := named.get((photo["id"], region)):
-                    # The same person seconds before or after is surer than a likeness
-                    # to another photo: one suggestion, not two different ones.
-                    observations.append(_suggestion(*series, json.loads(region)))
-                    continue
                 scores = seeds @ np.frombuffer(vector, dtype=np.float32)
                 query = _vector(face)
                 likeness = (
@@ -744,6 +739,13 @@ def _appearance(folder, index, engine, db, faces, progress, cancel, report):
                     else _likeness(known_faces, query)
                 )
                 matches = _matches(scores, likeness, values, owners, photo["id"], taken)
+                # One suggestion per rider, the surer one. A match to another bib is
+                # as alike as the series' wearer at least, unless the series' bib is
+                # on the photo already: then the series stands, so as not to offer
+                # its rider someone else's bib, and _merge keeps that bib once.
+                series = named.get((photo["id"], region))
+                if series and (not matches or matches[0][1] <= series[1]):
+                    matches = [series]
                 for value, score in matches:
                     observations.append(_suggestion(value, score, json.loads(region)))
             _merge(photo, "appearance", observations)
