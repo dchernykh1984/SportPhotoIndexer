@@ -9,6 +9,7 @@ import json
 import re
 import sqlite3
 import tempfile
+from collections import Counter
 from collections.abc import Callable
 from contextlib import closing, contextmanager
 from dataclasses import dataclass, field
@@ -597,7 +598,9 @@ def _named(people, chains, taken):
                 score = max(float(k.body @ person.body) for k in known)
                 if score >= BURST_RESEMBLANCE:
                     named[person.photo_id, person.region] = (value, score)
-    return named
+    # Two series naming one bib for two people of one photo: one of them is wrong.
+    twice = Counter((photo_id, value) for (photo_id, _), (value, _) in named.items())
+    return {key: hit for key, hit in named.items() if twice[key[0], hit[0]] == 1}
 
 
 def _suggestion(value, score, region):
