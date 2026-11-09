@@ -26,7 +26,7 @@ from app.model_cache import CATALOG, SIZES, CancelledError, check_cancel, ocr_mo
 from app.parallel import ChangedPhotoError as ChangedPhotoError
 from app.parallel import results
 from app.parallel import verify as _verify
-from app.vision import ACCEPT_LONE_DIGIT, ACCEPT_OCR, READ_VERSIONS, contains
+from app.vision import ACCEPT_LONE_DIGIT, ACCEPT_OCR, READ_VERSIONS, contains, overlaps
 
 APPEARANCE_THRESHOLD = 0.8
 # With faces: SFace's own same-person threshold is 0.363; agreeing with the body,
@@ -619,17 +619,12 @@ def _elsewhere(value, person, worn, photo):
     nothing."""
     if value in worn[person.photo_id]:
         return True
-    x, y, w, h = json.loads(person.region)
+    box = json.loads(person.region)
     return any(
         b["value"] == value
         and (b["method"] == "manual" or b["state"] == "accepted")
         and (r := b.get("region"))
-        and not (
-            r["x"] < x + w
-            and x < r["x"] + r["w"]
-            and r["y"] < y + h
-            and y < r["y"] + r["h"]
-        )
+        and not overlaps(box, (r["x"], r["y"], r["w"], r["h"]))
         for b in photo["bibs"]
     )
 
