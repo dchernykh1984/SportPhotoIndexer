@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.10.2](https://github.com/dchernykh1984/SportPhotoIndexer/compare/sport-photo-indexer-v0.10.1...sport-photo-indexer-v0.10.2) (2026-11-09)
+
+
+### Bug Fixes
+
+* offer only the surer of two numbers read on one spot ([cf1a386](https://github.com/dchernykh1984/SportPhotoIndexer/commit/cf1a386fe73b1f81d5051fe586cc9cb5e38d193f))
+
+
+### Documentation
+
+* record the one-value-per-spot measurements ([ebe0480](https://github.com/dchernykh1984/SportPhotoIndexer/commit/ebe0480b88e67283089b4dca0b4dd2b3b15ca4e7))
+
 ## [0.10.1](https://github.com/dchernykh1984/SportPhotoIndexer/compare/sport-photo-indexer-v0.10.0...sport-photo-indexer-v0.10.1) (2026-11-07)
 
 
