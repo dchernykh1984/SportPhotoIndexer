@@ -1062,6 +1062,29 @@ def test_a_series_through_a_rider_with_other_bibs_names_nobody(album):
     assert series(album, SECONDS, bibs={1: two})[2] == set()
 
 
+def test_two_series_naming_one_bib_for_two_riders_of_a_photo_name_neither(album):
+    # 12 read on the left rider of the first photo and the right one of the third;
+    # each series reaches a different rider of the second photo.
+    for path, moment in zip(sorted(album.glob("*.jpg")), SECONDS, strict=True):
+        taken(path, moment)
+    data = prepared(album)
+    engine = FakeVision()
+    engine.readings = {
+        0: [Reading("12", 0.99, (0.15, 0.4, 0.1, 0.1))],
+        2: [Reading("12", 0.99, (0.7, 0.4, 0.1, 0.1))],
+    }
+    engine.crops = {
+        0: [Rider(LEFT, V0)],
+        1: [Rider(LEFT, V1), Rider(RIGHT, np.array([0.0, 0.5625**0.5, 0.75]))],
+        2: [Rider(RIGHT, np.array([0.0, 0.0, 1.0]))],
+    }
+    run(album, data, engine)
+    assert [
+        {b["value"] for b in photo["bibs"] if b["method"] == "appearance"}
+        for photo in data["photos"]
+    ] == [set(), set(), set()]
+
+
 def test_a_person_a_series_names_gets_no_second_bib(album):
     # Photo 3, outside the series, shows bib 34 on someone just like photo 2's rider.
     moments = ("2026:11:08 10:00:00", "2026:11:08 10:00:02", "2026:11:08 10:00:15")
