@@ -562,8 +562,9 @@ def _bursts(shots, photo_ids):
 def _same_people(people, here, there):
     """Pairs of one person on two photos: each the other's best body match, alike
     enough and about in the same place."""
-    likeness = np.array(
-        [[people[i].body @ people[j].body for j in there] for i in here]
+    likeness = (
+        np.stack([people[i].body for i in here])
+        @ np.stack([people[j].body for j in there]).T
     )
     for row, i in enumerate(here):
         col = int(likeness[row].argmax())
