@@ -14,6 +14,7 @@ from collections.abc import Callable
 from contextlib import closing, contextmanager
 from dataclasses import dataclass, field
 from datetime import datetime
+from functools import partial
 from pathlib import Path
 from typing import NamedTuple
 
@@ -331,8 +332,7 @@ def _without_orphans(folder, index):
 def _ocr(folder, index, engine, appearance, size, starters, progress, cancel, report):
     engine_name = engine_id(size)
     total = len(index["photos"])
-    pending = []
-    cached = 0
+    pending, saved = [], []
     with _saved_once(folder, index, report):  # before the new reads, too
         for photo in index["photos"]:
             check_cancel(cancel)
@@ -340,19 +340,13 @@ def _ocr(folder, index, engine, appearance, size, starters, progress, cancel, re
             if photo.get("recognition", {}).get("ocr") != stamp:
                 pending.append(photo)
             else:
-                cached += 1
+                saved.append(photo)
+        # Checked ahead in threads and taken in order: a changed photo still stops.
+        with closing(indexer.ahead(partial(_verify, folder), saved)) as checked:
+            for cached, (photo, checking) in enumerate(checked, 1):
                 progress("Checking saved bib numbers", cached, total)
                 check_cancel(cancel)
-                try:
-                    _verify(folder, photo)
-                    saved = [b for b in photo["bibs"] if b["method"] == "ocr"]
-                    _merge(photo, "ocr", saved, starters)
-                    photo.pop("recognition_error", None)
-                    photo["processing_state"] = "pending" if appearance else "processed"
-                except OSError as exc:
-                    photo["processing_state"] = "failed"
-                    photo["recognition_error"] = str(exc)[:500]
-                    report.errors.append(f"{photo['original']['path']}: {exc}")
+                _merge_saved(photo, checking, appearance, starters, report)
     completed = total - len(pending)
     with closing(results(folder, pending, engine, "ocr", cancel)) as computed:
         for photo, (readings, error) in computed:
@@ -387,6 +381,21 @@ def _ocr(folder, index, engine, appearance, size, starters, progress, cancel, re
                 report.errors.append(f"{photo['original']['path']}: {error}")
             _checkpoint(folder, index)
             completed += 1
+
+
+def _merge_saved(photo, checking, appearance, starters, report):
+    """The bibs saved for a photo, merged again once ``checking`` (the check that it
+    is unchanged, running ahead) has passed."""
+    try:
+        checking.result()
+        saved = [b for b in photo["bibs"] if b["method"] == "ocr"]
+        _merge(photo, "ocr", saved, starters)
+        photo.pop("recognition_error", None)
+        photo["processing_state"] = "pending" if appearance else "processed"
+    except OSError as exc:
+        photo["processing_state"] = "failed"
+        photo["recognition_error"] = str(exc)[:500]
+        report.errors.append(f"{photo['original']['path']}: {exc}")
 
 
 def _known_bibs(photo, riders):
