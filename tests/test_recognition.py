@@ -1056,6 +1056,12 @@ def test_a_series_reaching_a_photo_where_its_bib_is_read_outside_any_rider(album
     assert series(album, SECONDS, bibs={1: corner}) == [set(), set(), set()]
 
 
+def test_a_series_goes_on_where_its_bib_sticks_out_of_the_rider_it_names(album):
+    # 12 read on the second photo half outside its rider's box: their own sticker.
+    edge = [Reading("12", 0.99, (0.85, 0.05, 0.1, 0.1))]
+    assert series(album, SECONDS, bibs={1: edge}) == [set(), set(), {"12"}]
+
+
 def test_a_series_through_a_rider_with_other_bibs_names_nobody(album):
     # Two bibs, neither 12, read in the second photo's rider's box.
     two = [Reading("34", 0.99, BIB_BOX), Reading("56", 0.99, (0.5, 0.4, 0.1, 0.1))]
