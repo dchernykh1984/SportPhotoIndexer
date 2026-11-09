@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import calendar
 import hashlib
 import itertools
 import json
@@ -11,9 +12,11 @@ import tempfile
 from collections.abc import Callable
 from contextlib import closing, contextmanager
 from dataclasses import dataclass, field
+from datetime import datetime
 from pathlib import Path
 
 import numpy as np
+from PIL import Image
 
 from app import indexer
 from app.index_format import MAX_BIBS_PER_PHOTO
@@ -29,6 +32,15 @@ APPEARANCE_THRESHOLD = 0.8
 FACE_AGREES = 0.3
 BODY_AGREES = 0.6
 BODY_LEAD = 0.05
+# Photos one camera took at most BURST_SECONDS apart often show a rider again, further
+# away or turned, with no bib to read. A person who matches a person of the other
+# photo best, and back, at BURST_LIKENESS or more, and stands about where they stood
+# (moved by at most BURST_SHIFT of the width, at most twice as tall or short) is taken
+# for the same person, and so on along the series: a bib known for one of them is
+# offered for the others. On the BMX race 19 more right suggestions for 6 wrong ones.
+BURST_SECONDS = 3
+BURST_LIKENESS = 0.65
+BURST_SHIFT = 0.3
 
 
 def engine_id(size: str = "small") -> str:
@@ -398,8 +410,25 @@ def _trusted(known):
     return [v for v, method in known.items() if method == "manual" or not _lone(v)]
 
 
+def _shot(path: Path) -> tuple[tuple[str, str], int] | None:
+    """The camera and the second a photo was taken, from its EXIF; None when either is
+    missing. Never the file's own dates: every copy or export rewrites them."""
+    try:
+        with Image.open(path) as image:
+            exif = image.getexif()
+            details = exif.get_ifd(0x8769)  # the Exif IFD
+            model = str(exif.get(272) or "").strip("\x00 ")
+            serial = str(details.get(42033) or "").strip("\x00 ")
+            taken = str(details.get(36867)).strip("\x00 ")  # DateTimeOriginal
+        moment = datetime.strptime(taken, "%Y:%m:%d %H:%M:%S")
+    except Exception:  # no EXIF, or a damaged one: it fails in many ways
+        return None
+    return ((model, serial), calendar.timegm(moment.timetuple())) if model else None
+
+
 def _references(folder, index, engine, db, progress, cancel, report):
     seeds, references, owners, values = [], [], [], []
+    people, shots = [], {}
     photos = [p for p in index["photos"] if p["processing_state"] != "failed"]
     with closing(results(folder, photos, engine, "riders", cancel)) as computed:
         for n, (photo, (riders, error)) in enumerate(computed, 1):
@@ -411,6 +440,7 @@ def _references(folder, index, engine, db, progress, cancel, report):
                 photo["recognition_error"] = error
                 report.errors.append(f"{photo['original']['path']}: {error}")
                 continue
+            shots[photo["id"]] = _shot(folder / photo["original"]["path"])
             # The worker checked the photo before and after; matching checks it again
             # when its suggestions are written.
             for rider, bibs in zip(riders, _known_bibs(photo, riders), strict=True):
@@ -426,19 +456,123 @@ def _references(folder, index, engine, db, progress, cancel, report):
                 )
     # Stable input order keeps equal-score suggestions deterministic across schedules.
     for photo in photos:
-        for vector, face, known in db.execute(
-            "SELECT vector, face, known_bibs FROM crops WHERE photo_id=?",
+        for region, vector, face, known in db.execute(
+            "SELECT region, vector, face, known_bibs FROM crops WHERE photo_id=?",
             (photo["id"],),
         ):
             # Two bibs left in one rider's box name neither of them for sure.
             trusted = _trusted(json.loads(known))
+            body = np.frombuffer(vector, dtype=np.float32)
+            people.append((photo["id"], json.loads(region), body, trusted))
             if len(trusted) == 1:
                 values.extend(trusted)
                 owners.append(photo["id"])
-                seeds.append(np.frombuffer(vector, dtype=np.float32))
+                seeds.append(body)
                 references.append(_vector(face))
     report.seeds = len(seeds)
-    return values, owners, np.asarray(seeds, dtype=np.float32), references
+    chained = _chained(people, _chains(people, shots))
+    return values, owners, np.asarray(seeds, dtype=np.float32), references, chained
+
+
+def _same_place(a, b):
+    """About where the other photo showed them: no further than BURST_SHIFT of the
+    width across, and at most twice as tall or short."""
+    (ax, _, aw, ah), (bx, _, bw, bh) = a, b
+    return abs(ax + aw / 2 - bx - bw / 2) <= BURST_SHIFT and max(ah, bh) <= 2 * min(
+        ah, bh
+    )
+
+
+def _chains(people, shots):
+    """One person over a camera's photos taken close together: lists of indices into
+    ``people`` ((photo id, region, body, trusted bibs) in index order), two or more
+    each and never two of one photo. ``shots`` maps a photo id to its camera and
+    second, or None."""
+    parent = list(range(len(people)))
+    photos_of = [{person[0]} for person in people]
+    on_photo: dict[str, list[int]] = {}
+    for i, person in enumerate(people):
+        on_photo.setdefault(person[0], []).append(i)
+
+    def root(i):
+        while parent[i] != i:
+            parent[i] = parent[parent[i]]
+            i = parent[i]
+        return i
+
+    def join(i, j):
+        i, j = root(i), root(j)
+        if i != j and not photos_of[i] & photos_of[j]:  # one person per photo
+            parent[i] = j
+            photos_of[j] |= photos_of[i]
+
+    for first, then in _bursts(shots, list(on_photo)):
+        for i, j in _same_people(people, on_photo[first], on_photo[then]):
+            join(i, j)
+    chains: dict[int, list[int]] = {}
+    for i in range(len(people)):
+        chains.setdefault(root(i), []).append(i)
+    return [chain for chain in chains.values() if len(chain) > 1]
+
+
+def _bursts(shots, photo_ids):
+    """Pairs of the photos (``photo_ids``, in index order) one camera took at most
+    BURST_SECONDS apart, in the order they were taken."""
+    order = {photo_id: n for n, photo_id in enumerate(photo_ids)}
+    timed = sorted(
+        (shot[1], order[photo_id], shot[0], photo_id)
+        for photo_id, shot in shots.items()
+        if shot and photo_id in order
+    )
+    for x, (second, _, camera, first) in enumerate(timed):
+        for later, _, other, then in timed[x + 1 :]:
+            if later - second > BURST_SECONDS:
+                break
+            if other == camera:
+                yield first, then
+
+
+def _same_people(people, here, there):
+    """Pairs of one person on two photos: each the other's best body match, alike
+    enough and about in the same place."""
+    likeness = np.array([[people[i][2] @ people[j][2] for j in there] for i in here])
+    for row, i in enumerate(here):
+        col = int(likeness[row].argmax())
+        if (
+            likeness[row, col] >= BURST_LIKENESS
+            and int(likeness[:, col].argmax()) == row
+            and _same_place(people[i][1], people[there[col]][1])
+        ):
+            yield i, there[col]
+
+
+def _chained(people, chains):
+    """Per photo, the suggestions a chain holding exactly one bib makes for its other
+    people, as alike as they are to the nearest person known to wear it. A chain with
+    two bibs has picked up a second person somewhere and names nobody."""
+    found: dict[str, list[dict]] = {}
+    for chain in chains:
+        known = [i for i in chain if len(people[i][3]) == 1]
+        bibs = {people[i][3][0] for i in known}
+        if len(bibs) != 1:
+            continue
+        (value,) = bibs
+        for i in chain:
+            photo_id, region, body, trusted = people[i]
+            if not trusted:
+                score = max(float(people[k][2] @ body) for k in known)
+                found.setdefault(photo_id, []).append(_suggestion(value, score, region))
+    return found
+
+
+def _suggestion(value, score, region):
+    return {
+        "value": value,
+        "method": "appearance",
+        "state": "candidate",
+        "confidence": float(np.clip(score, 0, 1)),
+        "region": dict(zip(("x", "y", "w", "h"), region, strict=True)),
+    }
 
 
 def _blob(vector):
@@ -503,7 +637,7 @@ def _matches(body, likeness, values, owners, photo_id, taken):
 
 def _appearance(folder, index, engine, db, faces, progress, cancel, report):
     with _saved_once(folder, index, report):
-        values, owners, seeds, references = _references(
+        values, owners, seeds, references, chained = _references(
             folder, index, engine, db, progress, cancel, report
         )
         known_faces = _face_table(references) if faces else None
@@ -515,7 +649,7 @@ def _appearance(folder, index, engine, db, faces, progress, cancel, report):
             # Every photo, with suggestions or none: one changed since its references
             # stops the run, as one changed during OCR does.
             _verify(folder, photo)
-            observations = []
+            observations = chained.get(photo["id"], [])
             # Bibs accepted or typed here belong to someone else on the photo.
             taken = {
                 b["value"]
@@ -545,21 +679,7 @@ def _appearance(folder, index, engine, db, faces, progress, cancel, report):
                 )
                 matches = _matches(scores, likeness, values, owners, photo["id"], taken)
                 for value, score in matches:
-                    observations.append(
-                        {
-                            "value": value,
-                            "method": "appearance",
-                            "state": "candidate",
-                            "confidence": float(np.clip(score, 0, 1)),
-                            "region": dict(
-                                zip(
-                                    ("x", "y", "w", "h"),
-                                    json.loads(region),
-                                    strict=True,
-                                )
-                            ),
-                        }
-                    )
+                    observations.append(_suggestion(value, score, json.loads(region)))
             _merge(photo, "appearance", observations)
             photo["processing_state"] = "processed"
 

@@ -4,6 +4,7 @@ from copy import deepcopy
 
 import numpy as np
 import pytest
+from PIL import Image
 
 from app import indexer, recognition
 from app.vision import Reading, Rider
@@ -941,3 +942,98 @@ def test_stop_is_honored_while_checking_only_cached_photos(album):
     )
     assert report.cancelled
     assert checked == [1]
+
+
+def taken(path, moment, camera="TEST Z 6"):
+    """The photo as a camera saves it: its model and the moment it was taken."""
+    with Image.open(path) as image:
+        image.load()
+    exif = Image.Exif()
+    exif[272] = camera
+    exif.get_ifd(0x8769)[36867] = moment
+    image.save(path, exif=exif)
+
+
+V0 = np.array([1.0, 0.0, 0.0])
+V1 = np.array([0.7, 0.51**0.5, 0.0])  # 0.7 like V0: below APPEARANCE_THRESHOLD
+V2 = np.array([0.0, 0.7 / 0.51**0.5, (1 - 0.49 / 0.51) ** 0.5])  # 0.7 like V1 only
+MOVED = (0.85, 0.1, 0.1, 0.8)  # 0.4 of the width away from the middle of BOX
+
+
+def series(album, moments, cameras=("TEST Z 6",) * 3, boxes=(BOX,) * 3, bibs=None):
+    """Bib 12 read on the first photo; one rider on each, alike only to the next."""
+    for path, moment, camera in zip(
+        sorted(album.glob("*.jpg")), moments, cameras, strict=True
+    ):
+        if moment:
+            taken(path, moment, camera)
+    data = prepared(album)
+    engine = FakeVision()
+    engine.readings = {0: [Reading("12", 0.99, BIB_BOX)], **(bibs or {})}
+    engine.crops = {
+        n: [Rider(box, vector)]
+        for n, (box, vector) in enumerate(zip(boxes, (V0, V1, V2), strict=True))
+    }
+    run(album, data, engine)
+    return [
+        {b["value"] for b in photo["bibs"] if b["method"] == "appearance"}
+        for photo in data["photos"]
+    ]
+
+
+SECONDS = ("2026:11:08 10:00:00", "2026:11:08 10:00:02", "2026:11:08 10:00:04")
+
+
+def test_a_bib_read_once_is_offered_along_a_series_of_one_camera(album):
+    assert series(album, SECONDS) == [set(), {"12"}, {"12"}]
+
+
+@pytest.mark.parametrize(
+    "options",
+    [
+        # Ten seconds apart: no series.
+        {
+            "moments": (
+                "2026:11:08 10:00:00",
+                "2026:11:08 10:00:10",
+                "2026:11:08 10:00:20",
+            )
+        },
+        # Three cameras, or no time at all.
+        {"moments": SECONDS, "cameras": ("A", "B", "C")},
+        {"moments": (None, None, None)},
+        # The rider seen across the photo, not where they stood.
+        {"moments": SECONDS, "boxes": (BOX, MOVED, BOX)},
+        # The series holds a second bib: it took in someone else.
+        {"moments": SECONDS, "bibs": {2: [Reading("34", 0.99, BIB_BOX)]}},
+    ],
+)
+def test_no_series_no_bib_offered(album, options):
+    found = series(album, **options)
+    assert found[1] == set()
+
+
+def test_one_person_is_never_twice_on_one_photo_in_a_series():
+    q = np.array([1.0, 1.0, 0.0]) / 2**0.5
+    p2 = np.array([0.0, 1.0, 0.3]) / 1.09**0.5
+    region = [0.1, 0.1, 0.3, 0.8]
+    people = [
+        ("A", region, np.array([1.0, 0.0, 0.0]), []),
+        ("A", region, p2, []),
+        ("B", region, q, []),
+        ("C", region, np.array([0.0, 1.0, 0.0]), []),
+    ]
+    shots = {"A": (("TEST", ""), 0), "B": (("TEST", ""), 1), "C": (("TEST", ""), 2)}
+    # A's first person links to B, A's second to C; B and C alike would join them.
+    chains = recognition._chains(people, shots)
+    assert sorted(sorted(chain) for chain in chains) == [[0, 2], [1, 3]]
+
+
+def test_a_photo_without_a_readable_time_has_none(tmp_path):
+    (tmp_path / "notes.jpg").write_text("not a photo")
+    make_photo(tmp_path, "plain.jpg")
+    named = make_photo(tmp_path, "named.jpg")
+    taken(named, "2026:11:08 10:00:02", "TEST Z 6")
+    assert recognition._shot(tmp_path / "notes.jpg") is None
+    assert recognition._shot(tmp_path / "plain.jpg") is None
+    assert recognition._shot(named) == (("TEST Z 6", ""), 1794132002)
