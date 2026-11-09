@@ -1,5 +1,45 @@
 # Changelog
 
+## [0.11.0](https://github.com/dchernykh1984/SportPhotoIndexer/compare/sport-photo-indexer-v0.10.2...sport-photo-indexer-v0.11.0) (2026-11-09)
+
+
+### Features
+
+* offer a bib read on one photo of a series for the same rider on the others ([a3714f6](https://github.com/dchernykh1984/SportPhotoIndexer/commit/a3714f6fe10e69eadcbd4a987ce9e330ca1bcb78))
+
+
+### Bug Fixes
+
+* give a rider a series names only the series' bib ([d80d58b](https://github.com/dchernykh1984/SportPhotoIndexer/commit/d80d58b5de747cf7a7a161aa0876884af77f59ac))
+* keep a series going where its bib sticks out of the rider it names ([de0d18f](https://github.com/dchernykh1984/SportPhotoIndexer/commit/de0d18ffe10007378cc5e0f8fd606e62a75dfde7))
+* let a match the face confirms win over a series, and weigh a body's match on the series' scale ([5a3a6b7](https://github.com/dchernykh1984/SportPhotoIndexer/commit/5a3a6b74b5818da7f04025c7fe379dcdedf8e3f6))
+* let a surer match to another photo's bib win over a series ([6666c80](https://github.com/dchernykh1984/SportPhotoIndexer/commit/6666c809cad542937e9d35be453464604e14dbf8))
+* name nobody from a series that reaches a photo where its bib is known for someone else ([833fb51](https://github.com/dchernykh1984/SportPhotoIndexer/commit/833fb511a38ae3081844902a88792d599d70ccf1))
+* name nobody from a series whose riders' known bibs disagree ([8410fae](https://github.com/dchernykh1984/SportPhotoIndexer/commit/8410fae2b1036660d839015c183a39dad572c797))
+* name nobody when two series give one bib to two riders of one photo ([e91e0ca](https://github.com/dchernykh1984/SportPhotoIndexer/commit/e91e0caf027914247d11b9ccd21885d6be9c0e95))
+* offer a series' bib only to riders alike enough to its known wearer ([8dea04e](https://github.com/dchernykh1984/SportPhotoIndexer/commit/8dea04eb5f3ecee8071e198bb1616b53f7f701ac))
+* stop a series at a photo where its bib is accepted or typed outside any rider box ([361de74](https://github.com/dchernykh1984/SportPhotoIndexer/commit/361de74fb7cffa6ca4e1f95473064ce8deef84ae))
+* weigh a match against a series by body likeness alone, not by a face score ([fc2e5a0](https://github.com/dchernykh1984/SportPhotoIndexer/commit/fc2e5a0f52b4ac01b0bffedb4e0ca0b1933aaa47))
+
+
+### Performance Improvements
+
+* check the photos with saved bib numbers ahead in parallel threads ([16bc24b](https://github.com/dchernykh1984/SportPhotoIndexer/commit/16bc24b9b662a1d63096fdfceba3457d67b400c6))
+* compare the people of two photos in one matrix product ([fddbfa0](https://github.com/dchernykh1984/SportPhotoIndexer/commit/fddbfa0f76631238ef27f8b2c2dac3935c2e61de))
+* decode a JPEG only at the size its preview needs ([30b05e8](https://github.com/dchernykh1984/SportPhotoIndexer/commit/30b05e8a5af3fb14d6227181ef295728f21a5c2d))
+* find riders in workers of their own that load only the models it needs ([1d64f37](https://github.com/dchernykh1984/SportPhotoIndexer/commit/1d64f371153f1ce44c140cc4e474bed5e8ff555f))
+* hash the photos of a folder ahead in parallel threads while scanning it ([68f01b0](https://github.com/dchernykh1984/SportPhotoIndexer/commit/68f01b0e8af4ba0a7d1bbb3179b26b8cb6184565))
+* keep only the people of photos with a capture time for the series ([fc396b5](https://github.com/dchernykh1984/SportPhotoIndexer/commit/fc396b5fb0d6cb3f8a35bacb765cb457943d816c))
+* make previews in parallel threads alongside the folder scan ([8d813d6](https://github.com/dchernykh1984/SportPhotoIndexer/commit/8d813d6afdf6891cf6c6b0391d8c525681a471e5))
+
+
+### Documentation
+
+* describe when a series stops and which suggestion a rider keeps ([0b0912c](https://github.com/dchernykh1984/SportPhotoIndexer/commit/0b0912cb4f8aca5ae7883e25ea88da1d5760d4bb))
+* give the series' measured gain right in its comment ([c50fb2d](https://github.com/dchernykh1984/SportPhotoIndexer/commit/c50fb2d020f1d28bab06c9c1cc337d5127361d6b))
+* record the measured series and the review's choices ([8ee063b](https://github.com/dchernykh1984/SportPhotoIndexer/commit/8ee063be1658118a8ed0e86709db9ed8eedc897b))
+* record the series of one camera and the rules tried and not kept ([1019f63](https://github.com/dchernykh1984/SportPhotoIndexer/commit/1019f6322f1e632e953e5d500cd49e583620d49f))
+
 ## [0.10.2](https://github.com/dchernykh1984/SportPhotoIndexer/compare/sport-photo-indexer-v0.10.1...sport-photo-indexer-v0.10.2) (2026-11-09)
 
 
