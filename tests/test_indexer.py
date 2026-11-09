@@ -489,3 +489,28 @@ def test_previews_are_made_in_threads_alongside_the_scan(album, monkeypatch):
     assert report.previews == 3 and not report.no_preview
     assert all((album / p["preview"]["path"]).is_file() for p in data["photos"])
     assert most[0] >= 2
+
+
+def test_a_jpeg_preview_is_decoded_at_the_size_it_needs(tmp_path, monkeypatch):
+    import numpy as np
+    from PIL import Image, ImageOps, JpegImagePlugin
+
+    rows = np.linspace(0, 255, 3000, dtype=np.uint8)[:, None].repeat(4000, axis=1)
+    columns = np.linspace(0, 255, 4000, dtype=np.uint8)[None, :].repeat(3000, axis=0)
+    path = tmp_path / "large.jpg"
+    Image.fromarray(np.dstack([rows, columns, 255 - rows])).save(path)
+    asked = []
+    real = JpegImagePlugin.JpegImageFile.draft
+
+    def recorded(self, mode, size):
+        asked.append(size)
+        return real(self, mode, size)
+
+    monkeypatch.setattr(JpegImagePlugin.JpegImageFile, "draft", recorded)
+    preview = indexer._preview_image(path)
+    assert asked == [(1024, 768)] and preview.size == (1024, 768)
+    with Image.open(path) as source:
+        full = ImageOps.exif_transpose(source).convert("RGB")
+    full.thumbnail((1024, 768))
+    difference = np.abs(np.asarray(full, float) - np.asarray(preview, float)).mean()
+    assert difference < 3
