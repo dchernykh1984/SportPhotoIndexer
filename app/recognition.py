@@ -488,13 +488,14 @@ def _references(folder, index, engine, db, progress, cancel, report):
     return values, owners, np.asarray(seeds, dtype=np.float32), references, named
 
 
+def _settled(bib):
+    """Accepted or typed: whoever it is suggested for next is someone else."""
+    return bib["method"] == "manual" or bib["state"] == "accepted"
+
+
 def _taken(photo):
     """Bibs accepted or typed on the photo: suggestions name someone else there."""
-    return {
-        b["value"]
-        for b in photo["bibs"]
-        if b["method"] == "manual" or b["state"] == "accepted"
-    }
+    return {b["value"] for b in photo["bibs"] if _settled(b)}
 
 
 class _Person(NamedTuple):
@@ -622,7 +623,7 @@ def _elsewhere(value, person, worn, photo):
     box = json.loads(person.region)
     return any(
         b["value"] == value
-        and (b["method"] == "manual" or b["state"] == "accepted")
+        and _settled(b)
         and (r := b.get("region"))
         and not overlaps(box, (r["x"], r["y"], r["w"], r["h"]))
         for b in photo["bibs"]
