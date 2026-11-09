@@ -266,6 +266,53 @@ def test_a_weak_read_saved_before_is_accepted_once_the_threshold_lets_it_in(
     assert indexer.bibs_of(data["photos"][0]) == ["54"]
 
 
+SAME_SPOT = (0.31, 0.405, 0.09, 0.1)  # mostly inside BIB_BOX
+
+
+@pytest.mark.parametrize(
+    ("reads", "states"),
+    [
+        # One sticker read as 39 and, less surely, as 33: 33 is only offered.
+        (
+            [("39", 1.0, BIB_BOX), ("33", 0.97, SAME_SPOT)],
+            {"39": "accepted", "33": "candidate"},
+        ),
+        # Too unsure to be accepted on its own: not offered either.
+        (
+            [("39", 1.0, BIB_BOX), ("33", 0.9, SAME_SPOT)],
+            {"39": "accepted", "33": "rejected"},
+        ),
+        # Two stickers side by side, or one read as surely both ways: both stay.
+        (
+            [("39", 1.0, BIB_BOX), ("33", 0.97, ROW)],
+            {"39": "accepted", "33": "accepted"},
+        ),
+        (
+            [("39", 0.97, BIB_BOX), ("33", 0.97, SAME_SPOT)],
+            {"39": "accepted", "33": "accepted"},
+        ),
+    ],
+)
+def test_the_less_sure_of_two_values_read_on_one_spot_is_not_accepted(
+    album, reads, states
+):
+    data = prepared(album)
+    engine = FakeVision()
+    engine.readings[0] = [Reading(value, c, box) for value, c, box in reads]
+    for _ in range(2):  # the second from the saved reads
+        run(album, data, engine, appearance=False)
+        photo = data["photos"][0]
+        assert {b["value"]: b["state"] for b in photo["bibs"]} == states
+
+
+def test_a_value_the_protocol_rejects_takes_no_spot_from_a_starter(album):
+    data = prepared(album)
+    engine = FakeVision()
+    engine.readings[0] = [Reading("58", 1.0, BIB_BOX), Reading("50", 0.97, SAME_SPOT)]
+    run(album, data, engine, appearance=False, starters=frozenset({"50"}))
+    assert indexer.bibs_of(data["photos"][0]) == ["50"]
+
+
 def test_a_weak_misread_beside_a_bib_makes_no_podium(album):
     data = prepared(album)
     engine = FakeVision()
