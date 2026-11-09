@@ -481,8 +481,8 @@ def _references(folder, index, engine, db, progress, cancel, report):
                 seeds.append(body)
                 references.append(_vector(face))
     report.seeds = len(seeds)
-    taken = {photo["id"]: _taken(photo) for photo in photos}
-    named = _named(people, _chains(people, shots), taken)
+    by_id = {photo["id"]: photo for photo in photos}
+    named = _named(people, _chains(people, shots), by_id)
     return values, owners, np.asarray(seeds, dtype=np.float32), references, named
 
 
@@ -575,13 +575,15 @@ def _same_people(people, here, there):
             yield i, there[col]
 
 
-def _named(people, chains, taken):
+def _named(people, chains, photos):
     """The bib a series names for each of its people without one, by (photo id,
     region), if alike enough to the nearest person known to wear it: the one bib
     every person with known bibs in the series wears, read alone on one at least. A
     series has picked up someone else, and names nobody, when they disagree or it
-    reaches a photo where its bib is already accepted or typed (``taken``, by photo
-    id), also when no rider box holds it there."""
+    reaches a photo (``photos``, by id) where its bib is someone else's."""
+    worn: dict[str, set[str]] = {}
+    for person in people:
+        worn.setdefault(person.photo_id, set()).update(person.bibs)
     named: dict[tuple[str, str], tuple[str, float]] = {}
     for chain in chains:
         members = [people[i] for i in chain]
@@ -591,7 +593,11 @@ def _named(people, chains, taken):
         if len(common) != 1 or not known:
             continue
         (value,) = common
-        if any(value in taken[p.photo_id] for p in members if not p.bibs):
+        if any(
+            _elsewhere(value, p, worn, photos[p.photo_id])
+            for p in members
+            if not p.bibs
+        ):
             continue
         for person in members:
             if not person.bibs:
@@ -601,6 +607,28 @@ def _named(people, chains, taken):
     # Two series naming one bib for two people of one photo: one of them is wrong.
     twice = Counter((photo_id, value) for (photo_id, _), (value, _) in named.items())
     return {key: hit for key, hit in named.items() if twice[key[0], hit[0]] == 1}
+
+
+def _elsewhere(value, person, worn, photo):
+    """``value`` on the person's photo for someone else: in another rider's box, or
+    accepted or typed at a place that does not touch theirs. A read that touches it
+    may be their own sticker sticking out of the box; a typed bib with no place says
+    nothing."""
+    if value in worn[person.photo_id]:
+        return True
+    x, y, w, h = json.loads(person.region)
+    return any(
+        b["value"] == value
+        and (b["method"] == "manual" or b["state"] == "accepted")
+        and (r := b.get("region"))
+        and not (
+            r["x"] < x + w
+            and x < r["x"] + r["w"]
+            and r["y"] < y + h
+            and y < r["y"] + r["h"]
+        )
+        for b in photo["bibs"]
+    )
 
 
 def _suggestion(value, score, region):
